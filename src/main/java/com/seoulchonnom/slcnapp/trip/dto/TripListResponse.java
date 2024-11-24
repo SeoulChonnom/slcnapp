@@ -25,7 +25,7 @@ public class TripListResponse {
 	public static TripListResponse from(Trip trip) {
 		return TripListResponse.builder()
 			.info1(trip.getInfo1())
-			.info2(trip.getInfo1())
+			.info2(trip.getInfo2())
 			.logo(trip.getLogo())
 			.quizTitle(trip.getQuizTitle())
 			.quizAnswer(trip.getQuizAnswer())
