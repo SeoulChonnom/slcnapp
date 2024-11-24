@@ -3,7 +3,6 @@ package com.seoulchonnom.slcnapp.trip.dto;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import com.seoulchonnom.slcnapp.trip.domain.Quiz;
 import com.seoulchonnom.slcnapp.trip.domain.Trip;
 
 import lombok.Builder;
@@ -34,8 +33,7 @@ public class TripListResponse {
 			.quizAnswerText(trip.getQuizAnswerText())
 			.quizErrorTitle(trip.getQuizErrorTitle())
 			.quizErrorText(trip.getQuizErrorText())
-			.quizResponses(trip.getQuizList().stream().map(QuizResponse::from)
-				.collect(Collectors.toList()))
+			.quizResponses(trip.getQuizList().stream().map(QuizResponse::from).collect(Collectors.toList()))
 			.build();
 	}
 }
