@@ -29,7 +29,7 @@ public class TripListResponse {
 			.logo(trip.getLogo())
 			.quizTitle(trip.getQuizTitle())
 			.quizAnswer(trip.getQuizAnswer())
-			.quizAnswerTitle(trip.getQuizErrorTitle())
+			.quizAnswerTitle(trip.getQuizAnswerTitle())
 			.quizAnswerText(trip.getQuizAnswerText())
 			.quizErrorTitle(trip.getQuizErrorTitle())
 			.quizErrorText(trip.getQuizErrorText())
