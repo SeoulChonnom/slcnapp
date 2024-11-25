@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.seoulchonnom.slcnapp.trip.domain.Trip;
+import com.seoulchonnom.slcnapp.trip.dto.TripInfoResponse;
 import com.seoulchonnom.slcnapp.trip.dto.TripListResponse;
 import com.seoulchonnom.slcnapp.trip.exception.TripNotFoundException;
 import com.seoulchonnom.slcnapp.trip.repository.TripRepository;
@@ -25,8 +26,8 @@ public class TripService {
 			.collect(Collectors.toList());
 	}
 
-	public TripListResponse getTripById(int id) {
+	public TripInfoResponse getTripById(int id) {
 		Trip trip = tripRepository.findById(id).orElseThrow(TripNotFoundException::new);
-		return TripListResponse.from(trip);
+		return TripInfoResponse.from(trip);
 	}
 }
