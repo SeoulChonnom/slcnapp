@@ -6,7 +6,9 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.seoulchonnom.slcnapp.trip.domain.Trip;
 import com.seoulchonnom.slcnapp.trip.dto.TripListResponse;
+import com.seoulchonnom.slcnapp.trip.exception.TripNotFoundException;
 import com.seoulchonnom.slcnapp.trip.repository.TripRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -21,5 +23,10 @@ public class TripService {
 		return tripRepository.findAll().stream()
 			.map(TripListResponse::from)
 			.collect(Collectors.toList());
+	}
+
+	public TripListResponse getTripById(int id) {
+		Trip trip = tripRepository.findById(id).orElseThrow(TripNotFoundException::new);
+		return TripListResponse.from(trip);
 	}
 }
