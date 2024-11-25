@@ -31,11 +31,11 @@ public class TripController {
 			HttpStatus.OK);
 	}
 
-	@GetMapping("/{tripId}")
+	@GetMapping("/{tripDate}")
 	@Operation(summary = "나들이 상세정보 조회", description = "나들이 상세페이지용 API")
-	public ResponseEntity<BaseResponse> getTripById(@PathVariable("tripId") Integer tripId) {
+	public ResponseEntity<BaseResponse> getTripByDate(@PathVariable("tripDate") String tripDate) {
 		return new ResponseEntity<>(
-			BaseResponse.from(true, RETRIEVE_TRIP_INFO_SUCCESS_MESSAGE, tripService.getTripById(tripId)),
+			BaseResponse.from(true, RETRIEVE_TRIP_INFO_SUCCESS_MESSAGE, tripService.getTripByDate(tripDate)),
 			HttpStatus.OK);
 	}
 }

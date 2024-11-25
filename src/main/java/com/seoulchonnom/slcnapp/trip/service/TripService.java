@@ -26,8 +26,8 @@ public class TripService {
 			.collect(Collectors.toList());
 	}
 
-	public TripInfoResponse getTripById(int id) {
-		Trip trip = tripRepository.findById(id).orElseThrow(TripNotFoundException::new);
+	public TripInfoResponse getTripByDate(String date) {
+		Trip trip = tripRepository.findByDate(date).orElseThrow(TripNotFoundException::new);
 		return TripInfoResponse.from(trip);
 	}
 }
