@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.seoulchonnom.slcnapp.common.dto.BaseResponse;
+import com.seoulchonnom.slcnapp.trip.TripConstant;
 import com.seoulchonnom.slcnapp.trip.service.TripService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -23,6 +24,8 @@ public class TripController {
 	@GetMapping("/")
 	@Operation(summary = "전체 나들이 조회", description = "메인페이지 리스트 생성용 API")
 	public ResponseEntity<BaseResponse> getTrips() {
-		return new ResponseEntity<>(BaseResponse.from(true, "", tripService.getAllTripList()), HttpStatus.OK);
+		return new ResponseEntity<>(
+			BaseResponse.from(true, TripConstant.RETRIEVE_TRIP_LIST_SUCCESS_MESSAGE, tripService.getAllTripList()),
+			HttpStatus.OK);
 	}
 }
