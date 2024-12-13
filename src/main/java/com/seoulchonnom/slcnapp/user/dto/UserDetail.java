@@ -1,10 +1,12 @@
-package com.seoulchonnom.slcnapp.user.domain;
+package com.seoulchonnom.slcnapp.user.dto;
 
 import java.util.ArrayList;
 import java.util.Collection;
 
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
+
+import com.seoulchonnom.slcnapp.user.domain.User;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
