@@ -25,12 +25,7 @@ public class UserService {
 	private final PasswordEncoder passwordEncoder;
 
 	public void registerUser(UserRegisterRequest userRegisterRequest) {
-		User user = User.builder()
-			.name(userRegisterRequest.getName())
-			.username(userRegisterRequest.getUserName())
-			.password(passwordEncoder.encode(userRegisterRequest.getPassword()))
-			.build();
-
+		User user = userRegisterRequest.from(passwordEncoder.encode(userRegisterRequest.getPassword()));
 		userRepository.save(user);
 
 		Authority authority = Authority.builder().role(Role.USER).user(user).build();
