@@ -4,8 +4,8 @@ import static com.seoulchonnom.slcnapp.user.UserConstant.*;
 
 import com.seoulchonnom.slcnapp.common.exception.BadRequestException;
 
-public class UserNameNotFoundException extends BadRequestException {
-	public UserNameNotFoundException() {
-		super(USERNAME_NOT_FOUND_ERROR_MESSAGE);
+public class InvalidUserException extends BadRequestException {
+	public InvalidUserException() {
+		super(INVALID_USER_LOGIN_REQUEST_MESSAGE);
 	}
 }
