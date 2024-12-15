@@ -9,4 +9,6 @@ public class TripConstant {
 
 	public static final String RETRIEVE_TRIP_LIST_SUCCESS_MESSAGE = "나들이 리스트 조회에 성공하였습니다.";
 	public static final String RETRIEVE_TRIP_INFO_SUCCESS_MESSAGE = "나들이 상세정보 조회에 성공하였습니다.";
+
+	public static final String REGISTER_TRIP_SUCCESS_MESSAGE = "나들이 생성에 성공하였습니다.";
 }
