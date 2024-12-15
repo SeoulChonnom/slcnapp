@@ -11,10 +11,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Entity
 @NoArgsConstructor
@@ -44,6 +41,7 @@ public class Trip {
 	@Column(nullable = false)
 	private String map1;
 
+	@Setter
 	private String map2;
 
 	@Column(length=30)
@@ -73,7 +71,9 @@ public class Trip {
 	@Column(length = 50, nullable = false)
 	private String quizErrorText;
 
-	@Builder.Default
+	@Setter
+    @Builder.Default
 	@OneToMany(mappedBy = "trip", cascade = CascadeType.ALL)
 	private List<Quiz> quizList = new ArrayList<>();
+
 }
