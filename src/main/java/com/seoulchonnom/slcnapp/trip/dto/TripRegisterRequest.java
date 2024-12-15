@@ -1,5 +1,6 @@
 package com.seoulchonnom.slcnapp.trip.dto;
 
+import com.seoulchonnom.slcnapp.trip.domain.Trip;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -26,4 +27,25 @@ public class TripRegisterRequest {
     private String quizErrorTitle;
     private String quizErrorText;
     private List<QuizRegisterRequest> quizRegisterRequestList;
+
+    public Trip of(String logo, String map1, String map2) {
+        return Trip.builder()
+                .date(date)
+                .type(type)
+                .info1(info1)
+                .info2(info2)
+                .logo(logo)
+                .map1(map1)
+                .map2(map2)
+                .button1(button1)
+                .button2(button2)
+                .drive(drive)
+                .quizTitle(quizTitle)
+                .quizAnswer(quizAnswer)
+                .quizAnswerTitle(quizAnswerTitle)
+                .quizAnswerText(quizAnswerText)
+                .quizErrorTitle(quizErrorTitle)
+                .quizErrorText(quizErrorText)
+                .build();
+    }
 }
