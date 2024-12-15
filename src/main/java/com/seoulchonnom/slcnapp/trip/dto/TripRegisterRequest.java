@@ -16,9 +16,6 @@ public class TripRegisterRequest {
     private String type;
     private String info1;
     private String info2;
-    private String logo;
-    private String map1;
-    private String map2;
     private String button1;
     private String button2;
     private String drive;
