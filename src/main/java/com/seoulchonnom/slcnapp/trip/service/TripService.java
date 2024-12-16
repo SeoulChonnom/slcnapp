@@ -1,25 +1,28 @@
 package com.seoulchonnom.slcnapp.trip.service;
 
 import java.io.IOException;
-import java.util.ArrayList;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import com.seoulchonnom.slcnapp.trip.FileUtils;
-import com.seoulchonnom.slcnapp.trip.domain.Quiz;
-import com.seoulchonnom.slcnapp.trip.dto.QuizRegisterRequest;
-import com.seoulchonnom.slcnapp.trip.dto.TripRegisterRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import com.seoulchonnom.slcnapp.trip.FileUtils;
+import com.seoulchonnom.slcnapp.trip.domain.Quiz;
 import com.seoulchonnom.slcnapp.trip.domain.Trip;
+import com.seoulchonnom.slcnapp.trip.dto.ImageFile;
 import com.seoulchonnom.slcnapp.trip.dto.TripInfoResponse;
 import com.seoulchonnom.slcnapp.trip.dto.TripListResponse;
+import com.seoulchonnom.slcnapp.trip.dto.TripRegisterRequest;
+import com.seoulchonnom.slcnapp.trip.exception.FilePathInvaildException;
+import com.seoulchonnom.slcnapp.trip.exception.TripFileUploadException;
 import com.seoulchonnom.slcnapp.trip.exception.TripNotFoundException;
 import com.seoulchonnom.slcnapp.trip.repository.TripRepository;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
@@ -42,35 +45,48 @@ public class TripService {
 		return TripInfoResponse.from(trip);
 	}
 
-	public boolean registerTrip(TripRegisterRequest tripRegisterRequest, MultipartFile logo, MultipartFile map1, MultipartFile map2){
-		String logoFile;
-		String map1File;
+	public boolean registerTrip(TripRegisterRequest tripRegisterRequest, MultipartFile logo, MultipartFile map1,
+		MultipartFile map2) {
+
+		String logoFile, map1File;
 		String map2File = "";
+
 		try {
 			logoFile = fileUtils.saveImages(logo, logoPath);
 			map1File = fileUtils.saveImages(map1, mapPath);
-			if(!map2.isEmpty()){
+
+			map2File = "";
+			if (map2 != null) {
 				map2File = fileUtils.saveImages(map2, mapPath);
 			}
-		} catch(IOException e) {
-			return false;
+		} catch (IOException e) {
+			throw new TripFileUploadException();
 		}
-
 		Trip trip = tripRegisterRequest.of(logoFile, map1File);
 
-		if (!map2.isEmpty()){
+		if (map2 != null) {
 			trip.setMap2(map2File);
 		}
 
 		List<Quiz> quizList = tripRegisterRequest.getQuizRegisterRequestList()
-				.stream()
-				.map(QuizRegisterRequest::of)
-				.toList();
+			.stream()
+			.map(a -> a.of(trip))
+			.toList();
 
 		trip.setQuizList(quizList);
 
 		tripRepository.save(trip);
 
 		return true;
+	}
+
+	public ImageFile getImageFile(Path path) {
+		try {
+			return ImageFile.builder().image(Files.readAllBytes(path)).mimeType(Files.probeContentType(path))
+				.build();
+
+		} catch (IOException e) {
+			throw new FilePathInvaildException();
+		}
 	}
 }
