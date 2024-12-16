@@ -3,7 +3,6 @@ package com.seoulchonnom.slcnapp.trip.domain;
 import java.util.ArrayList;
 import java.util.List;
 
-import jakarta.annotation.Nullable;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -11,7 +10,11 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @NoArgsConstructor
@@ -44,10 +47,10 @@ public class Trip {
 	@Setter
 	private String map2;
 
-	@Column(length=30)
+	@Column(length = 30)
 	private String button1;
 
-	@Column(length=30)
+	@Column(length = 30)
 	private String button2;
 
 	@Column(nullable = false)
@@ -72,7 +75,7 @@ public class Trip {
 	private String quizErrorText;
 
 	@Setter
-    @Builder.Default
+	@Builder.Default
 	@OneToMany(mappedBy = "trip", cascade = CascadeType.ALL)
 	private List<Quiz> quizList = new ArrayList<>();
 
