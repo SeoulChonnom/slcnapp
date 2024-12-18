@@ -6,6 +6,6 @@ import com.seoulchonnom.slcnapp.common.exception.BadRequestException;
 
 public class InvalidUserException extends BadRequestException {
 	public InvalidUserException() {
-		super(INVALID_USER_LOGIN_REQUEST_MESSAGE);
+		super(USERNAME_NOT_FOUND_ERROR_MESSAGE);
 	}
 }
