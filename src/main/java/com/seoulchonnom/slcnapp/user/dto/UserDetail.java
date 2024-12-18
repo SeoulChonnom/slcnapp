@@ -1,9 +1,10 @@
 package com.seoulchonnom.slcnapp.user.dto;
 
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.stream.Collectors;
 
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import com.seoulchonnom.slcnapp.user.domain.User;
@@ -18,9 +19,10 @@ public class UserDetail implements UserDetails {
 
 	@Override
 	public Collection<? extends GrantedAuthority> getAuthorities() {
-		Collection<GrantedAuthority> authorities = new ArrayList<>();
-		user.getAuthorityList().forEach((a) -> authorities.add(() -> "ROLE_" + a));
-		return authorities;
+		return user.getAuthorityList()
+			.stream()
+			.map(authority -> new SimpleGrantedAuthority(authority.getRole().toString()))
+			.collect(Collectors.toList());
 	}
 
 	@Override
