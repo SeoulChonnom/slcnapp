@@ -5,10 +5,13 @@ import java.util.Date;
 import javax.crypto.SecretKey;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import com.seoulchonnom.slcnapp.user.dto.Token;
+import com.seoulchonnom.slcnapp.user.service.UserDetailService;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
@@ -27,8 +30,11 @@ public class JwtTokenProvider {
 	@Value("${spring.application.name}")
 	private String issuer;
 	private SecretKey secretKey;
-	private static final long ACCESS_TOKEN_VALID_TIME = 30 * 60 * 1000L;    // access 토큰 유효시간 30분
-	private static final long REFRESH_TOKEN_VALID_TIME = 14 * 24 * 60 * 60 * 1000L;    // refresh 토큰 유효시간 14일
+
+	private final UserDetailService userDetailService;
+
+	private static final long ACCESS_TOKEN_VALID_TIME = 30 * 60 * 1000L; // access 토큰 유효시간 30분
+	private static final long REFRESH_TOKEN_VALID_TIME = 14 * 24 * 60 * 60 * 1000L; // refresh 토큰 유효시간 14일
 
 	@PostConstruct
 	protected void init() {
@@ -69,12 +75,18 @@ public class JwtTokenProvider {
 		return req.getHeader("X-AUTH-TOKEN");
 	}
 
-	public String getUserId(String token) {
+	public String getUserName(String token) {
 		return Jwts.parser()
 			.verifyWith(secretKey)
 			.build()
 			.parseSignedClaims(token)
 			.getPayload()
 			.get("userName", String.class);
+	}
+
+	public Authentication getAuthentication(String token) {
+		UserDetails userDetails = userDetailService.loadUserByUsername(getUserName(token));
+		userDetails.getAuthorities().forEach(a -> System.out.println(a.getAuthority()));
+		return new UsernamePasswordAuthenticationToken(userDetails, "", userDetails.getAuthorities());
 	}
 }
