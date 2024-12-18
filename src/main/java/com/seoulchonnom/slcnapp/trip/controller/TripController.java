@@ -22,6 +22,9 @@ import com.seoulchonnom.slcnapp.trip.dto.TripRegisterRequest;
 import com.seoulchonnom.slcnapp.trip.service.TripService;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.Parameters;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
@@ -32,6 +35,8 @@ import lombok.RequiredArgsConstructor;
 public class TripController {
 	private final TripService tripService;
 
+	@Parameters({
+		@Parameter(name = "X-AUTH-TOKEN", description = "AccessToken", required = true, in = ParameterIn.HEADER)})
 	@GetMapping("/")
 	@Operation(summary = "전체 나들이 조회", description = "메인페이지 리스트 생성용 API")
 	public ResponseEntity<BaseResponse> getTrips() {
@@ -39,6 +44,8 @@ public class TripController {
 			BaseResponse.from(true, RETRIEVE_TRIP_LIST_SUCCESS_MESSAGE, tripService.getAllTripList()), HttpStatus.OK);
 	}
 
+	@Parameters({
+		@Parameter(name = "X-AUTH-TOKEN", description = "AccessToken", required = true, in = ParameterIn.HEADER)})
 	@GetMapping("/{tripDate}")
 	@Operation(summary = "나들이 상세정보 조회", description = "나들이 상세페이지용 API")
 	public ResponseEntity<BaseResponse> getTripByDate(@PathVariable("tripDate") String tripDate) {
@@ -47,6 +54,8 @@ public class TripController {
 			HttpStatus.OK);
 	}
 
+	@Parameters({
+		@Parameter(name = "X-AUTH-TOKEN", description = "AccessToken", required = true, in = ParameterIn.HEADER)})
 	@PostMapping(value = "/", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
 	@Operation(summary = "나들이 추가", description = "나들이 추가용 API")
 	public ResponseEntity<BaseResponse> createTrip(
@@ -57,6 +66,8 @@ public class TripController {
 			tripService.registerTrip(tripRegisterRequest, logo, map1, map2)), HttpStatus.OK);
 	}
 
+	@Parameters({
+		@Parameter(name = "X-AUTH-TOKEN", description = "AccessToken", required = true, in = ParameterIn.HEADER)})
 	@GetMapping("/file")
 	@Operation(summary = "이미지 조회", description = "이미지 조회용 API")
 	public ResponseEntity<byte[]> getFile(@RequestParam(value = "path") String path) {
