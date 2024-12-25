@@ -41,7 +41,7 @@ public class JwtTokenProvider {
 		this.secretKey = Keys.hmacShaKeyFor(Decoders.BASE64URL.decode(key));
 	}
 
-	public Token createToken(UserDetails userDetails) {
+	public Token createToken(UserDetails userDetails, int userId) {
 		Date now = new Date();
 
 		String accessToken = Jwts.builder()
@@ -59,7 +59,7 @@ public class JwtTokenProvider {
 			.signWith(secretKey, Jwts.SIG.HS512)
 			.compact();
 
-		return Token.builder().accessToken(accessToken).refreshToken(refreshToken).build();
+		return Token.builder().userId(userId).accessToken(accessToken).refreshToken(refreshToken).build();
 	}
 
 	public boolean validateToken(String token) {

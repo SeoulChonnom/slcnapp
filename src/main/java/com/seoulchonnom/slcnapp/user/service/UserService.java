@@ -1,9 +1,12 @@
 package com.seoulchonnom.slcnapp.user.service;
 
-import static com.seoulchonnom.slcnapp.user.UserConstant.*;
+import java.time.Duration;
+import java.time.LocalDateTime;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.seoulchonnom.slcnapp.user.JwtTokenProvider;
@@ -19,6 +22,7 @@ import com.seoulchonnom.slcnapp.user.dto.UserRegisterRequest;
 import com.seoulchonnom.slcnapp.user.exception.InvalidAccessTokenException;
 import com.seoulchonnom.slcnapp.user.exception.InvalidRefreshTokenException;
 import com.seoulchonnom.slcnapp.user.exception.InvalidUserException;
+import com.seoulchonnom.slcnapp.user.exception.UserLoginFailCountOverException;
 import com.seoulchonnom.slcnapp.user.repository.AuthorityRepository;
 import com.seoulchonnom.slcnapp.user.repository.RefreshTokenRepository;
 import com.seoulchonnom.slcnapp.user.repository.UserRepository;
@@ -29,7 +33,7 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
-@Transactional
+@Transactional(readOnly = true)
 public class UserService {
 
 	private final UserRepository userRepository;
@@ -38,6 +42,15 @@ public class UserService {
 	private final PasswordEncoder passwordEncoder;
 	private final JwtTokenProvider jwtTokenProvider;
 
+	@Value("${cookie.expire.time}")
+	private int COOKIE_EXPIRE_TIME;
+	@Value("${login.fail.limit.count}")
+	private int LOGIN_FAIL_LIMIT_COUNT;
+	@Value("${login.limit.clear.time}")
+	private int LOGIN_LIMIT_CLEAR_TIME;
+	private final int LOGIN_ERROR_CODE = -1;
+
+	@Transactional
 	public void registerUser(UserRegisterRequest userRegisterRequest) {
 		User user = User.builder()
 			.name(userRegisterRequest.getName())
@@ -51,22 +64,35 @@ public class UserService {
 		authorityRepository.save(authority);
 	}
 
+	@Transactional
 	public Token issueToken(UserLoginRequest userLoginRequest) {
 		User user = userRepository.findByUsername(userLoginRequest.getUsername())
 			.orElseThrow(InvalidUserException::new);
 
-		if (passwordEncoder.matches(userLoginRequest.getPassword(), user.getPassword())) {
+		if (user.getLoginFailCount() >= LOGIN_FAIL_LIMIT_COUNT
+			&& Duration.between(user.getLastLoginFailTime(), LocalDateTime.now()).getSeconds()
+			> LOGIN_LIMIT_CLEAR_TIME) {
+			throw new UserLoginFailCountOverException();
+		}
 
-			Token token = jwtTokenProvider.createToken(new UserDetail(user));
+		if (passwordEncoder.matches(userLoginRequest.getPassword(), user.getPassword())) {
+			Token token = jwtTokenProvider.createToken(new UserDetail(user), user.getId());
 
 			RefreshToken refreshToken = RefreshToken.builder().id(user.getId()).token(token.getRefreshToken()).build();
-
 			refreshTokenRepository.save(refreshToken);
+
+			user.resetLoginFailCount();
 
 			return token;
 		} else {
-			throw new InvalidUserException();
+			user.updateLoginFailCount();
+			return Token.builder().userId(LOGIN_ERROR_CODE).build();
 		}
+	}
+
+	@Transactional(propagation = Propagation.REQUIRES_NEW)
+	private void updateLoginFailCount(User user) {
+		user.updateLoginFailCount();
 	}
 
 	public void updateCookie(HttpServletResponse response, String token) {
@@ -80,18 +106,17 @@ public class UserService {
 		response.addCookie(cookie);
 	}
 
-	@Transactional(readOnly = true)
-	public UserInfoResponse getUserInfoByToken(String token) {
-		if (!jwtTokenProvider.validateToken(token)) {
-			throw new InvalidAccessTokenException();
+	public UserInfoResponse getUserInfo(Token token) {
+		if (token.getUserId() == LOGIN_ERROR_CODE) {
+			throw new InvalidUserException();
 		}
-		String userName = jwtTokenProvider.getUserName(token);
 
-		User user = userRepository.findByUsername(userName).orElseThrow(InvalidAccessTokenException::new);
+		User user = userRepository.findById(token.getUserId()).orElseThrow(InvalidAccessTokenException::new);
 
-		return UserInfoResponse.of(token, user);
+		return UserInfoResponse.of(token.getAccessToken(), user);
 	}
 
+	@Transactional
 	public Token reissueToken(String token) {
 		if (!jwtTokenProvider.validateToken(token)) {
 			throw new InvalidRefreshTokenException();
@@ -100,7 +125,7 @@ public class UserService {
 			.orElseThrow(InvalidRefreshTokenException::new);
 		User user = userRepository.findById(refreshToken.getId()).orElseThrow(InvalidRefreshTokenException::new);
 
-		Token newToken = jwtTokenProvider.createToken(new UserDetail(user));
+		Token newToken = jwtTokenProvider.createToken(new UserDetail(user), user.getId());
 
 		refreshToken.updateToken(newToken.getRefreshToken());
 		refreshTokenRepository.save(refreshToken);

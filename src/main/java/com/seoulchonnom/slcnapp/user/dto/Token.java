@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @EqualsAndHashCode
 public class Token {
+	private int userId;
 	private String refreshToken;
 	private String accessToken;
 }
