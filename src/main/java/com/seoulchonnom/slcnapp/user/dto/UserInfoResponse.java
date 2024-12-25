@@ -2,6 +2,7 @@ package com.seoulchonnom.slcnapp.user.dto;
 
 import java.util.List;
 
+import com.seoulchonnom.slcnapp.user.domain.Authority;
 import com.seoulchonnom.slcnapp.user.domain.Role;
 import com.seoulchonnom.slcnapp.user.domain.User;
 
@@ -25,7 +26,7 @@ public class UserInfoResponse {
 			.accessToken(accessToken)
 			.username(user.getUsername())
 			.name(user.getName())
-			.roleList(user.getAuthorityList().stream().map((a) -> a.getRole()).toList())
+			.roleList(user.getAuthorityList().stream().map(Authority::getRole).toList())
 			.build();
 	}
 }
