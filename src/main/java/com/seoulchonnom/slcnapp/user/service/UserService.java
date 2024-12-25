@@ -58,8 +58,8 @@ public class UserService {
 		if (passwordEncoder.matches(userLoginRequest.getPassword(), user.getPassword())) {
 
 			Token token = jwtTokenProvider.createToken(new UserDetail(user));
-			RefreshToken refreshToken = refreshTokenRepository.findByUserId(user.getId())
-				.orElseGet(() -> RefreshToken.builder().token(token.getRefreshToken()).userId(user.getId()).build());
+
+			RefreshToken refreshToken = RefreshToken.builder().id(user.getId()).token(token.getRefreshToken()).build();
 
 			refreshTokenRepository.save(refreshToken);
 
@@ -98,7 +98,7 @@ public class UserService {
 		}
 		RefreshToken refreshToken = refreshTokenRepository.findByToken(token)
 			.orElseThrow(InvalidRefreshTokenException::new);
-		User user = userRepository.findById(refreshToken.getUserId()).orElseThrow(InvalidRefreshTokenException::new);
+		User user = userRepository.findById(refreshToken.getId()).orElseThrow(InvalidRefreshTokenException::new);
 
 		Token newToken = jwtTokenProvider.createToken(new UserDetail(user));
 

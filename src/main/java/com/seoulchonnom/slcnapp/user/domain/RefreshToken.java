@@ -1,35 +1,31 @@
 package com.seoulchonnom.slcnapp.user.domain;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.redis.core.RedisHash;
+import org.springframework.data.redis.core.TimeToLive;
+import org.springframework.data.redis.core.index.Indexed;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-@Entity
+@RedisHash("token")
 @Getter
-@Builder
-@NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode
+@NoArgsConstructor
+@Builder
 public class RefreshToken {
 	@Id
-	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Integer id;
 
-	@Column(nullable = false)
+	@Indexed
 	private String token;
 
-	@Column(nullable = false)
-	private Integer userId;
+	@TimeToLive
+	private Long expiration;
 
-	public RefreshToken updateToken(String token) {
-		this.token = token;
-		return this;
+	public void updateToken(String newToken) {
+		token = newToken;
 	}
 }
