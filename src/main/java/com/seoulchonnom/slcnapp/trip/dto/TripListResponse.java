@@ -11,6 +11,7 @@ import lombok.Getter;
 @Getter
 @Builder
 public class TripListResponse {
+	private String date;
 	private String info1;
 	private String info2;
 	private String logo;
@@ -24,6 +25,7 @@ public class TripListResponse {
 
 	public static TripListResponse from(Trip trip) {
 		return TripListResponse.builder()
+			.date(trip.getDate())
 			.info1(trip.getInfo1())
 			.info2(trip.getInfo2())
 			.logo(trip.getLogo())
