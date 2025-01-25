@@ -3,9 +3,11 @@ package com.seoulchonnom.slcnapp.trip.service;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -31,6 +33,8 @@ public class TripService {
 	private final TripRepository tripRepository;
 	private final FileUtils fileUtils;
 
+	@Value("${upload.path}")
+	private String directory;
 	private final String logoPath = "logo/";
 	private final String mapPath = "map/";
 
@@ -80,9 +84,10 @@ public class TripService {
 		return true;
 	}
 
-	public ImageFile getImageFile(Path path) {
+	public ImageFile getImageFile(String path) {
 		try {
-			return ImageFile.builder().image(Files.readAllBytes(path)).mimeType(Files.probeContentType(path))
+			Path filePath = Paths.get(directory + path);
+			return ImageFile.builder().image(Files.readAllBytes(filePath)).mimeType(Files.probeContentType(filePath))
 				.build();
 
 		} catch (IOException e) {

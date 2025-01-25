@@ -2,8 +2,6 @@ package com.seoulchonnom.slcnapp.trip.controller;
 
 import static com.seoulchonnom.slcnapp.trip.TripConstant.*;
 
-import java.nio.file.Paths;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -71,7 +69,7 @@ public class TripController {
 	@GetMapping("/file")
 	@Operation(summary = "이미지 조회", description = "이미지 조회용 API")
 	public ResponseEntity<byte[]> getFile(@RequestParam(value = "path") String path) {
-		ImageFile imageFile = tripService.getImageFile(Paths.get(path));
+		ImageFile imageFile = tripService.getImageFile(path);
 
 		return ResponseEntity.status(HttpStatus.OK)
 			.contentType(MediaType.valueOf(imageFile.getMimeType()))
