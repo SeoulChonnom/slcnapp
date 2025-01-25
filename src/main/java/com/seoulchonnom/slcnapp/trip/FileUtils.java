@@ -28,20 +28,20 @@ public class FileUtils {
 			throw new TripFileExtException();
 		}
 
-		String fileName = createSaveFileName(multipartFile.getOriginalFilename());
-		String saveFileName = directory + path + fileName;
+		String fileName = createSaveFileName(path, multipartFile.getOriginalFilename());
+		String saveFileName = directory + fileName;
 
 		multipartFile.transferTo(new File(saveFileName));
 
-		return saveFileName;
+		return fileName;
 	}
 
 	// 파일 저장 이름 만들기
 	// - 사용자들이 올리는 파일 이름이 같을 수 있으므로, 자체적으로 랜덤 이름을 만들어 사용한다
-	private String createSaveFileName(String originalFilename) {
+	private String createSaveFileName(String path, String originalFilename) {
 		String ext = extractExt(originalFilename);
 		String uuid = UUID.randomUUID().toString();
-		return uuid + "." + ext;
+		return path + uuid + '.' + ext;
 	}
 
 	// 확장자명 구하기
