@@ -9,7 +9,7 @@ import org.springframework.lang.NonNull;
 import com.seoulchonnom.slcnapp.trip.domain.Trip;
 
 public interface TripRepository extends JpaRepository<Trip, Integer> {
-	List<Trip> findAll();
+	List<Trip> findAllByOrderByDateDesc();
 
 	Optional<Trip> findByDate(@NonNull String date);
 }

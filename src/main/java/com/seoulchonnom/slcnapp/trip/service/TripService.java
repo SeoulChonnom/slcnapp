@@ -39,7 +39,7 @@ public class TripService {
 	private final String mapPath = "map/";
 
 	public List<TripListResponse> getAllTripList() {
-		return tripRepository.findAll().stream()
+		return tripRepository.findAllByOrderByDateDesc().stream()
 			.map(TripListResponse::from)
 			.collect(Collectors.toList());
 	}
