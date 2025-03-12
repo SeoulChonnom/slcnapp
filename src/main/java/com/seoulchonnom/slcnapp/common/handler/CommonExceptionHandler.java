@@ -1,4 +1,4 @@
-package com.seoulchonnom.slcnapp.common.aop;
+package com.seoulchonnom.slcnapp.common.handler;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,7 +12,7 @@ import com.seoulchonnom.slcnapp.common.exception.PayloadTooLargeException;
 import com.seoulchonnom.slcnapp.common.exception.UnsupportedMediaTypeException;
 
 @RestControllerAdvice
-public class ExceptionAdvice {
+public class CommonExceptionHandler {
 	@ExceptionHandler(BadRequestException.class)
 	public ResponseEntity<BaseResponse> badRequest(BadRequestException e) {
 		return new ResponseEntity<>(
