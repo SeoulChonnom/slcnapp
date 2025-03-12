@@ -235,3 +235,9 @@ src/main/resources/application.properties
 /target
 
 # End of https://www.toptal.com/developers/gitignore/api/eclipse,java,intellij
+
+# Mac
+.DS_Store
+
+# intellij
+.idea
