@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-import static com.seoulchonnom.slcnapp.schedule.ScheduleConstant.formatter;
+import static com.seoulchonnom.slcnapp.schedule.ScheduleConstant.DATE_TIME_FORMATTER;
 
 @Entity
 @NoArgsConstructor
@@ -77,8 +77,8 @@ public class Schedule {
                 .title(request.getTitle())
                 .body(request.getBody())
                 .isAllDay(request.isAllDay())
-                .start(LocalDateTime.parse(request.getStart(), formatter))
-                .end(LocalDateTime.parse(request.getEnd(), formatter))
+                .start(LocalDateTime.parse(request.getStart(), DATE_TIME_FORMATTER))
+                .end(LocalDateTime.parse(request.getEnd(), DATE_TIME_FORMATTER))
                 .goingDuration(request.getGoingDuration())
                 .comingDuration(request.getComingDuration())
                 .location(request.getLocation())

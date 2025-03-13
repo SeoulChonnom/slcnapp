@@ -4,6 +4,7 @@ import com.seoulchonnom.slcnapp.schedule.domain.Schedule;
 import com.seoulchonnom.slcnapp.schedule.dto.ScheduleRegisterRequest;
 import com.seoulchonnom.slcnapp.schedule.dto.ScheduleResponse;
 import com.seoulchonnom.slcnapp.schedule.exception.InvalidScheduleDateException;
+import com.seoulchonnom.slcnapp.schedule.exception.InvalidScheduleRegisterRequestException;
 import com.seoulchonnom.slcnapp.schedule.repository.ScheduleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -11,8 +12,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import static com.seoulchonnom.slcnapp.schedule.ScheduleConstant.DATE_TIME_FORMATTER;
 
 @Service
 @RequiredArgsConstructor
@@ -45,6 +49,10 @@ public class ScheduleService {
     }
 
     public String registerSchedule(ScheduleRegisterRequest request) {
+        if (!isValidRegisterRequest(request)) {
+            throw new InvalidScheduleRegisterRequestException();
+        }
+
         Schedule schedule = Schedule.from(request);
 
         scheduleRepository.save(schedule);
@@ -60,6 +68,12 @@ public class ScheduleService {
     }
 
     private boolean isValidRegisterRequest(ScheduleRegisterRequest request) {
+        try {
+            LocalDateTime.parse(request.getStart(), DATE_TIME_FORMATTER);
+            LocalDateTime.parse(request.getEnd(), DATE_TIME_FORMATTER);
+        } catch (DateTimeParseException e){
+            return false;
+        }
 
         return true;
     }
