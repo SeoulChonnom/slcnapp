@@ -90,10 +90,10 @@ public class UserService {
 		}
 	}
 
-//	@Transactional(propagation = Propagation.REQUIRES_NEW)
-//    protected void updateLoginFailCount(User user) {
-//		user.updateLoginFailCount();
-//	}
+	//	@Transactional(propagation = Propagation.REQUIRES_NEW)
+	//    protected void updateLoginFailCount(User user) {
+	//		user.updateLoginFailCount();
+	//	}
 
 	public void updateCookie(HttpServletResponse response, String token) {
 		Cookie cookie = new Cookie("refreshToken", token);
