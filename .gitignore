@@ -93,20 +93,6 @@ local.properties
 .idea/**/uiDesigner.xml
 .idea/**/dbnavigator.xml
 
-### Gradle ###
-.gradle
-**/build/
-!src/**/build/
-
-# Ignore Gradle GUI config
-gradle-app.setting
-
-# Avoid ignoring Gradle wrapper jar file (.jar files are usually ignored)
-!gradle-wrapper.jar
-
-# Avoid ignore Gradle wrappper properties
-!gradle-wrapper.properties
-
 # Cache of project
 .gradletasknamecache
 
@@ -233,6 +219,20 @@ replay_pid*
 
 src/main/resources/application.properties
 /target
+
+### Gradle ###
+.gradle
+**/build/
+!src/**/build/
+
+# Ignore Gradle GUI config
+gradle-app.setting
+
+# Avoid ignoring Gradle wrapper jar file (.jar files are usually ignored)
+!gradle-wrapper.jar
+
+# Avoid ignore Gradle wrappper properties
+!gradle-wrapper.properties
 
 # End of https://www.toptal.com/developers/gitignore/api/eclipse,java,intellij
 
