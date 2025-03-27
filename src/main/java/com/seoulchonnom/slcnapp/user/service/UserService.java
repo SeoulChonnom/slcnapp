@@ -6,7 +6,6 @@ import java.time.LocalDateTime;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.seoulchonnom.slcnapp.user.JwtTokenProvider;
@@ -56,6 +55,7 @@ public class UserService {
 			.name(userRegisterRequest.getName())
 			.username(userRegisterRequest.getUserName())
 			.password(passwordEncoder.encode(userRegisterRequest.getPassword()))
+			.loginFailCount(0)
 			.build();
 
 		userRepository.save(user);
