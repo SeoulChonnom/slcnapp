@@ -1,16 +1,6 @@
 package com.seoulchonnom.slcnapp.schedule.service;
 
-import com.seoulchonnom.slcnapp.schedule.domain.Schedule;
-import com.seoulchonnom.slcnapp.schedule.dto.ScheduleRegisterRequest;
-import com.seoulchonnom.slcnapp.schedule.dto.ScheduleResponse;
-import com.seoulchonnom.slcnapp.schedule.exception.InvalidScheduleDateException;
-import com.seoulchonnom.slcnapp.schedule.exception.InvalidScheduleRegisterRequestException;
-import com.seoulchonnom.slcnapp.schedule.repository.ScheduleRepository;
-
-import lombok.RequiredArgsConstructor;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import static com.seoulchonnom.slcnapp.schedule.ScheduleConstant.*;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -18,7 +8,19 @@ import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static com.seoulchonnom.slcnapp.schedule.ScheduleConstant.DATE_TIME_FORMATTER;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.seoulchonnom.slcnapp.schedule.domain.Schedule;
+import com.seoulchonnom.slcnapp.schedule.dto.ScheduleModifyRequest;
+import com.seoulchonnom.slcnapp.schedule.dto.ScheduleRegisterRequest;
+import com.seoulchonnom.slcnapp.schedule.dto.ScheduleResponse;
+import com.seoulchonnom.slcnapp.schedule.exception.InvalidScheduleDateException;
+import com.seoulchonnom.slcnapp.schedule.exception.InvalidScheduleRegisterRequestException;
+import com.seoulchonnom.slcnapp.schedule.exception.ScheduleNotFoundException;
+import com.seoulchonnom.slcnapp.schedule.repository.ScheduleRepository;
+
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -59,6 +61,13 @@ public class ScheduleService {
 
 		scheduleRepository.save(schedule);
 		return schedule.getId();
+	}
+
+	public void modifySchedule(ScheduleModifyRequest request) {
+		Schedule schedule = scheduleRepository.findById(request.getId()).orElseThrow(ScheduleNotFoundException::new);
+		schedule.modifyValues(request);
+
+		scheduleRepository.save(schedule);
 	}
 
 	private boolean isValidDate(int year, int month) {
