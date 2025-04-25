@@ -1,5 +1,6 @@
 package com.seoulchonnom.slcnapp.schedule.domain;
 
+import com.seoulchonnom.slcnapp.schedule.dto.ScheduleModifyRequest;
 import com.seoulchonnom.slcnapp.schedule.dto.ScheduleRegisterRequest;
 
 import jakarta.persistence.*;
@@ -12,6 +13,8 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static com.seoulchonnom.slcnapp.schedule.ScheduleConstant.DATE_TIME_FORMATTER;
+
+import org.springframework.beans.BeanUtils;
 
 @Entity
 @NoArgsConstructor
@@ -71,7 +74,6 @@ public class Schedule {
 
 	public static Schedule from(ScheduleRegisterRequest request) {
 		String id = UUID.randomUUID().toString();
-		System.out.println(request.getStart());
 		return Schedule.builder()
 			.id(id)
 			.calendarId(request.getCalendarId())
@@ -98,6 +100,12 @@ public class Schedule {
 			.borderColor(request.getBorderColor())
 			.customStyle(request.getCustomStyle())
 			.build();
+	}
+
+	public void modifyValues(ScheduleModifyRequest request) {
+		BeanUtils.copyProperties(request, this, "start", "end");
+		this.start = LocalDateTime.parse(request.getStart(), DATE_TIME_FORMATTER);
+		this.end = LocalDateTime.parse(request.getEnd(), DATE_TIME_FORMATTER);
 	}
 }
 /*
