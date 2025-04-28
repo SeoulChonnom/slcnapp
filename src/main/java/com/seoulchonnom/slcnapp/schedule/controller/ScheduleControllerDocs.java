@@ -1,5 +1,7 @@
 package com.seoulchonnom.slcnapp.schedule.controller;
 
+import org.springframework.http.ResponseEntity;
+
 import com.seoulchonnom.slcnapp.common.dto.BaseResponse;
 import com.seoulchonnom.slcnapp.schedule.dto.ScheduleModifyRequest;
 import com.seoulchonnom.slcnapp.schedule.dto.ScheduleRegisterRequest;
@@ -10,8 +12,6 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Parameters;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.tags.Tag;
-
-import org.springframework.http.ResponseEntity;
 
 @Tag(name = "일정 정보 API", description = "일정 정보 조회")
 public interface ScheduleControllerDocs {

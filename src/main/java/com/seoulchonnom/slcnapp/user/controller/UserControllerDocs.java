@@ -1,8 +1,6 @@
 package com.seoulchonnom.slcnapp.user.controller;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CookieValue;
-import org.springframework.web.bind.annotation.RequestBody;
 
 import com.seoulchonnom.slcnapp.common.dto.BaseResponse;
 import com.seoulchonnom.slcnapp.user.dto.UserLoginRequest;

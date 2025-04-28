@@ -1,13 +1,13 @@
 package com.seoulchonnom.slcnapp.trip.dto;
 
+import java.util.List;
+
 import com.seoulchonnom.slcnapp.trip.domain.Trip;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import java.util.List;
 
 @Getter
 @Setter

@@ -1,20 +1,24 @@
 package com.seoulchonnom.slcnapp.schedule.domain;
 
-import com.seoulchonnom.slcnapp.schedule.dto.ScheduleModifyRequest;
-import com.seoulchonnom.slcnapp.schedule.dto.ScheduleRegisterRequest;
-
-import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import static com.seoulchonnom.slcnapp.schedule.ScheduleConstant.*;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-import static com.seoulchonnom.slcnapp.schedule.ScheduleConstant.DATE_TIME_FORMATTER;
-
 import org.springframework.beans.BeanUtils;
+
+import com.seoulchonnom.slcnapp.schedule.dto.ScheduleModifyRequest;
+import com.seoulchonnom.slcnapp.schedule.dto.ScheduleRegisterRequest;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Entity
 @NoArgsConstructor

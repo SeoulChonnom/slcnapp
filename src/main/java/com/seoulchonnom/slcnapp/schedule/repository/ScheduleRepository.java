@@ -1,11 +1,11 @@
 package com.seoulchonnom.slcnapp.schedule.repository;
 
-import com.seoulchonnom.slcnapp.schedule.domain.Schedule;
+import java.time.LocalDateTime;
+import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.time.LocalDateTime;
-import java.util.List;
+import com.seoulchonnom.slcnapp.schedule.domain.Schedule;
 
 public interface ScheduleRepository extends JpaRepository<Schedule, String> {
 
