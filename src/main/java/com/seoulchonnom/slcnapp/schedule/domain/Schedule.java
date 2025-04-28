@@ -83,7 +83,7 @@ public class Schedule {
 			.calendarId(request.getCalendarId())
 			.title(request.getTitle())
 			.body(request.getBody())
-			.isAllDay(request.isAllDay())
+			.isAllDay(request.isAllday())
 			.start(LocalDateTime.parse(request.getStart(), DATE_TIME_FORMATTER))
 			.end(LocalDateTime.parse(request.getEnd(), DATE_TIME_FORMATTER))
 			.goingDuration(request.getGoingDuration())

@@ -22,7 +22,7 @@ public class ScheduleRegisterRequest {
 	private String body;
 
 	@Schema(description = "종일 일정 여부", example = "false")
-	private boolean isAllDay;
+	private boolean isAllday;
 
 	@Schema(description = "시작 일시", example = "2025-03-01 00:00:00")
 	private String start;
