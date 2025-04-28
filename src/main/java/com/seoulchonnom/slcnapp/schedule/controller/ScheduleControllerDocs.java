@@ -1,6 +1,7 @@
 package com.seoulchonnom.slcnapp.schedule.controller;
 
 import com.seoulchonnom.slcnapp.common.dto.BaseResponse;
+import com.seoulchonnom.slcnapp.schedule.dto.ScheduleModifyRequest;
 import com.seoulchonnom.slcnapp.schedule.dto.ScheduleRegisterRequest;
 import com.seoulchonnom.slcnapp.schedule.dto.ScheduleSearchRequest;
 
@@ -32,4 +33,10 @@ public interface ScheduleControllerDocs {
 	})
 	@Operation(summary = "일정 등록", description = "일정 등록 API")
 	ResponseEntity<BaseResponse> registerSchedule(ScheduleRegisterRequest scheduleSearchRequest);
+
+	@Parameters({
+		@Parameter(name = "X-AUTH-TOKEN", description = "AccessToken", required = true, in = ParameterIn.HEADER)
+	})
+	@Operation(summary = "일정 수정", description = "일정 수정 API")
+	ResponseEntity<BaseResponse> modifySchedule(ScheduleModifyRequest scheduleModifyRequest);
 }
