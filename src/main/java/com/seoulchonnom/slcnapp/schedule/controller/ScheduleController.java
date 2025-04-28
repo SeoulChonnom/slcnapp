@@ -48,7 +48,8 @@ public class ScheduleController implements ScheduleControllerDocs {
 	}
 
 	@Override
-	public ResponseEntity<BaseResponse> modifySchedule(ScheduleModifyRequest scheduleModifyRequest) {
+	@PutMapping("/modify")
+	public ResponseEntity<BaseResponse> modifySchedule(@RequestBody ScheduleModifyRequest scheduleModifyRequest) {
 		scheduleService.modifySchedule(scheduleModifyRequest);
 		return new ResponseEntity<>(
 			BaseResponse.from(true, MODIFY_SCHEDULE_COMPLETE_MESSAGE),

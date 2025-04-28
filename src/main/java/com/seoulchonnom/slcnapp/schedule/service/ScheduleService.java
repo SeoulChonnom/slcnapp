@@ -53,7 +53,7 @@ public class ScheduleService {
 	}
 
 	public String registerSchedule(ScheduleRegisterRequest request) {
-		if (!isValidRegisterRequest(request)) {
+		if (!isValidDateTime(request.getStart()) || !isValidDateTime(request.getEnd())) {
 			throw new InvalidScheduleRegisterRequestException();
 		}
 
@@ -64,6 +64,10 @@ public class ScheduleService {
 	}
 
 	public void modifySchedule(ScheduleModifyRequest request) {
+		if (!isValidDateTime(request.getStart()) || !isValidDateTime(request.getEnd())) {
+			throw new InvalidScheduleRegisterRequestException();
+		}
+
 		Schedule schedule = scheduleRepository.findById(request.getId()).orElseThrow(ScheduleNotFoundException::new);
 		schedule.modifyValues(request);
 
@@ -78,10 +82,9 @@ public class ScheduleService {
 		return month >= 1 && month <= 12;
 	}
 
-	private boolean isValidRegisterRequest(ScheduleRegisterRequest request) {
+	private boolean isValidDateTime(String date) {
 		try {
-			LocalDateTime.parse(request.getStart(), DATE_TIME_FORMATTER);
-			LocalDateTime.parse(request.getEnd(), DATE_TIME_FORMATTER);
+			LocalDateTime.parse(date, DATE_TIME_FORMATTER);
 		} catch (DateTimeParseException e) {
 			return false;
 		}
