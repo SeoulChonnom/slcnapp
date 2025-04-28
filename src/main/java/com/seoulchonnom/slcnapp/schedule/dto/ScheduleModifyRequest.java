@@ -24,7 +24,7 @@ public class ScheduleModifyRequest {
 	private String body;
 
 	@Schema(description = "종일 일정 여부", example = "false")
-	private boolean isAllDay;
+	private boolean isAllday;
 
 	@Schema(description = "시작 일시", example = "2025-03-01 00:00:00")
 	private String start;
@@ -68,4 +68,29 @@ public class ScheduleModifyRequest {
 	private String borderColor;
 	@Schema(description = "커스텀 색 설정(CSS)", example = "{}")
 	private String customStyle;
+
+
+	public void setIsAllday(boolean isAllday) {
+		this.isAllday = isAllday;
+	}
+
+	public void setIsVisible(boolean isVisible) {
+		this.isVisible = isVisible;
+	}
+
+	public void setIsPending(boolean isPending) {
+		this.isPending = isPending;
+	}
+
+	public void setIsFocused(boolean isFocused) {
+		this.isFocused = isFocused;
+	}
+
+	public void setIsReadOnly(boolean isReadOnly) {
+		this.isReadOnly = isReadOnly;
+	}
+
+	public void setIsPrivate(boolean isPrivate) {
+		this.isPrivate = isPrivate;
+	}
 }

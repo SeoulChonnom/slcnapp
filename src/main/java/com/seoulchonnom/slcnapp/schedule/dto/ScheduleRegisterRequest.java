@@ -66,4 +66,28 @@ public class ScheduleRegisterRequest {
 	private String borderColor;
 	@Schema(description = "커스텀 색 설정(CSS)", example = "{}")
 	private String customStyle;
+
+	public void setIsAllday(boolean isAllday) {
+		this.isAllday = isAllday;
+	}
+
+	public void setIsVisible(boolean isVisible) {
+		this.isVisible = isVisible;
+	}
+
+	public void setIsPending(boolean isPending) {
+		this.isPending = isPending;
+	}
+
+	public void setIsFocused(boolean isFocused) {
+		this.isFocused = isFocused;
+	}
+
+	public void setIsReadOnly(boolean isReadOnly) {
+		this.isReadOnly = isReadOnly;
+	}
+
+	public void setIsPrivate(boolean isPrivate) {
+		this.isPrivate = isPrivate;
+	}
 }
