@@ -9,5 +9,5 @@ import java.util.List;
 
 public interface ScheduleRepository extends JpaRepository<Schedule, String> {
 
-	List<Schedule> findAllByStartBetween(LocalDateTime startDateAfter, LocalDateTime startDateBefore);
+	List<Schedule> findAllByStartBetweenAndIsVisible(LocalDateTime startDateAfter, LocalDateTime startDateBefore, boolean isVisible);
 }

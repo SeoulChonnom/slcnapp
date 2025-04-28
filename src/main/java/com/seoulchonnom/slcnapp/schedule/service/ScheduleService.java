@@ -47,7 +47,7 @@ public class ScheduleService {
 		LocalDateTime startDate = LocalDateTime.of(year, month, 1, 0, 0, 0);
 		LocalDateTime endDate = startDate.plusMonths(1);
 
-		List<Schedule> scheduleList = scheduleRepository.findAllByStartBetween(startDate, endDate);
+		List<Schedule> scheduleList = scheduleRepository.findAllByStartBetweenAndIsVisible(startDate, endDate, true);
 
 		return scheduleList.stream().map(ScheduleResponse::from).collect(Collectors.toList());
 	}
