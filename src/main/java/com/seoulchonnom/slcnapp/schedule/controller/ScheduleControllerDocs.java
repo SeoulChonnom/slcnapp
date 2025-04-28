@@ -39,4 +39,10 @@ public interface ScheduleControllerDocs {
 	})
 	@Operation(summary = "일정 수정", description = "일정 수정 API")
 	ResponseEntity<BaseResponse> modifySchedule(ScheduleModifyRequest scheduleModifyRequest);
+
+	@Parameters({
+		@Parameter(name = "X-AUTH-TOKEN", description = "AccessToken", required = true, in = ParameterIn.HEADER)
+	})
+	@Operation(summary = "일정 삭제(숨김)", description = "일정 삭제 API")
+	ResponseEntity<BaseResponse> hideSchedule(String scheduleId);
 }

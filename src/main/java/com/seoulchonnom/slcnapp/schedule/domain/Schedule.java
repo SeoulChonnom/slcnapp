@@ -107,6 +107,10 @@ public class Schedule {
 		this.start = LocalDateTime.parse(request.getStart(), DATE_TIME_FORMATTER);
 		this.end = LocalDateTime.parse(request.getEnd(), DATE_TIME_FORMATTER);
 	}
+
+	public void hideSchedule() {
+		this.isVisible = false;
+	}
 }
 /*
   id?: string;

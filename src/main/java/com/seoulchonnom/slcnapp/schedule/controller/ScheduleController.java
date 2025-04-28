@@ -3,6 +3,7 @@ package com.seoulchonnom.slcnapp.schedule.controller;
 import static com.seoulchonnom.slcnapp.schedule.ScheduleConstant.*;
 
 import com.seoulchonnom.slcnapp.common.dto.BaseResponse;
+import com.seoulchonnom.slcnapp.schedule.domain.Schedule;
 import com.seoulchonnom.slcnapp.schedule.dto.ScheduleModifyRequest;
 import com.seoulchonnom.slcnapp.schedule.dto.ScheduleRegisterRequest;
 import com.seoulchonnom.slcnapp.schedule.dto.ScheduleSearchRequest;
@@ -53,7 +54,17 @@ public class ScheduleController implements ScheduleControllerDocs {
 		scheduleService.modifySchedule(scheduleModifyRequest);
 		return new ResponseEntity<>(
 			BaseResponse.from(true, MODIFY_SCHEDULE_COMPLETE_MESSAGE),
-				HttpStatus.OK
+			HttpStatus.OK
+		);
+	}
+
+	@Override
+	@PutMapping("/remove")
+	public ResponseEntity<BaseResponse> hideSchedule(@RequestBody String scheduleId) {
+		scheduleService.hideSchedule(scheduleId);
+		return new ResponseEntity<>(
+			BaseResponse.from(true, DELETE_SCHEDULE_COMPLETE_MESSAGE),
+			HttpStatus.OK
 		);
 	}
 }
