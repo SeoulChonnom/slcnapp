@@ -4,6 +4,7 @@ import static com.seoulchonnom.slcnapp.schedule.ScheduleConstant.*;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -68,6 +69,16 @@ public class ScheduleController implements ScheduleControllerDocs {
 		scheduleService.hideSchedule(scheduleId);
 		return new ResponseEntity<>(
 			BaseResponse.from(true, DELETE_SCHEDULE_COMPLETE_MESSAGE),
+			HttpStatus.OK
+		);
+	}
+
+	@Override
+	@DeleteMapping("/delete")
+	public ResponseEntity<BaseResponse> deleteSchedule(String scheduleId) {
+		scheduleService.deleteSchedule(scheduleId);
+		return new ResponseEntity<>(
+			BaseResponse.from(true, HARD_DELETE_SCHEDULE_COMPLETE_MESSAGE),
 			HttpStatus.OK
 		);
 	}

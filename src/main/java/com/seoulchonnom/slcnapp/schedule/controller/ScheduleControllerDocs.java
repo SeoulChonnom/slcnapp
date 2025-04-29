@@ -43,6 +43,12 @@ public interface ScheduleControllerDocs {
 	@Parameters({
 		@Parameter(name = "X-AUTH-TOKEN", description = "AccessToken", required = true, in = ParameterIn.HEADER)
 	})
-	@Operation(summary = "일정 삭제(숨김)", description = "일정 삭제 API")
+	@Operation(summary = "일정 삭제(숨김)", description = "일정 목록 삭제 API")
 	ResponseEntity<BaseResponse> hideSchedule(String scheduleId);
+
+	@Parameters({
+		@Parameter(name = "X-AUTH-TOKEN", description = "AccessToken", required = true, in = ParameterIn.HEADER)
+	})
+	@Operation(summary = "일정 완전 삭제", description = "일정 데이터 삭제 API")
+	ResponseEntity<BaseResponse> deleteSchedule(String scheduleId);
 }

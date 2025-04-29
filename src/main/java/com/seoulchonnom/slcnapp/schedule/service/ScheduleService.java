@@ -80,6 +80,11 @@ public class ScheduleService {
 		scheduleRepository.save(schedule);
 	}
 
+	public void deleteSchedule(String scheduleId) {
+		Schedule schedule = scheduleRepository.findById(scheduleId).orElseThrow(ScheduleNotFoundException::new);
+		scheduleRepository.delete(schedule);
+	}
+
 	private boolean isValidDate(int year, int month) {
 		if (year < 1900 || year > 2100) {
 			return false;
