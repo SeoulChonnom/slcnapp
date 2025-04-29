@@ -19,12 +19,14 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @NoArgsConstructor
 @Builder
 @AllArgsConstructor
 @Getter
+@Setter
 public class Schedule {
 	@Id
 	private String id;
@@ -116,51 +118,3 @@ public class Schedule {
 		this.isVisible = false;
 	}
 }
-/*
-  id?: string;
-  calendarId?: string;
-  title?: string;
-  body?: string;
-  isAllday?: boolean;
-  start?: Date | string | number | TZDate;
-  end?: Date | string | number | TZDate;
-  goingDuration?: number;
-  comingDuration?: number;
-  location?: string;
-  attendees?: string[];
-  category?: 'milestone' | 'task' | 'allday' | 'time';
-  recurrenceRule?: string;
-  state?: 'Busy' | 'Free';
-  isVisible?: boolean;
-  isPending?: boolean;
-  isFocused?: boolean;
-  isReadOnly?: boolean;
-  isPrivate?: boolean;
-  color?: string;
-  backgroundColor?: string;
-  dragBackgroundColor?: string;
-  borderColor?: string;
-  customStyle?: JS
-
-    "title": "test",
-    "location": "test",
-    "isAllday": false,
-    "isPrivate": false,
-    "state": "Busy",
-    "calendarId": "cal1",
-    "start": {
-        "tzOffset": null,
-        "d": {
-            "d": "2025-03-05T15:00:00.000Z"
-        }
-    },
-    "end": {
-        "tzOffset": null,
-        "d": {
-            "d": "2025-03-05T15:00:00.000Z"
-        }
-    },
-    "id": "36be05d0-3584-477a-9992-c4f49c27272f",
-    "category": "time"
-
- */
