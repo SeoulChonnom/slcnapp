@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -64,8 +65,8 @@ public class ScheduleController implements ScheduleControllerDocs {
 	}
 
 	@Override
-	@PutMapping("/remove")
-	public ResponseEntity<BaseResponse> hideSchedule(@RequestBody String scheduleId) {
+	@PutMapping("/remove/{scheduleId}")
+	public ResponseEntity<BaseResponse> hideSchedule(@PathVariable String scheduleId) {
 		scheduleService.hideSchedule(scheduleId);
 		return new ResponseEntity<>(
 			BaseResponse.from(true, DELETE_SCHEDULE_COMPLETE_MESSAGE),
@@ -74,8 +75,8 @@ public class ScheduleController implements ScheduleControllerDocs {
 	}
 
 	@Override
-	@DeleteMapping("/delete")
-	public ResponseEntity<BaseResponse> deleteSchedule(String scheduleId) {
+	@DeleteMapping("/delete/{scheduleId}")
+	public ResponseEntity<BaseResponse> deleteSchedule(@PathVariable String scheduleId) {
 		scheduleService.deleteSchedule(scheduleId);
 		return new ResponseEntity<>(
 			BaseResponse.from(true, HARD_DELETE_SCHEDULE_COMPLETE_MESSAGE),
