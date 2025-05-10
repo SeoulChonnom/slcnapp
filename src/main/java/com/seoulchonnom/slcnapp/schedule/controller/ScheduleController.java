@@ -4,9 +4,7 @@ import com.seoulchonnom.slcnapp.common.dto.BaseResponse;
 import com.seoulchonnom.slcnapp.schedule.dto.ScheduleRegisterRequest;
 import com.seoulchonnom.slcnapp.schedule.dto.ScheduleSearchRequest;
 import com.seoulchonnom.slcnapp.schedule.service.ScheduleService;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -31,7 +29,7 @@ public class ScheduleController implements ScheduleControllerDocs {
 
 	@Override
 	@GetMapping("/date")
-	public ResponseEntity<BaseResponse> getSchedulesForYearAndMonth(ScheduleSearchRequest request) {
+	public ResponseEntity<BaseResponse> getSchedulesForYearAndMonth(@ModelAttribute ScheduleSearchRequest request) {
 		return new ResponseEntity<>(
 			BaseResponse.from(true, RETRIEVE_SCHEDULE_COMPLETE_MESSAGE,
 				scheduleService.getSchedulesForMonth(request.getYear(), request.getMonth())),
