@@ -57,7 +57,6 @@ public class TripService {
             logoFile = fileUtils.saveImages(logo, logoPath);
             map1File = fileUtils.saveImages(map1, mapPath);
 
-            map2File = "";
             if (map2 != null) {
                 map2File = fileUtils.saveImages(map2, mapPath);
             }
