@@ -1,22 +1,20 @@
 package com.seoulchonnom.slcnapp.common.handler;
 
-import static com.seoulchonnom.slcnapp.user.UserConstant.*;
-
-import java.io.IOException;
-
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.seoulchonnom.slcnapp.common.dto.BaseResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.stereotype.Component;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.seoulchonnom.slcnapp.common.dto.BaseResponse;
+import java.io.IOException;
 
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import lombok.extern.slf4j.Slf4j;
+import static com.seoulchonnom.slcnapp.user.UserConstant.ACCESS_ROLE_DENIED_ERROR_MESSAGE;
 
 @Component
 @Slf4j

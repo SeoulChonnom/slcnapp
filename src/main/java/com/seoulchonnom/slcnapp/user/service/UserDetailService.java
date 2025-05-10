@@ -1,17 +1,15 @@
 package com.seoulchonnom.slcnapp.user.service;
 
+import com.seoulchonnom.slcnapp.user.domain.User;
+import com.seoulchonnom.slcnapp.user.dto.UserDetail;
+import com.seoulchonnom.slcnapp.user.exception.InvalidUserException;
+import com.seoulchonnom.slcnapp.user.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import com.seoulchonnom.slcnapp.user.domain.User;
-import com.seoulchonnom.slcnapp.user.dto.UserDetail;
-import com.seoulchonnom.slcnapp.user.exception.InvalidUserException;
-import com.seoulchonnom.slcnapp.user.repository.UserRepository;
-
-import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor

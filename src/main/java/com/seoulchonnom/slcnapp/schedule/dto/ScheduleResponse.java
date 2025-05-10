@@ -1,15 +1,14 @@
 package com.seoulchonnom.slcnapp.schedule.dto;
 
-import java.time.format.DateTimeFormatter;
-
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.seoulchonnom.slcnapp.schedule.domain.Schedule;
 import com.seoulchonnom.slcnapp.schedule.domain.ScheduleCategory;
 import com.seoulchonnom.slcnapp.schedule.domain.ScheduleState;
-
 import lombok.Builder;
 import lombok.Getter;
+
+import java.time.format.DateTimeFormatter;
 
 @Getter
 @Builder

@@ -1,24 +1,18 @@
 package com.seoulchonnom.slcnapp.user.controller;
 
-import static com.seoulchonnom.slcnapp.user.UserConstant.*;
-
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CookieValue;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-
 import com.seoulchonnom.slcnapp.common.dto.BaseResponse;
 import com.seoulchonnom.slcnapp.user.dto.Token;
 import com.seoulchonnom.slcnapp.user.dto.UserLoginRequest;
 import com.seoulchonnom.slcnapp.user.dto.UserRegisterRequest;
 import com.seoulchonnom.slcnapp.user.service.UserService;
-
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import static com.seoulchonnom.slcnapp.user.UserConstant.USER_LOGIN_SUCCESS_MESSAGE;
+import static com.seoulchonnom.slcnapp.user.UserConstant.USER_REGISTER_SUCCESS_MESSAGE;
 
 @RestController
 @RequestMapping("/user")

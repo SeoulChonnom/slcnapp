@@ -1,15 +1,14 @@
 package com.seoulchonnom.slcnapp.user.dto;
 
-import java.util.List;
-
 import com.seoulchonnom.slcnapp.user.domain.Authority;
 import com.seoulchonnom.slcnapp.user.domain.Role;
 import com.seoulchonnom.slcnapp.user.domain.User;
-
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+
+import java.util.List;
 
 @Getter
 @NoArgsConstructor

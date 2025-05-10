@@ -1,8 +1,8 @@
 package com.seoulchonnom.slcnapp.trip.exception;
 
-import static com.seoulchonnom.slcnapp.trip.TripConstant.*;
-
 import com.seoulchonnom.slcnapp.common.exception.UnsupportedMediaTypeException;
+
+import static com.seoulchonnom.slcnapp.trip.TripConstant.TRIP_FILE_EXT_ERROR_MESSAGE;
 
 public class TripFileExtException extends UnsupportedMediaTypeException {
 	public TripFileExtException() {

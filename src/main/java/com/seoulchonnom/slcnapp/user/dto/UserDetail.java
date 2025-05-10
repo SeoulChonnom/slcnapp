@@ -1,16 +1,14 @@
 package com.seoulchonnom.slcnapp.user.dto;
 
-import java.util.Collection;
-import java.util.stream.Collectors;
-
+import com.seoulchonnom.slcnapp.user.domain.User;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import com.seoulchonnom.slcnapp.user.domain.User;
-
-import lombok.AllArgsConstructor;
-import lombok.Getter;
+import java.util.Collection;
+import java.util.stream.Collectors;
 
 @Getter
 @AllArgsConstructor

@@ -1,17 +1,5 @@
 package com.seoulchonnom.slcnapp.trip.service;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.List;
-import java.util.stream.Collectors;
-
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
-
 import com.seoulchonnom.slcnapp.trip.FileUtils;
 import com.seoulchonnom.slcnapp.trip.domain.Quiz;
 import com.seoulchonnom.slcnapp.trip.domain.Trip;
@@ -23,8 +11,18 @@ import com.seoulchonnom.slcnapp.trip.exception.FilePathInvaildException;
 import com.seoulchonnom.slcnapp.trip.exception.TripFileUploadException;
 import com.seoulchonnom.slcnapp.trip.exception.TripNotFoundException;
 import com.seoulchonnom.slcnapp.trip.repository.TripRepository;
-
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor

@@ -1,12 +1,11 @@
 package com.seoulchonnom.slcnapp.trip.dto;
 
-import java.util.List;
-import java.util.stream.Collectors;
-
 import com.seoulchonnom.slcnapp.trip.domain.Trip;
-
 import lombok.Builder;
 import lombok.Getter;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Getter
 @Builder

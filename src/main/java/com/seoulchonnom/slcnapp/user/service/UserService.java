@@ -1,23 +1,11 @@
 package com.seoulchonnom.slcnapp.user.service;
 
-import java.time.Duration;
-import java.time.LocalDateTime;
-
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.seoulchonnom.slcnapp.user.JwtTokenProvider;
 import com.seoulchonnom.slcnapp.user.domain.Authority;
 import com.seoulchonnom.slcnapp.user.domain.RefreshToken;
 import com.seoulchonnom.slcnapp.user.domain.Role;
 import com.seoulchonnom.slcnapp.user.domain.User;
-import com.seoulchonnom.slcnapp.user.dto.Token;
-import com.seoulchonnom.slcnapp.user.dto.UserDetail;
-import com.seoulchonnom.slcnapp.user.dto.UserInfoResponse;
-import com.seoulchonnom.slcnapp.user.dto.UserLoginRequest;
-import com.seoulchonnom.slcnapp.user.dto.UserRegisterRequest;
+import com.seoulchonnom.slcnapp.user.dto.*;
 import com.seoulchonnom.slcnapp.user.exception.InvalidAccessTokenException;
 import com.seoulchonnom.slcnapp.user.exception.InvalidRefreshTokenException;
 import com.seoulchonnom.slcnapp.user.exception.InvalidUserException;
@@ -25,10 +13,16 @@ import com.seoulchonnom.slcnapp.user.exception.UserLoginFailCountOverException;
 import com.seoulchonnom.slcnapp.user.repository.AuthorityRepository;
 import com.seoulchonnom.slcnapp.user.repository.RefreshTokenRepository;
 import com.seoulchonnom.slcnapp.user.repository.UserRepository;
-
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Duration;
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor

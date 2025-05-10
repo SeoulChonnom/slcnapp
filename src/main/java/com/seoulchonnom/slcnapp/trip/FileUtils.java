@@ -1,17 +1,17 @@
 package com.seoulchonnom.slcnapp.trip;
 
-import static com.seoulchonnom.slcnapp.trip.TripConstant.*;
+import com.seoulchonnom.slcnapp.trip.exception.TripFileExtException;
+import com.seoulchonnom.slcnapp.trip.exception.TripFileSizeException;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.UUID;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-import org.springframework.web.multipart.MultipartFile;
-
-import com.seoulchonnom.slcnapp.trip.exception.TripFileExtException;
-import com.seoulchonnom.slcnapp.trip.exception.TripFileSizeException;
+import static com.seoulchonnom.slcnapp.trip.TripConstant.EXT_REGEX_STRING;
+import static com.seoulchonnom.slcnapp.trip.TripConstant.MAX_FILE_SIZE;
 
 @Component
 public class FileUtils {

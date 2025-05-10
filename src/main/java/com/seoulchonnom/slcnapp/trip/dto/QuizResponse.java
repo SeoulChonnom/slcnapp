@@ -1,7 +1,6 @@
 package com.seoulchonnom.slcnapp.trip.dto;
 
 import com.seoulchonnom.slcnapp.trip.domain.Quiz;
-
 import lombok.Builder;
 import lombok.Getter;
 

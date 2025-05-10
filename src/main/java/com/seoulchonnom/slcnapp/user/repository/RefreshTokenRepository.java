@@ -1,11 +1,10 @@
 package com.seoulchonnom.slcnapp.user.repository;
 
-import java.util.Optional;
-
+import com.seoulchonnom.slcnapp.user.domain.RefreshToken;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Repository;
 
-import com.seoulchonnom.slcnapp.user.domain.RefreshToken;
+import java.util.Optional;
 
 @Repository
 public interface RefreshTokenRepository extends CrudRepository<RefreshToken, Integer> {

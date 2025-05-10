@@ -1,7 +1,6 @@
 package com.seoulchonnom.slcnapp.user.dto;
 
 import com.seoulchonnom.slcnapp.user.domain.User;
-
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
