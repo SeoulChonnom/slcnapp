@@ -17,45 +17,45 @@ import java.time.Duration;
 @Slf4j
 public class RedisConfig {
 
-	@Value("${spring.data.redis.host}")
-	private String host;
+    @Value("${spring.data.redis.host}")
+    private String host;
 
-	@Value("${spring.data.redis.port}")
-	private int port;
+    @Value("${spring.data.redis.port}")
+    private int port;
 
-	@Value("${spring.data.redis.password}")
-	private String redisPassword;
+    @Value("${spring.data.redis.password}")
+    private String redisPassword;
 
-	@Bean
-	public RedisConnectionFactory redisConnectionFactory() {
-		RedisStandaloneConfiguration redisConfig = new RedisStandaloneConfiguration(host, port);
-		redisConfig.setPassword(redisPassword);
+    @Bean
+    public RedisConnectionFactory redisConnectionFactory() {
+        RedisStandaloneConfiguration redisConfig = new RedisStandaloneConfiguration(host, port);
+        redisConfig.setPassword(redisPassword);
 
-		LettuceClientConfiguration clientConfig = LettuceClientConfiguration.builder()
-			.commandTimeout(Duration.ofSeconds(1)) //No longer than 1 second
-			.shutdownTimeout(Duration.ZERO) //Immediately shutdown after application shutdown
-			.build();
+        LettuceClientConfiguration clientConfig = LettuceClientConfiguration.builder()
+                .commandTimeout(Duration.ofSeconds(1)) //No longer than 1 second
+                .shutdownTimeout(Duration.ZERO) //Immediately shutdown after application shutdown
+                .build();
 
-		log.info("Connected to Redis at {}:{}", host, port);
-		return new LettuceConnectionFactory(redisConfig, clientConfig);
-	}
+        log.info("Connected to Redis at {}:{}", host, port);
+        return new LettuceConnectionFactory(redisConfig, clientConfig);
+    }
 
-	@Bean
-	public RedisTemplate<String, Object> redisTemplate() {
-		RedisTemplate<String, Object> redisTemplate = new RedisTemplate<>();
-		redisTemplate.setConnectionFactory(redisConnectionFactory());
+    @Bean
+    public RedisTemplate<String, Object> redisTemplate() {
+        RedisTemplate<String, Object> redisTemplate = new RedisTemplate<>();
+        redisTemplate.setConnectionFactory(redisConnectionFactory());
 
-		// 일반적인 key:value의 경우 시리얼라이저
-		redisTemplate.setKeySerializer(new StringRedisSerializer());
-		redisTemplate.setValueSerializer(new StringRedisSerializer());
+        // 일반적인 key:value의 경우 시리얼라이저
+        redisTemplate.setKeySerializer(new StringRedisSerializer());
+        redisTemplate.setValueSerializer(new StringRedisSerializer());
 
-		// Hash를 사용할 경우 시리얼라이저
-		redisTemplate.setHashKeySerializer(new StringRedisSerializer());
-		redisTemplate.setHashValueSerializer(new StringRedisSerializer());
+        // Hash를 사용할 경우 시리얼라이저
+        redisTemplate.setHashKeySerializer(new StringRedisSerializer());
+        redisTemplate.setHashValueSerializer(new StringRedisSerializer());
 
-		// 모든 경우
-		redisTemplate.setDefaultSerializer(new StringRedisSerializer());
+        // 모든 경우
+        redisTemplate.setDefaultSerializer(new StringRedisSerializer());
 
-		return redisTemplate;
-	}
+        return redisTemplate;
+    }
 }

@@ -17,36 +17,36 @@ import static com.seoulchonnom.slcnapp.trip.TripConstant.*;
 @RequestMapping("/trip")
 @RequiredArgsConstructor
 public class TripController implements TripControllerDocs {
-	private final TripService tripService;
+    private final TripService tripService;
 
-	@GetMapping("/")
-	public ResponseEntity<BaseResponse> getTrips() {
-		return new ResponseEntity<>(
-			BaseResponse.from(true, RETRIEVE_TRIP_LIST_SUCCESS_MESSAGE, tripService.getAllTripList()), HttpStatus.OK);
-	}
+    @GetMapping("/")
+    public ResponseEntity<BaseResponse> getTrips() {
+        return new ResponseEntity<>(
+                BaseResponse.from(true, RETRIEVE_TRIP_LIST_SUCCESS_MESSAGE, tripService.getAllTripList()), HttpStatus.OK);
+    }
 
-	@GetMapping("/{tripDate}")
-	public ResponseEntity<BaseResponse> getTripByDate(@PathVariable("tripDate") String tripDate) {
-		return new ResponseEntity<>(
-			BaseResponse.from(true, RETRIEVE_TRIP_INFO_SUCCESS_MESSAGE, tripService.getTripByDate(tripDate)),
-			HttpStatus.OK);
-	}
+    @GetMapping("/{tripDate}")
+    public ResponseEntity<BaseResponse> getTripByDate(@PathVariable("tripDate") String tripDate) {
+        return new ResponseEntity<>(
+                BaseResponse.from(true, RETRIEVE_TRIP_INFO_SUCCESS_MESSAGE, tripService.getTripByDate(tripDate)),
+                HttpStatus.OK);
+    }
 
-	@PostMapping(value = "/", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-	public ResponseEntity<BaseResponse> createTrip(
-		@RequestPart(value = "tripRegisterRequest") TripRegisterRequest tripRegisterRequest,
-		@RequestPart(value = "logo") MultipartFile logo, @RequestPart(value = "map1") MultipartFile map1,
-		@RequestPart(required = false, value = "map2") MultipartFile map2) {
-		return new ResponseEntity<>(BaseResponse.from(true, REGISTER_TRIP_SUCCESS_MESSAGE,
-			tripService.registerTrip(tripRegisterRequest, logo, map1, map2)), HttpStatus.OK);
-	}
+    @PostMapping(value = "/", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<BaseResponse> createTrip(
+            @RequestPart(value = "tripRegisterRequest") TripRegisterRequest tripRegisterRequest,
+            @RequestPart(value = "logo") MultipartFile logo, @RequestPart(value = "map1") MultipartFile map1,
+            @RequestPart(required = false, value = "map2") MultipartFile map2) {
+        return new ResponseEntity<>(BaseResponse.from(true, REGISTER_TRIP_SUCCESS_MESSAGE,
+                tripService.registerTrip(tripRegisterRequest, logo, map1, map2)), HttpStatus.OK);
+    }
 
-	@GetMapping("/file")
-	public ResponseEntity<byte[]> getFile(@RequestParam(value = "path") String path) {
-		ImageFile imageFile = tripService.getImageFile(path);
+    @GetMapping("/file")
+    public ResponseEntity<byte[]> getFile(@RequestParam(value = "path") String path) {
+        ImageFile imageFile = tripService.getImageFile(path);
 
-		return ResponseEntity.status(HttpStatus.OK)
-			.contentType(MediaType.valueOf(imageFile.getMimeType()))
-			.body(imageFile.getImage());
-	}
+        return ResponseEntity.status(HttpStatus.OK)
+                .contentType(MediaType.valueOf(imageFile.getMimeType()))
+                .body(imageFile.getImage());
+    }
 }

@@ -28,68 +28,68 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional
 public class TripService {
-	private final TripRepository tripRepository;
-	private final FileUtils fileUtils;
+    private final TripRepository tripRepository;
+    private final FileUtils fileUtils;
 
-	@Value("${upload.path}")
-	private String directory;
-	private final String logoPath = "logo/";
-	private final String mapPath = "map/";
+    @Value("${upload.path}")
+    private String directory;
+    private final String logoPath = "logo/";
+    private final String mapPath = "map/";
 
-	public List<TripListResponse> getAllTripList() {
-		return tripRepository.findAllByOrderByDateDesc().stream()
-			.map(TripListResponse::from)
-			.collect(Collectors.toList());
-	}
+    public List<TripListResponse> getAllTripList() {
+        return tripRepository.findAllByOrderByDateDesc().stream()
+                .map(TripListResponse::from)
+                .collect(Collectors.toList());
+    }
 
-	public TripInfoResponse getTripByDate(String date) {
-		Trip trip = tripRepository.findByDate(date).orElseThrow(TripNotFoundException::new);
-		return TripInfoResponse.from(trip);
-	}
+    public TripInfoResponse getTripByDate(String date) {
+        Trip trip = tripRepository.findByDate(date).orElseThrow(TripNotFoundException::new);
+        return TripInfoResponse.from(trip);
+    }
 
-	public boolean registerTrip(TripRegisterRequest tripRegisterRequest, MultipartFile logo, MultipartFile map1,
-		MultipartFile map2) {
+    public boolean registerTrip(TripRegisterRequest tripRegisterRequest, MultipartFile logo, MultipartFile map1,
+                                MultipartFile map2) {
 
-		String logoFile, map1File;
-		String map2File = "";
+        String logoFile, map1File;
+        String map2File = "";
 
-		try {
-			logoFile = fileUtils.saveImages(logo, logoPath);
-			map1File = fileUtils.saveImages(map1, mapPath);
+        try {
+            logoFile = fileUtils.saveImages(logo, logoPath);
+            map1File = fileUtils.saveImages(map1, mapPath);
 
-			map2File = "";
-			if (map2 != null) {
-				map2File = fileUtils.saveImages(map2, mapPath);
-			}
-		} catch (IOException e) {
-			throw new TripFileUploadException();
-		}
-		Trip trip = tripRegisterRequest.of(logoFile, map1File);
+            map2File = "";
+            if (map2 != null) {
+                map2File = fileUtils.saveImages(map2, mapPath);
+            }
+        } catch (IOException e) {
+            throw new TripFileUploadException();
+        }
+        Trip trip = tripRegisterRequest.of(logoFile, map1File);
 
-		if (map2 != null) {
-			trip.setMap2(map2File);
-		}
+        if (map2 != null) {
+            trip.setMap2(map2File);
+        }
 
-		List<Quiz> quizList = tripRegisterRequest.getQuizRegisterRequestList()
-			.stream()
-			.map(a -> a.of(trip))
-			.toList();
+        List<Quiz> quizList = tripRegisterRequest.getQuizRegisterRequestList()
+                .stream()
+                .map(a -> a.of(trip))
+                .toList();
 
-		trip.setQuizList(quizList);
+        trip.setQuizList(quizList);
 
-		tripRepository.save(trip);
+        tripRepository.save(trip);
 
-		return true;
-	}
+        return true;
+    }
 
-	public ImageFile getImageFile(String path) {
-		try {
-			Path filePath = Paths.get(directory + path);
-			return ImageFile.builder().image(Files.readAllBytes(filePath)).mimeType(Files.probeContentType(filePath))
-				.build();
+    public ImageFile getImageFile(String path) {
+        try {
+            Path filePath = Paths.get(directory + path);
+            return ImageFile.builder().image(Files.readAllBytes(filePath)).mimeType(Files.probeContentType(filePath))
+                    .build();
 
-		} catch (IOException e) {
-			throw new FilePathInvaildException();
-		}
-	}
+        } catch (IOException e) {
+            throw new FilePathInvaildException();
+        }
+    }
 }

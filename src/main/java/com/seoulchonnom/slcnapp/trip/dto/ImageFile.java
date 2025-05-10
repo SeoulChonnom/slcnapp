@@ -10,6 +10,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ImageFile {
-	private byte[] image;
-	private String mimeType;
+    private byte[] image;
+    private String mimeType;
 }

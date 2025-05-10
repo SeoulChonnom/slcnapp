@@ -7,13 +7,13 @@ import lombok.Getter;
 @Getter
 @Builder
 public class QuizResponse {
-	private String quizIndex;
-	private String answer;
+    private String quizIndex;
+    private String answer;
 
-	public static QuizResponse from(Quiz quiz) {
-		return QuizResponse.builder()
-			.quizIndex(quiz.getQuizIndex())
-			.answer(quiz.getAnswer())
-			.build();
-	}
+    public static QuizResponse from(Quiz quiz) {
+        return QuizResponse.builder()
+                .quizIndex(quiz.getQuizIndex())
+                .answer(quiz.getAnswer())
+                .build();
+    }
 }

@@ -10,10 +10,10 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor
 public class ErrorResponse {
-	private boolean success;
-	private String message;
+    private boolean success;
+    private String message;
 
-	public static ErrorResponse from(boolean success, String message) {
-		return builder().success(success).message(message).build();
-	}
+    public static ErrorResponse from(boolean success, String message) {
+        return builder().success(success).message(message).build();
+    }
 }

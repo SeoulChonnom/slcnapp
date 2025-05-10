@@ -19,16 +19,16 @@ import static com.seoulchonnom.slcnapp.user.UserConstant.ACCESS_ROLE_MISSING_ERR
 @Component
 @Slf4j
 public class CommonAuthenticationEntryPoint implements AuthenticationEntryPoint {
-	@Override
-	public void commence(HttpServletRequest request, HttpServletResponse response,
-		AuthenticationException authException) throws IOException, ServletException {
-		log.info(authException.getLocalizedMessage());
+    @Override
+    public void commence(HttpServletRequest request, HttpServletResponse response,
+                         AuthenticationException authException) throws IOException, ServletException {
+        log.info(authException.getLocalizedMessage());
 
-		response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-		response.setContentType("text/json;charset=UTF-8");
-		response.setStatus(HttpStatus.FORBIDDEN.value());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setContentType("text/json;charset=UTF-8");
+        response.setStatus(HttpStatus.FORBIDDEN.value());
 
-		response.getWriter()
-			.write(new ObjectMapper().writeValueAsString(BaseResponse.from(false, ACCESS_ROLE_MISSING_ERROR_MESSAGE)));
-	}
+        response.getWriter()
+                .write(new ObjectMapper().writeValueAsString(BaseResponse.from(false, ACCESS_ROLE_MISSING_ERROR_MESSAGE)));
+    }
 }

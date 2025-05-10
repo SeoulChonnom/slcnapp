@@ -15,16 +15,16 @@ import org.springframework.data.redis.core.index.Indexed;
 @NoArgsConstructor
 @Builder
 public class RefreshToken {
-	@Id
-	private Integer id;
+    @Id
+    private Integer id;
 
-	@Indexed
-	private String token;
+    @Indexed
+    private String token;
 
-	@TimeToLive
-	private Long expiration;
+    @TimeToLive
+    private Long expiration;
 
-	public void updateToken(String newToken) {
-		token = newToken;
-	}
+    public void updateToken(String newToken) {
+        token = newToken;
+    }
 }

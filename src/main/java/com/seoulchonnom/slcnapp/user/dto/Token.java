@@ -8,7 +8,7 @@ import lombok.*;
 @AllArgsConstructor
 @EqualsAndHashCode
 public class Token {
-	private int userId;
-	private String refreshToken;
-	private String accessToken;
+    private int userId;
+    private String refreshToken;
+    private String accessToken;
 }

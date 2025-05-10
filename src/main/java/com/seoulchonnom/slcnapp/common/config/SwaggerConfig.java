@@ -8,17 +8,17 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class SwaggerConfig {
-	@Bean
-	public OpenAPI customOpenAPI() {
-		return new OpenAPI()
-			.components(new Components())
-			.info(apiInfo());
-	}
+    @Bean
+    public OpenAPI customOpenAPI() {
+        return new OpenAPI()
+                .components(new Components())
+                .info(apiInfo());
+    }
 
-	private Info apiInfo() {
-		return new Info()
-			.title("SLCN API Test")
-			.description("SLCN API description")
-			.version("1.0.o");
-	}
+    private Info apiInfo() {
+        return new Info()
+                .title("SLCN API Test")
+                .description("SLCN API description")
+                .version("1.0.o");
+    }
 }

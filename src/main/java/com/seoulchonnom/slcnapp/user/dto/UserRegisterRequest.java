@@ -11,15 +11,15 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 public class UserRegisterRequest {
-	String name;
-	String userName;
-	String password;
+    String name;
+    String userName;
+    String password;
 
-	public User from(String encodePassword) {
-		return User.builder()
-			.name(name)
-			.username(userName)
-			.password(encodePassword)
-			.build();
-	}
+    public User from(String encodePassword) {
+        return User.builder()
+                .name(name)
+                .username(userName)
+                .password(encodePassword)
+                .build();
+    }
 }

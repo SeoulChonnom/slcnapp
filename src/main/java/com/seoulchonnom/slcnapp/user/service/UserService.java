@@ -29,101 +29,101 @@ import java.time.LocalDateTime;
 @Transactional(readOnly = true)
 public class UserService {
 
-	private final UserRepository userRepository;
-	private final AuthorityRepository authorityRepository;
-	private final RefreshTokenRepository refreshTokenRepository;
-	private final PasswordEncoder passwordEncoder;
-	private final JwtTokenProvider jwtTokenProvider;
+    private final UserRepository userRepository;
+    private final AuthorityRepository authorityRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtTokenProvider jwtTokenProvider;
 
-	@Value("${cookie.expire.time}")
-	private int COOKIE_EXPIRE_TIME;
-	@Value("${login.fail.limit.count}")
-	private int LOGIN_FAIL_LIMIT_COUNT;
-	@Value("${login.limit.clear.time}")
-	private int LOGIN_LIMIT_CLEAR_TIME;
-	private final int LOGIN_ERROR_CODE = -1;
+    @Value("${cookie.expire.time}")
+    private int COOKIE_EXPIRE_TIME;
+    @Value("${login.fail.limit.count}")
+    private int LOGIN_FAIL_LIMIT_COUNT;
+    @Value("${login.limit.clear.time}")
+    private int LOGIN_LIMIT_CLEAR_TIME;
+    private final int LOGIN_ERROR_CODE = -1;
 
-	@Transactional
-	public void registerUser(UserRegisterRequest userRegisterRequest) {
-		User user = User.builder()
-			.name(userRegisterRequest.getName())
-			.username(userRegisterRequest.getUserName())
-			.password(passwordEncoder.encode(userRegisterRequest.getPassword()))
-			.loginFailCount(0)
-			.build();
+    @Transactional
+    public void registerUser(UserRegisterRequest userRegisterRequest) {
+        User user = User.builder()
+                .name(userRegisterRequest.getName())
+                .username(userRegisterRequest.getUserName())
+                .password(passwordEncoder.encode(userRegisterRequest.getPassword()))
+                .loginFailCount(0)
+                .build();
 
-		userRepository.save(user);
+        userRepository.save(user);
 
-		Authority authority = Authority.builder().role(Role.USER).user(user).build();
-		authorityRepository.save(authority);
-	}
+        Authority authority = Authority.builder().role(Role.USER).user(user).build();
+        authorityRepository.save(authority);
+    }
 
-	@Transactional
-	public Token issueToken(UserLoginRequest userLoginRequest) {
-		User user = userRepository.findByUsername(userLoginRequest.getUsername())
-			.orElseThrow(InvalidUserException::new);
+    @Transactional
+    public Token issueToken(UserLoginRequest userLoginRequest) {
+        User user = userRepository.findByUsername(userLoginRequest.getUsername())
+                .orElseThrow(InvalidUserException::new);
 
-		if (user.getLoginFailCount() >= LOGIN_FAIL_LIMIT_COUNT
-			&& Duration.between(user.getLastLoginFailTime(), LocalDateTime.now()).getSeconds()
-			> LOGIN_LIMIT_CLEAR_TIME) {
-			throw new UserLoginFailCountOverException();
-		}
+        if (user.getLoginFailCount() >= LOGIN_FAIL_LIMIT_COUNT
+                && Duration.between(user.getLastLoginFailTime(), LocalDateTime.now()).getSeconds()
+                > LOGIN_LIMIT_CLEAR_TIME) {
+            throw new UserLoginFailCountOverException();
+        }
 
-		if (passwordEncoder.matches(userLoginRequest.getPassword(), user.getPassword())) {
-			Token token = jwtTokenProvider.createToken(new UserDetail(user), user.getId());
+        if (passwordEncoder.matches(userLoginRequest.getPassword(), user.getPassword())) {
+            Token token = jwtTokenProvider.createToken(new UserDetail(user), user.getId());
 
-			RefreshToken refreshToken = RefreshToken.builder().id(user.getId()).token(token.getRefreshToken()).build();
-			refreshTokenRepository.save(refreshToken);
+            RefreshToken refreshToken = RefreshToken.builder().id(user.getId()).token(token.getRefreshToken()).build();
+            refreshTokenRepository.save(refreshToken);
 
-			user.resetLoginFailCount();
+            user.resetLoginFailCount();
 
-			return token;
-		} else {
-			user.updateLoginFailCount();
-			return Token.builder().userId(LOGIN_ERROR_CODE).build();
-		}
-	}
+            return token;
+        } else {
+            user.updateLoginFailCount();
+            return Token.builder().userId(LOGIN_ERROR_CODE).build();
+        }
+    }
 
-	//	@Transactional(propagation = Propagation.REQUIRES_NEW)
-	//    protected void updateLoginFailCount(User user) {
-	//		user.updateLoginFailCount();
-	//	}
+    //	@Transactional(propagation = Propagation.REQUIRES_NEW)
+    //    protected void updateLoginFailCount(User user) {
+    //		user.updateLoginFailCount();
+    //	}
 
-	public void updateCookie(HttpServletResponse response, String token) {
-		Cookie cookie = new Cookie("refreshToken", token);
+    public void updateCookie(HttpServletResponse response, String token) {
+        Cookie cookie = new Cookie("refreshToken", token);
 
-		cookie.setSecure(true);
-		cookie.setHttpOnly(true);
-		cookie.setPath("/");
-		cookie.setMaxAge(COOKIE_EXPIRE_TIME);
+        cookie.setSecure(true);
+        cookie.setHttpOnly(true);
+        cookie.setPath("/");
+        cookie.setMaxAge(COOKIE_EXPIRE_TIME);
 
-		response.addCookie(cookie);
-	}
+        response.addCookie(cookie);
+    }
 
-	public UserInfoResponse getUserInfo(Token token) {
-		if (token.getUserId() == LOGIN_ERROR_CODE) {
-			throw new InvalidUserException();
-		}
+    public UserInfoResponse getUserInfo(Token token) {
+        if (token.getUserId() == LOGIN_ERROR_CODE) {
+            throw new InvalidUserException();
+        }
 
-		User user = userRepository.findById(token.getUserId()).orElseThrow(InvalidAccessTokenException::new);
+        User user = userRepository.findById(token.getUserId()).orElseThrow(InvalidAccessTokenException::new);
 
-		return UserInfoResponse.of(token.getAccessToken(), user);
-	}
+        return UserInfoResponse.of(token.getAccessToken(), user);
+    }
 
-	@Transactional
-	public Token reissueToken(String token) {
-		if (!jwtTokenProvider.validateToken(token)) {
-			throw new InvalidRefreshTokenException();
-		}
-		RefreshToken refreshToken = refreshTokenRepository.findByToken(token)
-			.orElseThrow(InvalidRefreshTokenException::new);
-		User user = userRepository.findById(refreshToken.getId()).orElseThrow(InvalidRefreshTokenException::new);
+    @Transactional
+    public Token reissueToken(String token) {
+        if (!jwtTokenProvider.validateToken(token)) {
+            throw new InvalidRefreshTokenException();
+        }
+        RefreshToken refreshToken = refreshTokenRepository.findByToken(token)
+                .orElseThrow(InvalidRefreshTokenException::new);
+        User user = userRepository.findById(refreshToken.getId()).orElseThrow(InvalidRefreshTokenException::new);
 
-		Token newToken = jwtTokenProvider.createToken(new UserDetail(user), user.getId());
+        Token newToken = jwtTokenProvider.createToken(new UserDetail(user), user.getId());
 
-		refreshToken.updateToken(newToken.getRefreshToken());
-		refreshTokenRepository.save(refreshToken);
+        refreshToken.updateToken(newToken.getRefreshToken());
+        refreshTokenRepository.save(refreshToken);
 
-		return newToken;
-	}
+        return newToken;
+    }
 }

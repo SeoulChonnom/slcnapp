@@ -12,17 +12,17 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Getter
 public class Quiz {
-	@Id
-	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private Integer id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
 
-	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "trip_id")
-	private Trip trip;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "trip_id")
+    private Trip trip;
 
-	@Column(length = 2, nullable = false)
-	private String quizIndex;
+    @Column(length = 2, nullable = false)
+    private String quizIndex;
 
-	@Column(length = 10, nullable = false)
-	private String answer;
+    @Column(length = 10, nullable = false)
+    private String answer;
 }

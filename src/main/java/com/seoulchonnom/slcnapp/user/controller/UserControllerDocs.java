@@ -15,15 +15,15 @@ import org.springframework.http.ResponseEntity;
 
 @Tag(name = "회원 관리 API", description = "회원 가입 및 로그인")
 public interface UserControllerDocs {
-	@Parameters({
-		@Parameter(name = "X-AUTH-TOKEN", description = "AccessToken", required = true, in = ParameterIn.HEADER)})
-	@Operation(summary = "회원 가입", description = "회원 가입 API")
-	ResponseEntity<BaseResponse> registerUser(UserRegisterRequest userRegisterRequest);
+    @Parameters({
+            @Parameter(name = "X-AUTH-TOKEN", description = "AccessToken", required = true, in = ParameterIn.HEADER)})
+    @Operation(summary = "회원 가입", description = "회원 가입 API")
+    ResponseEntity<BaseResponse> registerUser(UserRegisterRequest userRegisterRequest);
 
-	@Operation(summary = "로그인", description = "로그인 API")
-	@ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Success")})
-	ResponseEntity<BaseResponse> loginUser(HttpServletResponse response, UserLoginRequest userLoginRequest);
+    @Operation(summary = "로그인", description = "로그인 API")
+    @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Success")})
+    ResponseEntity<BaseResponse> loginUser(HttpServletResponse response, UserLoginRequest userLoginRequest);
 
-	@Operation(summary = "토큰 갱신", description = "RefreshToken 갱신")
-	ResponseEntity<BaseResponse> reissueToken(String refreshToken, HttpServletResponse response);
+    @Operation(summary = "토큰 갱신", description = "RefreshToken 갱신")
+    ResponseEntity<BaseResponse> reissueToken(String refreshToken, HttpServletResponse response);
 }

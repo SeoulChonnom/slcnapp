@@ -15,17 +15,17 @@ import java.util.List;
 @Builder
 @AllArgsConstructor
 public class UserInfoResponse {
-	private String accessToken;
-	private String username;
-	private String name;
-	private List<Role> roleList;
+    private String accessToken;
+    private String username;
+    private String name;
+    private List<Role> roleList;
 
-	public static UserInfoResponse of(String accessToken, User user) {
-		return UserInfoResponse.builder()
-			.accessToken(accessToken)
-			.username(user.getUsername())
-			.name(user.getName())
-			.roleList(user.getAuthorityList().stream().map(Authority::getRole).toList())
-			.build();
-	}
+    public static UserInfoResponse of(String accessToken, User user) {
+        return UserInfoResponse.builder()
+                .accessToken(accessToken)
+                .username(user.getUsername())
+                .name(user.getName())
+                .roleList(user.getAuthorityList().stream().map(Authority::getRole).toList())
+                .build();
+    }
 }

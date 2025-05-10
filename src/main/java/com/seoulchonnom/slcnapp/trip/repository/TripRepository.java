@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface TripRepository extends JpaRepository<Trip, Integer> {
-	List<Trip> findAllByOrderByDateDesc();
+    List<Trip> findAllByOrderByDateDesc();
 
-	Optional<Trip> findByDate(@NonNull String date);
+    Optional<Trip> findByDate(@NonNull String date);
 }

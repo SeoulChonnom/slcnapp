@@ -17,36 +17,36 @@ import java.util.List;
 @AllArgsConstructor
 @Getter
 public class User {
-	@Id
-	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private Integer id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
 
-	@Column(length = 30, nullable = false, unique = true)
-	private String username;
+    @Column(length = 30, nullable = false, unique = true)
+    private String username;
 
-	@Column(length = 30, nullable = false)
-	private String name;
+    @Column(length = 30, nullable = false)
+    private String name;
 
-	@Column(nullable = false)
-	private String password;
+    @Column(nullable = false)
+    private String password;
 
-	@Builder.Default
-	@OneToMany(mappedBy = "user", fetch = FetchType.EAGER, cascade = CascadeType.ALL)
-	private List<Authority> authorityList = new ArrayList<>();
-	private LocalDateTime lastLoginTime;
+    @Builder.Default
+    @OneToMany(mappedBy = "user", fetch = FetchType.EAGER, cascade = CascadeType.ALL)
+    private List<Authority> authorityList = new ArrayList<>();
+    private LocalDateTime lastLoginTime;
 
-	@ColumnDefault("0")
-	private Integer loginFailCount;
+    @ColumnDefault("0")
+    private Integer loginFailCount;
 
-	private LocalDateTime lastLoginFailTime;
+    private LocalDateTime lastLoginFailTime;
 
-	public void updateLoginFailCount() {
-		this.loginFailCount = this.loginFailCount + 1;
-		this.lastLoginFailTime = LocalDateTime.now();
-	}
+    public void updateLoginFailCount() {
+        this.loginFailCount = this.loginFailCount + 1;
+        this.lastLoginFailTime = LocalDateTime.now();
+    }
 
-	public void resetLoginFailCount() {
-		this.loginFailCount = 0;
-		this.lastLoginTime = LocalDateTime.now();
-	}
+    public void resetLoginFailCount() {
+        this.loginFailCount = 0;
+        this.lastLoginTime = LocalDateTime.now();
+    }
 }

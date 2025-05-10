@@ -14,39 +14,39 @@ import org.springframework.http.ResponseEntity;
 @Tag(name = "일정 정보 API", description = "일정 정보 조회")
 public interface ScheduleControllerDocs {
 
-	@Parameters({
-		@Parameter(name = "X-AUTH-TOKEN", description = "AccessToken", required = true, in = ParameterIn.HEADER)
-	})
-	@Operation(summary = "이번달 일정 조회", description = "달력페이지 진입시 이번달 일정 조회 API")
-	ResponseEntity<BaseResponse> getSchedulesForNow();
+    @Parameters({
+            @Parameter(name = "X-AUTH-TOKEN", description = "AccessToken", required = true, in = ParameterIn.HEADER)
+    })
+    @Operation(summary = "이번달 일정 조회", description = "달력페이지 진입시 이번달 일정 조회 API")
+    ResponseEntity<BaseResponse> getSchedulesForNow();
 
-	@Parameters({
-		@Parameter(name = "X-AUTH-TOKEN", description = "AccessToken", required = true, in = ParameterIn.HEADER)
-	})
-	@Operation(summary = "특정 달 일정 조회", description = "달력 이동 시 해당 달의 일정 조회 API")
-	ResponseEntity<BaseResponse> getSchedulesForYearAndMonth(ScheduleSearchRequest scheduleSearchRequest);
+    @Parameters({
+            @Parameter(name = "X-AUTH-TOKEN", description = "AccessToken", required = true, in = ParameterIn.HEADER)
+    })
+    @Operation(summary = "특정 달 일정 조회", description = "달력 이동 시 해당 달의 일정 조회 API")
+    ResponseEntity<BaseResponse> getSchedulesForYearAndMonth(ScheduleSearchRequest scheduleSearchRequest);
 
-	@Parameters({
-		@Parameter(name = "X-AUTH-TOKEN", description = "AccessToken", required = true, in = ParameterIn.HEADER)
-	})
-	@Operation(summary = "일정 등록", description = "일정 등록 API")
-	ResponseEntity<BaseResponse> registerSchedule(ScheduleRegisterRequest scheduleSearchRequest);
+    @Parameters({
+            @Parameter(name = "X-AUTH-TOKEN", description = "AccessToken", required = true, in = ParameterIn.HEADER)
+    })
+    @Operation(summary = "일정 등록", description = "일정 등록 API")
+    ResponseEntity<BaseResponse> registerSchedule(ScheduleRegisterRequest scheduleSearchRequest);
 
-	@Parameters({
-			@Parameter(name = "X-AUTH-TOKEN", description = "AccessToken", required = true, in = ParameterIn.HEADER)
-	})
-	@Operation(summary = "일정 수정", description = "일정 수정 API")
-	ResponseEntity<BaseResponse> modifySchedule(ScheduleModifyRequest scheduleModifyRequest);
+    @Parameters({
+            @Parameter(name = "X-AUTH-TOKEN", description = "AccessToken", required = true, in = ParameterIn.HEADER)
+    })
+    @Operation(summary = "일정 수정", description = "일정 수정 API")
+    ResponseEntity<BaseResponse> modifySchedule(ScheduleModifyRequest scheduleModifyRequest);
 
-	@Parameters({
-			@Parameter(name = "X-AUTH-TOKEN", description = "AccessToken", required = true, in = ParameterIn.HEADER)
-	})
-	@Operation(summary = "일정 삭제(숨김)", description = "일정 목록 삭제 API")
-	ResponseEntity<BaseResponse> hideSchedule(String scheduleId);
+    @Parameters({
+            @Parameter(name = "X-AUTH-TOKEN", description = "AccessToken", required = true, in = ParameterIn.HEADER)
+    })
+    @Operation(summary = "일정 삭제(숨김)", description = "일정 목록 삭제 API")
+    ResponseEntity<BaseResponse> hideSchedule(String scheduleId);
 
-	@Parameters({
-			@Parameter(name = "X-AUTH-TOKEN", description = "AccessToken", required = true, in = ParameterIn.HEADER)
-	})
-	@Operation(summary = "일정 완전 삭제", description = "일정 데이터 삭제 API")
-	ResponseEntity<BaseResponse> deleteSchedule(String scheduleId);
+    @Parameters({
+            @Parameter(name = "X-AUTH-TOKEN", description = "AccessToken", required = true, in = ParameterIn.HEADER)
+    })
+    @Operation(summary = "일정 완전 삭제", description = "일정 데이터 삭제 API")
+    ResponseEntity<BaseResponse> deleteSchedule(String scheduleId);
 }

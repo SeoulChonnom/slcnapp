@@ -24,80 +24,80 @@ import static com.seoulchonnom.slcnapp.schedule.ScheduleConstant.DATE_TIME_FORMA
 @RequiredArgsConstructor
 @Transactional
 public class ScheduleService {
-	private final ScheduleRepository scheduleRepository;
+    private final ScheduleRepository scheduleRepository;
 
-	@Transactional(readOnly = true)
-	public List<ScheduleResponse> getSchedulesForNow() {
-		LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
+    @Transactional(readOnly = true)
+    public List<ScheduleResponse> getSchedulesForNow() {
+        LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
 
-		int year = now.getYear();
-		int month = now.getMonthValue();
+        int year = now.getYear();
+        int month = now.getMonthValue();
 
-		return getSchedulesForMonth(year, month);
-	}
+        return getSchedulesForMonth(year, month);
+    }
 
-	@Transactional(readOnly = true)
-	public List<ScheduleResponse> getSchedulesForMonth(int year, int month) {
-		if (!isValidDate(year, month)) {
-			throw new InvalidScheduleDateException();
-		}
+    @Transactional(readOnly = true)
+    public List<ScheduleResponse> getSchedulesForMonth(int year, int month) {
+        if (!isValidDate(year, month)) {
+            throw new InvalidScheduleDateException();
+        }
 
-		LocalDateTime startDate = LocalDateTime.of(year, month, 1, 0, 0, 0);
-		LocalDateTime endDate = startDate.plusMonths(1);
+        LocalDateTime startDate = LocalDateTime.of(year, month, 1, 0, 0, 0);
+        LocalDateTime endDate = startDate.plusMonths(1);
 
-		List<Schedule> scheduleList = scheduleRepository.findAllByStartBetweenAndIsVisible(startDate, endDate, true);
+        List<Schedule> scheduleList = scheduleRepository.findAllByStartBetweenAndIsVisible(startDate, endDate, true);
 
-		return scheduleList.stream().map(ScheduleResponse::from).collect(Collectors.toList());
-	}
+        return scheduleList.stream().map(ScheduleResponse::from).collect(Collectors.toList());
+    }
 
-	public String registerSchedule(ScheduleRegisterRequest request) {
-		if (!isValidDateTime(request.getStart()) || !isValidDateTime(request.getEnd())) {
-			throw new InvalidScheduleRegisterRequestException();
-		}
+    public String registerSchedule(ScheduleRegisterRequest request) {
+        if (!isValidDateTime(request.getStart()) || !isValidDateTime(request.getEnd())) {
+            throw new InvalidScheduleRegisterRequestException();
+        }
 
-		Schedule schedule = Schedule.from(request);
+        Schedule schedule = Schedule.from(request);
 
-		scheduleRepository.save(schedule);
-		return schedule.getId();
-	}
+        scheduleRepository.save(schedule);
+        return schedule.getId();
+    }
 
-	public void modifySchedule(ScheduleModifyRequest request) {
-		if (!isValidDateTime(request.getStart()) || !isValidDateTime(request.getEnd())) {
-			throw new InvalidScheduleRegisterRequestException();
-		}
+    public void modifySchedule(ScheduleModifyRequest request) {
+        if (!isValidDateTime(request.getStart()) || !isValidDateTime(request.getEnd())) {
+            throw new InvalidScheduleRegisterRequestException();
+        }
 
-		Schedule schedule = scheduleRepository.findById(request.getId()).orElseThrow(ScheduleNotFoundException::new);
-		schedule.modifyValues(request);
+        Schedule schedule = scheduleRepository.findById(request.getId()).orElseThrow(ScheduleNotFoundException::new);
+        schedule.modifyValues(request);
 
-		scheduleRepository.save(schedule);
-	}
+        scheduleRepository.save(schedule);
+    }
 
-	public void hideSchedule(String scheduleId) {
-		Schedule schedule = scheduleRepository.findById(scheduleId).orElseThrow(ScheduleNotFoundException::new);
-		schedule.hideSchedule();
-		scheduleRepository.save(schedule);
-	}
+    public void hideSchedule(String scheduleId) {
+        Schedule schedule = scheduleRepository.findById(scheduleId).orElseThrow(ScheduleNotFoundException::new);
+        schedule.hideSchedule();
+        scheduleRepository.save(schedule);
+    }
 
-	public void deleteSchedule(String scheduleId) {
-		Schedule schedule = scheduleRepository.findById(scheduleId).orElseThrow(ScheduleNotFoundException::new);
-		scheduleRepository.delete(schedule);
-	}
+    public void deleteSchedule(String scheduleId) {
+        Schedule schedule = scheduleRepository.findById(scheduleId).orElseThrow(ScheduleNotFoundException::new);
+        scheduleRepository.delete(schedule);
+    }
 
-	private boolean isValidDate(int year, int month) {
-		if (year < 1900 || year > 2100) {
-			return false;
-		}
+    private boolean isValidDate(int year, int month) {
+        if (year < 1900 || year > 2100) {
+            return false;
+        }
 
-		return month >= 1 && month <= 12;
-	}
+        return month >= 1 && month <= 12;
+    }
 
-	private boolean isValidDateTime(String date) {
-		try {
-			LocalDateTime.parse(date, DATE_TIME_FORMATTER);
-		} catch (DateTimeParseException e) {
-			return false;
-		}
+    private boolean isValidDateTime(String date) {
+        try {
+            LocalDateTime.parse(date, DATE_TIME_FORMATTER);
+        } catch (DateTimeParseException e) {
+            return false;
+        }
 
-		return true;
-	}
+        return true;
+    }
 }

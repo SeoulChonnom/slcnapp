@@ -17,61 +17,61 @@ import static com.seoulchonnom.slcnapp.schedule.ScheduleConstant.*;
 @RequiredArgsConstructor
 public class ScheduleController implements ScheduleControllerDocs {
 
-	private final ScheduleService scheduleService;
+    private final ScheduleService scheduleService;
 
-	@Override
-	@GetMapping("/")
-	public ResponseEntity<BaseResponse> getSchedulesForNow() {
-		return new ResponseEntity<>(
-			BaseResponse.from(true, RETRIEVE_SCHEDULE_COMPLETE_MESSAGE, scheduleService.getSchedulesForNow()),
-			HttpStatus.OK);
-	}
+    @Override
+    @GetMapping("/")
+    public ResponseEntity<BaseResponse> getSchedulesForNow() {
+        return new ResponseEntity<>(
+                BaseResponse.from(true, RETRIEVE_SCHEDULE_COMPLETE_MESSAGE, scheduleService.getSchedulesForNow()),
+                HttpStatus.OK);
+    }
 
-	@Override
-	@GetMapping("/date")
-	public ResponseEntity<BaseResponse> getSchedulesForYearAndMonth(ScheduleSearchRequest request) {
-		return new ResponseEntity<>(
-			BaseResponse.from(true, RETRIEVE_SCHEDULE_COMPLETE_MESSAGE,
-				scheduleService.getSchedulesForMonth(request.getYear(), request.getMonth())),
-			HttpStatus.OK);
-	}
+    @Override
+    @GetMapping("/date")
+    public ResponseEntity<BaseResponse> getSchedulesForYearAndMonth(ScheduleSearchRequest request) {
+        return new ResponseEntity<>(
+                BaseResponse.from(true, RETRIEVE_SCHEDULE_COMPLETE_MESSAGE,
+                        scheduleService.getSchedulesForMonth(request.getYear(), request.getMonth())),
+                HttpStatus.OK);
+    }
 
-	@Override
-	@PostMapping("/register")
-	public ResponseEntity<BaseResponse> registerSchedule(@RequestBody ScheduleRegisterRequest request) {
-		return new ResponseEntity<>(
-			BaseResponse.from(true, REGISTER_SCHEDULE_COMPLETE_MESSAGE, scheduleService.registerSchedule(request)),
-			HttpStatus.OK
-		);
-	}
+    @Override
+    @PostMapping("/register")
+    public ResponseEntity<BaseResponse> registerSchedule(@RequestBody ScheduleRegisterRequest request) {
+        return new ResponseEntity<>(
+                BaseResponse.from(true, REGISTER_SCHEDULE_COMPLETE_MESSAGE, scheduleService.registerSchedule(request)),
+                HttpStatus.OK
+        );
+    }
 
-	@Override
-	@PutMapping("/modify")
-	public ResponseEntity<BaseResponse> modifySchedule(@RequestBody ScheduleModifyRequest scheduleModifyRequest) {
-		scheduleService.modifySchedule(scheduleModifyRequest);
-		return new ResponseEntity<>(
-				BaseResponse.from(true, MODIFY_SCHEDULE_COMPLETE_MESSAGE),
-				HttpStatus.OK
-		);
-	}
+    @Override
+    @PutMapping("/modify")
+    public ResponseEntity<BaseResponse> modifySchedule(@RequestBody ScheduleModifyRequest scheduleModifyRequest) {
+        scheduleService.modifySchedule(scheduleModifyRequest);
+        return new ResponseEntity<>(
+                BaseResponse.from(true, MODIFY_SCHEDULE_COMPLETE_MESSAGE),
+                HttpStatus.OK
+        );
+    }
 
-	@Override
-	@PutMapping("/remove/{scheduleId}")
-	public ResponseEntity<BaseResponse> hideSchedule(@PathVariable String scheduleId) {
-		scheduleService.hideSchedule(scheduleId);
-		return new ResponseEntity<>(
-				BaseResponse.from(true, DELETE_SCHEDULE_COMPLETE_MESSAGE),
-				HttpStatus.OK
-		);
-	}
+    @Override
+    @PutMapping("/remove/{scheduleId}")
+    public ResponseEntity<BaseResponse> hideSchedule(@PathVariable String scheduleId) {
+        scheduleService.hideSchedule(scheduleId);
+        return new ResponseEntity<>(
+                BaseResponse.from(true, DELETE_SCHEDULE_COMPLETE_MESSAGE),
+                HttpStatus.OK
+        );
+    }
 
-	@Override
-	@DeleteMapping("/delete/{scheduleId}")
-	public ResponseEntity<BaseResponse> deleteSchedule(@PathVariable String scheduleId) {
-		scheduleService.deleteSchedule(scheduleId);
-		return new ResponseEntity<>(
-				BaseResponse.from(true, HARD_DELETE_SCHEDULE_COMPLETE_MESSAGE),
-				HttpStatus.OK
-		);
-	}
+    @Override
+    @DeleteMapping("/delete/{scheduleId}")
+    public ResponseEntity<BaseResponse> deleteSchedule(@PathVariable String scheduleId) {
+        scheduleService.deleteSchedule(scheduleId);
+        return new ResponseEntity<>(
+                BaseResponse.from(true, HARD_DELETE_SCHEDULE_COMPLETE_MESSAGE),
+                HttpStatus.OK
+        );
+    }
 }

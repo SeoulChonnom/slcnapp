@@ -12,10 +12,10 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class QuizRegisterRequest {
-	private String quizIndex;
-	private String answer;
+    private String quizIndex;
+    private String answer;
 
-	public Quiz of(Trip trip) {
-		return Quiz.builder().quizIndex(quizIndex).trip(trip).answer(answer).build();
-	}
+    public Quiz of(Trip trip) {
+        return Quiz.builder().quizIndex(quizIndex).trip(trip).answer(answer).build();
+    }
 }
