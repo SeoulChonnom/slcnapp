@@ -1,15 +1,14 @@
 package com.seoulchonnom.slcnapp.schedule.controller;
 
 import com.seoulchonnom.slcnapp.common.dto.BaseResponse;
+import com.seoulchonnom.slcnapp.schedule.dto.ScheduleModifyRequest;
 import com.seoulchonnom.slcnapp.schedule.dto.ScheduleRegisterRequest;
 import com.seoulchonnom.slcnapp.schedule.dto.ScheduleSearchRequest;
-
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Parameters;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.tags.Tag;
-
 import org.springframework.http.ResponseEntity;
 
 @Tag(name = "일정 정보 API", description = "일정 정보 조회")
@@ -32,4 +31,22 @@ public interface ScheduleControllerDocs {
 	})
 	@Operation(summary = "일정 등록", description = "일정 등록 API")
 	ResponseEntity<BaseResponse> registerSchedule(ScheduleRegisterRequest scheduleSearchRequest);
+
+	@Parameters({
+			@Parameter(name = "X-AUTH-TOKEN", description = "AccessToken", required = true, in = ParameterIn.HEADER)
+	})
+	@Operation(summary = "일정 수정", description = "일정 수정 API")
+	ResponseEntity<BaseResponse> modifySchedule(ScheduleModifyRequest scheduleModifyRequest);
+
+	@Parameters({
+			@Parameter(name = "X-AUTH-TOKEN", description = "AccessToken", required = true, in = ParameterIn.HEADER)
+	})
+	@Operation(summary = "일정 삭제(숨김)", description = "일정 목록 삭제 API")
+	ResponseEntity<BaseResponse> hideSchedule(String scheduleId);
+
+	@Parameters({
+			@Parameter(name = "X-AUTH-TOKEN", description = "AccessToken", required = true, in = ParameterIn.HEADER)
+	})
+	@Operation(summary = "일정 완전 삭제", description = "일정 데이터 삭제 API")
+	ResponseEntity<BaseResponse> deleteSchedule(String scheduleId);
 }

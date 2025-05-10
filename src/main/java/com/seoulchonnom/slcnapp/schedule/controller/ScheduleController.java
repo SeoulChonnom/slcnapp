@@ -1,6 +1,7 @@
 package com.seoulchonnom.slcnapp.schedule.controller;
 
 import com.seoulchonnom.slcnapp.common.dto.BaseResponse;
+import com.seoulchonnom.slcnapp.schedule.dto.ScheduleModifyRequest;
 import com.seoulchonnom.slcnapp.schedule.dto.ScheduleRegisterRequest;
 import com.seoulchonnom.slcnapp.schedule.dto.ScheduleSearchRequest;
 import com.seoulchonnom.slcnapp.schedule.service.ScheduleService;
@@ -9,8 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import static com.seoulchonnom.slcnapp.schedule.ScheduleConstant.REGISTER_SCHEDULE_COMPLETE_MESSAGE;
-import static com.seoulchonnom.slcnapp.schedule.ScheduleConstant.RETRIEVE_SCHEDULE_COMPLETE_MESSAGE;
+import static com.seoulchonnom.slcnapp.schedule.ScheduleConstant.*;
 
 @RestController
 @RequestMapping("/schedule")
@@ -29,7 +29,7 @@ public class ScheduleController implements ScheduleControllerDocs {
 
 	@Override
 	@GetMapping("/date")
-	public ResponseEntity<BaseResponse> getSchedulesForYearAndMonth(@ModelAttribute ScheduleSearchRequest request) {
+	public ResponseEntity<BaseResponse> getSchedulesForYearAndMonth(ScheduleSearchRequest request) {
 		return new ResponseEntity<>(
 			BaseResponse.from(true, RETRIEVE_SCHEDULE_COMPLETE_MESSAGE,
 				scheduleService.getSchedulesForMonth(request.getYear(), request.getMonth())),
@@ -45,4 +45,33 @@ public class ScheduleController implements ScheduleControllerDocs {
 		);
 	}
 
+	@Override
+	@PutMapping("/modify")
+	public ResponseEntity<BaseResponse> modifySchedule(@RequestBody ScheduleModifyRequest scheduleModifyRequest) {
+		scheduleService.modifySchedule(scheduleModifyRequest);
+		return new ResponseEntity<>(
+				BaseResponse.from(true, MODIFY_SCHEDULE_COMPLETE_MESSAGE),
+				HttpStatus.OK
+		);
+	}
+
+	@Override
+	@PutMapping("/remove/{scheduleId}")
+	public ResponseEntity<BaseResponse> hideSchedule(@PathVariable String scheduleId) {
+		scheduleService.hideSchedule(scheduleId);
+		return new ResponseEntity<>(
+				BaseResponse.from(true, DELETE_SCHEDULE_COMPLETE_MESSAGE),
+				HttpStatus.OK
+		);
+	}
+
+	@Override
+	@DeleteMapping("/delete/{scheduleId}")
+	public ResponseEntity<BaseResponse> deleteSchedule(@PathVariable String scheduleId) {
+		scheduleService.deleteSchedule(scheduleId);
+		return new ResponseEntity<>(
+				BaseResponse.from(true, HARD_DELETE_SCHEDULE_COMPLETE_MESSAGE),
+				HttpStatus.OK
+		);
+	}
 }

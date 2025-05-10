@@ -1,16 +1,5 @@
 package com.seoulchonnom.slcnapp.schedule.service;
 
-import static com.seoulchonnom.slcnapp.schedule.ScheduleConstant.*;
-
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeParseException;
-import java.util.List;
-import java.util.stream.Collectors;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.seoulchonnom.slcnapp.schedule.domain.Schedule;
 import com.seoulchonnom.slcnapp.schedule.dto.ScheduleModifyRequest;
 import com.seoulchonnom.slcnapp.schedule.dto.ScheduleRegisterRequest;
@@ -19,8 +8,17 @@ import com.seoulchonnom.slcnapp.schedule.exception.InvalidScheduleDateException;
 import com.seoulchonnom.slcnapp.schedule.exception.InvalidScheduleRegisterRequestException;
 import com.seoulchonnom.slcnapp.schedule.exception.ScheduleNotFoundException;
 import com.seoulchonnom.slcnapp.schedule.repository.ScheduleRepository;
-
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import static com.seoulchonnom.slcnapp.schedule.ScheduleConstant.DATE_TIME_FORMATTER;
 
 @Service
 @RequiredArgsConstructor
@@ -47,13 +45,13 @@ public class ScheduleService {
 		LocalDateTime startDate = LocalDateTime.of(year, month, 1, 0, 0, 0);
 		LocalDateTime endDate = startDate.plusMonths(1);
 
-		List<Schedule> scheduleList = scheduleRepository.findAllByStartBetween(startDate, endDate);
+		List<Schedule> scheduleList = scheduleRepository.findAllByStartBetweenAndIsVisible(startDate, endDate, true);
 
 		return scheduleList.stream().map(ScheduleResponse::from).collect(Collectors.toList());
 	}
 
 	public String registerSchedule(ScheduleRegisterRequest request) {
-		if (!isValidRegisterRequest(request)) {
+		if (!isValidDateTime(request.getStart()) || !isValidDateTime(request.getEnd())) {
 			throw new InvalidScheduleRegisterRequestException();
 		}
 
@@ -64,10 +62,25 @@ public class ScheduleService {
 	}
 
 	public void modifySchedule(ScheduleModifyRequest request) {
+		if (!isValidDateTime(request.getStart()) || !isValidDateTime(request.getEnd())) {
+			throw new InvalidScheduleRegisterRequestException();
+		}
+
 		Schedule schedule = scheduleRepository.findById(request.getId()).orElseThrow(ScheduleNotFoundException::new);
 		schedule.modifyValues(request);
 
 		scheduleRepository.save(schedule);
+	}
+
+	public void hideSchedule(String scheduleId) {
+		Schedule schedule = scheduleRepository.findById(scheduleId).orElseThrow(ScheduleNotFoundException::new);
+		schedule.hideSchedule();
+		scheduleRepository.save(schedule);
+	}
+
+	public void deleteSchedule(String scheduleId) {
+		Schedule schedule = scheduleRepository.findById(scheduleId).orElseThrow(ScheduleNotFoundException::new);
+		scheduleRepository.delete(schedule);
 	}
 
 	private boolean isValidDate(int year, int month) {
@@ -78,10 +91,9 @@ public class ScheduleService {
 		return month >= 1 && month <= 12;
 	}
 
-	private boolean isValidRegisterRequest(ScheduleRegisterRequest request) {
+	private boolean isValidDateTime(String date) {
 		try {
-			LocalDateTime.parse(request.getStart(), DATE_TIME_FORMATTER);
-			LocalDateTime.parse(request.getEnd(), DATE_TIME_FORMATTER);
+			LocalDateTime.parse(date, DATE_TIME_FORMATTER);
 		} catch (DateTimeParseException e) {
 			return false;
 		}

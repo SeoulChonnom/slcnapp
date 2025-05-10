@@ -2,25 +2,21 @@ package com.seoulchonnom.slcnapp.schedule.domain;
 
 import com.seoulchonnom.slcnapp.schedule.dto.ScheduleModifyRequest;
 import com.seoulchonnom.slcnapp.schedule.dto.ScheduleRegisterRequest;
-
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
+import org.springframework.beans.BeanUtils;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static com.seoulchonnom.slcnapp.schedule.ScheduleConstant.DATE_TIME_FORMATTER;
 
-import org.springframework.beans.BeanUtils;
-
 @Entity
 @NoArgsConstructor
 @Builder
 @AllArgsConstructor
 @Getter
+@Setter
 public class Schedule {
 	@Id
 	private String id;
@@ -79,7 +75,7 @@ public class Schedule {
 			.calendarId(request.getCalendarId())
 			.title(request.getTitle())
 			.body(request.getBody())
-			.isAllDay(request.isAllDay())
+                .isAllDay(request.isAllday())
 			.start(LocalDateTime.parse(request.getStart(), DATE_TIME_FORMATTER))
 			.end(LocalDateTime.parse(request.getEnd(), DATE_TIME_FORMATTER))
 			.goingDuration(request.getGoingDuration())
@@ -107,52 +103,8 @@ public class Schedule {
 		this.start = LocalDateTime.parse(request.getStart(), DATE_TIME_FORMATTER);
 		this.end = LocalDateTime.parse(request.getEnd(), DATE_TIME_FORMATTER);
 	}
+
+    public void hideSchedule() {
+        this.isVisible = false;
+    }
 }
-/*
-  id?: string;
-  calendarId?: string;
-  title?: string;
-  body?: string;
-  isAllday?: boolean;
-  start?: Date | string | number | TZDate;
-  end?: Date | string | number | TZDate;
-  goingDuration?: number;
-  comingDuration?: number;
-  location?: string;
-  attendees?: string[];
-  category?: 'milestone' | 'task' | 'allday' | 'time';
-  recurrenceRule?: string;
-  state?: 'Busy' | 'Free';
-  isVisible?: boolean;
-  isPending?: boolean;
-  isFocused?: boolean;
-  isReadOnly?: boolean;
-  isPrivate?: boolean;
-  color?: string;
-  backgroundColor?: string;
-  dragBackgroundColor?: string;
-  borderColor?: string;
-  customStyle?: JS
-
-    "title": "test",
-    "location": "test",
-    "isAllday": false,
-    "isPrivate": false,
-    "state": "Busy",
-    "calendarId": "cal1",
-    "start": {
-        "tzOffset": null,
-        "d": {
-            "d": "2025-03-05T15:00:00.000Z"
-        }
-    },
-    "end": {
-        "tzOffset": null,
-        "d": {
-            "d": "2025-03-05T15:00:00.000Z"
-        }
-    },
-    "id": "36be05d0-3584-477a-9992-c4f49c27272f",
-    "category": "time"
-
- */

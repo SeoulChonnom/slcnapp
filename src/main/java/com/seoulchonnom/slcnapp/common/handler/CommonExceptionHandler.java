@@ -5,7 +5,6 @@ import com.seoulchonnom.slcnapp.common.exception.BadRequestException;
 import com.seoulchonnom.slcnapp.common.exception.InternalServerErrorException;
 import com.seoulchonnom.slcnapp.common.exception.PayloadTooLargeException;
 import com.seoulchonnom.slcnapp.common.exception.UnsupportedMediaTypeException;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;

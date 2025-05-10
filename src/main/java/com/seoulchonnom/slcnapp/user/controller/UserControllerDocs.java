@@ -1,13 +1,8 @@
 package com.seoulchonnom.slcnapp.user.controller;
 
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CookieValue;
-import org.springframework.web.bind.annotation.RequestBody;
-
 import com.seoulchonnom.slcnapp.common.dto.BaseResponse;
 import com.seoulchonnom.slcnapp.user.dto.UserLoginRequest;
 import com.seoulchonnom.slcnapp.user.dto.UserRegisterRequest;
-
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Parameters;
@@ -16,6 +11,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.ResponseEntity;
 
 @Tag(name = "회원 관리 API", description = "회원 가입 및 로그인")
 public interface UserControllerDocs {
