@@ -1,15 +1,12 @@
 package com.seoulchonnom.slcnapp.trip.controller;
 
 import com.seoulchonnom.slcnapp.common.dto.BaseResponse;
-import com.seoulchonnom.slcnapp.trip.dto.ImageFile;
 import com.seoulchonnom.slcnapp.trip.dto.TripRegisterRequest;
 import com.seoulchonnom.slcnapp.trip.service.TripService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
 import static com.seoulchonnom.slcnapp.trip.TripConstant.*;
 
@@ -32,21 +29,9 @@ public class TripController implements TripControllerDocs {
                 HttpStatus.OK);
     }
 
-    @PostMapping(value = "/", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<BaseResponse> createTrip(
-            @RequestPart(value = "tripRegisterRequest") TripRegisterRequest tripRegisterRequest,
-            @RequestPart(value = "logo") MultipartFile logo, @RequestPart(value = "map1") MultipartFile map1,
-            @RequestPart(required = false, value = "map2") MultipartFile map2) {
+    @PostMapping(value = "/")
+    public ResponseEntity<BaseResponse> createTrip(@RequestBody TripRegisterRequest tripRegisterRequest) {
         return new ResponseEntity<>(BaseResponse.from(true, REGISTER_TRIP_SUCCESS_MESSAGE,
-                tripService.registerTrip(tripRegisterRequest, logo, map1, map2)), HttpStatus.OK);
-    }
-
-    @GetMapping("/file")
-    public ResponseEntity<byte[]> getFile(@RequestParam(value = "path") String path) {
-        ImageFile imageFile = tripService.getImageFile(path);
-
-        return ResponseEntity.status(HttpStatus.OK)
-                .contentType(MediaType.valueOf(imageFile.getMimeType()))
-                .body(imageFile.getImage());
+                tripService.registerTrip(tripRegisterRequest)), HttpStatus.OK);
     }
 }

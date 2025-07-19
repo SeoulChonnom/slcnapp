@@ -1,4 +1,4 @@
-package com.seoulchonnom.slcnapp.trip.dto;
+package com.seoulchonnom.slcnapp.depot.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

@@ -1,7 +1,8 @@
-package com.seoulchonnom.slcnapp.trip;
+package com.seoulchonnom.slcnapp.depot.util;
 
-import com.seoulchonnom.slcnapp.trip.exception.TripFileExtException;
-import com.seoulchonnom.slcnapp.trip.exception.TripFileSizeException;
+import com.seoulchonnom.slcnapp.depot.exception.FileExtException;
+import com.seoulchonnom.slcnapp.depot.exception.FilePathInvalidException;
+import com.seoulchonnom.slcnapp.depot.exception.FileSizeException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
@@ -10,22 +11,27 @@ import java.io.File;
 import java.io.IOException;
 import java.util.UUID;
 
-import static com.seoulchonnom.slcnapp.trip.TripConstant.EXT_REGEX_STRING;
-import static com.seoulchonnom.slcnapp.trip.TripConstant.MAX_FILE_SIZE;
+import static com.seoulchonnom.slcnapp.depot.DepotConstant.EXT_REGEX_STRING;
+import static com.seoulchonnom.slcnapp.depot.DepotConstant.MAX_FILE_SIZE;
 
 @Component
 public class FileUtils {
     @Value("${upload.path}")
     private String directory;
+    private final String AVAILABLE_PATH = "logo|map";
 
     public String saveImages(MultipartFile multipartFile, String path) throws IOException {
 
+        if (path.isEmpty() || !path.matches(AVAILABLE_PATH)) {
+            throw new FilePathInvalidException();
+        }
+
         if (multipartFile.getSize() > MAX_FILE_SIZE) {
-            throw new TripFileSizeException();
+            throw new FileSizeException();
         }
 
         if (!isImage(multipartFile.getOriginalFilename())) {
-            throw new TripFileExtException();
+            throw new FileExtException();
         }
 
         String fileName = createSaveFileName(path, multipartFile.getOriginalFilename());
@@ -36,15 +42,12 @@ public class FileUtils {
         return fileName;
     }
 
-    // 파일 저장 이름 만들기
-    // - 사용자들이 올리는 파일 이름이 같을 수 있으므로, 자체적으로 랜덤 이름을 만들어 사용한다
     private String createSaveFileName(String path, String originalFilename) {
         String ext = extractExt(originalFilename);
         String uuid = UUID.randomUUID().toString();
-        return path + uuid + '.' + ext;
+        return path + '/' + uuid + '.' + ext;
     }
 
-    // 확장자명 구하기
     private String extractExt(String originalFilename) {
         int pos = originalFilename.lastIndexOf(".");
         return originalFilename.substring(pos + 1);

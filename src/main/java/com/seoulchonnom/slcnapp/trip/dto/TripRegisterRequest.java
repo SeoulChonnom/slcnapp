@@ -26,9 +26,12 @@ public class TripRegisterRequest {
     private String quizAnswerText;
     private String quizErrorTitle;
     private String quizErrorText;
+    private String logo;
+    private String map1;
+    private String map2;
     private List<QuizRegisterRequest> quizRegisterRequestList;
 
-    public Trip of(String logo, String map1) {
+    public Trip of() {
         return Trip.builder()
                 .date(date)
                 .type(type)
@@ -36,6 +39,7 @@ public class TripRegisterRequest {
                 .info2(info2)
                 .logo(logo)
                 .map1(map1)
+                .map2(map2)
                 .button1(button1)
                 .button2(button2)
                 .drive(drive)
