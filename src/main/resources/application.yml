@@ -39,7 +39,6 @@ server:
 
 springdoc:
   swagger-ui:
-    path: /api-test
     enabled: false
 
 upload:
@@ -64,4 +63,5 @@ spring:
 
 springdoc:
   swagger-ui:
+    path: /api-test
     enabled: true
