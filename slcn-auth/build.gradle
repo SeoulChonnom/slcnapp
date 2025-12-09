@@ -1,5 +1,5 @@
 dependencies {
-    implementation project(':slcn-spec')
+    implementation project(':slcn-aggregate')
 
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'org.springframework:spring-context'
