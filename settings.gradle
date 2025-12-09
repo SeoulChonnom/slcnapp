@@ -1,1 +1,6 @@
 rootProject.name = 'slcnapp'
+
+include 'slcn-spec'
+include 'slcn-aggregate'
+include 'slcn-rest'
+include 'slcn-boot'

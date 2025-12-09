@@ -1,0 +1,11 @@
+plugins {
+    id 'org.springframework.boot'
+}
+
+dependencies {
+    implementation project(':slcn-rest')
+
+    implementation 'org.springframework.boot:spring-boot-starter'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+}
