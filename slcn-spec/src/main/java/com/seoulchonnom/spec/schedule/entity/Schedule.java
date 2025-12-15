@@ -28,8 +28,8 @@ public class Schedule extends DomainEntity {
 
 	private LocalDateTime end;
 
-	private Long goingDuration;
-	private Long comingDuration;
+	private long goingDuration;
+	private long comingDuration;
 
 	private String location;
 

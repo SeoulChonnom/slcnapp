@@ -4,7 +4,7 @@ import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
-public class DepotConstant {
+public class FileConstant {
 	public static final long MAX_FILE_SIZE = 10 * 1024 * 1024L;
 
 	public static final String EXT_REGEX_STRING = "jpg|png|jpeg|gif|svg";
