@@ -1,10 +1,12 @@
 package com.seoulchonnom.spec.trip.facade.sdo;
 
-import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Getter
-@Builder
+@Setter
+@NoArgsConstructor
 public class QuizRdo {
 	private String quizIndex;
 	private String answer;

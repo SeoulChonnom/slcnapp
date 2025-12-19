@@ -2,15 +2,19 @@ package com.seoulchonnom.spec.trip.facade.sdo;
 
 import java.util.List;
 
-import lombok.Builder;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Getter
-@Builder
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class TripListRdo {
+	private String id;
 	private String date;
-	private String info1;
-	private String info2;
+	private String name;
 	private String logo;
 	private String quizTitle;
 	private String quizAnswer;
@@ -18,5 +22,5 @@ public class TripListRdo {
 	private String quizAnswerText;
 	private String quizErrorTitle;
 	private String quizErrorText;
-	private List<QuizRdo> quizResponses;
+	private List<QuizRdo> quizList;
 }

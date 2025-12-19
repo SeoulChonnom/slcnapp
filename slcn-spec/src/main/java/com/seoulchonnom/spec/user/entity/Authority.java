@@ -1,19 +1,21 @@
 package com.seoulchonnom.spec.user.entity;
 
-import java.time.LocalDateTime;
-
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Getter
 @Setter
-@Builder
-@AllArgsConstructor
-@NoArgsConstructor
 public class Authority {
 	private Role role;
-	private LocalDateTime registeredTime;
+	private long registeredTime;
+
+	public Authority(Role role) {
+		this.role = role;
+		this.registeredTime = System.currentTimeMillis();
+	}
+
+	public Authority() {
+		this.role = Role.USER;
+		this.registeredTime = System.currentTimeMillis();
+	}
 }

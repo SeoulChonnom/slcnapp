@@ -1,18 +1,17 @@
 package com.seoulchonnom.spec.schedule.facade.sdo;
 
-import java.time.format.DateTimeFormatter;
-
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.seoulchonnom.spec.schedule.entity.Schedule;
 import com.seoulchonnom.spec.schedule.entity.ScheduleCategory;
 import com.seoulchonnom.spec.schedule.entity.ScheduleState;
 
-import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Getter
-@Builder
+@Setter
+@NoArgsConstructor
 public class ScheduleRdo {
 	private String id;
 	private String calendarId;
@@ -48,35 +47,6 @@ public class ScheduleRdo {
 	private String dragBackgroundColor;
 	private String borderColor;
 	private String customStyle;
-
-	public static ScheduleRdo from(Schedule schedule) {
-		return ScheduleRdo.builder()
-			.id(schedule.getId())
-			.calendarId(schedule.getCalendarId())
-			.title(schedule.getTitle())
-			.body(schedule.getBody())
-			.isAllDay(schedule.isAllDay())
-			.start(schedule.getStart().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
-			.end(schedule.getEnd().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
-			.goingDuration(schedule.getGoingDuration())
-			.comingDuration(schedule.getComingDuration())
-			.location(schedule.getLocation())
-			.category(schedule.getCategory())
-			.dueDateClass(schedule.getDueDateClass())
-			.recurrenceRule(schedule.getRecurrenceRule())
-			.state(schedule.getState())
-			.isVisible(schedule.isVisible())
-			.isPending(schedule.isPending())
-			.isFocused(schedule.isFocused())
-			.isReadOnly(schedule.isReadOnly())
-			.isPrivate(schedule.isPrivate())
-			.color(schedule.getColor())
-			.backgroundColor(schedule.getBackgroundColor())
-			.dragBackgroundColor(schedule.getDragBackgroundColor())
-			.borderColor(schedule.getBorderColor())
-			.customStyle(schedule.getCustomStyle())
-			.build();
-	}
 
 	@JsonIgnore
 	public boolean isAllDay() {

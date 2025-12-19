@@ -1,15 +1,17 @@
 package com.seoulchonnom.spec.trip.facade.sdo;
 
-import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Getter
-@Builder
+@Setter
+@NoArgsConstructor
 public class TripInfoRdo {
 	private String date;
-	private String map1;
-	private String map2;
-	private String button1;
-	private String button2;
+	private String firstMap;
+	private String secondMap;
+	private String nextButtonText;
+	private String previousButtonText;
 	private String drive;
 }

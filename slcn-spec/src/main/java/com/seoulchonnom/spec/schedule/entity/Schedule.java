@@ -2,7 +2,12 @@ package com.seoulchonnom.spec.schedule.entity;
 
 import java.time.LocalDateTime;
 
+import org.springframework.beans.BeanUtils;
+
 import com.seoulchonnom.spec.common.entity.DomainEntity;
+import com.seoulchonnom.spec.schedule.facade.sdo.ScheduleCdo;
+import com.seoulchonnom.spec.schedule.facade.sdo.ScheduleRdo;
+import com.seoulchonnom.spec.schedule.facade.sdo.ScheduleUdo;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -51,4 +56,23 @@ public class Schedule extends DomainEntity {
 	private String dragBackgroundColor;
 	private String borderColor;
 	private String customStyle;
+
+	public Schedule(ScheduleCdo scheduleCdo) {
+		super();
+		BeanUtils.copyProperties(scheduleCdo, this);
+	}
+
+	public ScheduleRdo toRdo() {
+		ScheduleRdo scheduleRdo = new ScheduleRdo();
+		BeanUtils.copyProperties(this, scheduleRdo);
+		return scheduleRdo;
+	}
+
+	public void updateSchedule(ScheduleUdo scheduleUdo) {
+		BeanUtils.copyProperties(scheduleUdo, this);
+	}
+
+	public void hideSchedule() {
+		this.isVisible = false;
+	}
 }

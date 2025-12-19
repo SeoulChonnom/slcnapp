@@ -1,21 +1,24 @@
 package com.seoulchonnom.spec.common.entity;
 
-import java.time.LocalDateTime;
+import lombok.Getter;
+import lombok.Setter;
 
+@Getter
+@Setter
 public abstract class DomainEntity extends Entity {
 
-	protected LocalDateTime registeredTime;
-	protected LocalDateTime modifiedTime;
+	protected long registeredTime;
+	protected long modifiedTime;
 
 	protected DomainEntity(String id) {
 		super(id);
-		registeredTime = LocalDateTime.now();
-		modifiedTime = LocalDateTime.now();
+		registeredTime = System.currentTimeMillis();
+		modifiedTime = System.currentTimeMillis();
 	}
 
 	protected DomainEntity() {
 		super();
-		registeredTime = LocalDateTime.now();
-		modifiedTime = LocalDateTime.now();
+		registeredTime = System.currentTimeMillis();
+		modifiedTime = System.currentTimeMillis();
 	}
 }

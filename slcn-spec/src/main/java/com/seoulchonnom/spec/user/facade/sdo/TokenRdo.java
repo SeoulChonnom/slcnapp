@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @EqualsAndHashCode
 public class TokenRdo {
-	private int userId;
+	private String userId;
 	private String refreshToken;
 	private String accessToken;
 }
