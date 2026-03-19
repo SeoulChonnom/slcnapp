@@ -1,7 +1,5 @@
 package com.seoulchonnom.aggregate.user.store.jpo;
 
-import java.time.LocalDateTime;
-
 import com.seoulchonnom.spec.user.entity.Role;
 
 import jakarta.persistence.Entity;
@@ -20,5 +18,5 @@ public class AuthorityJpo {
 	@Id
 	private String userId;
 	private Role role;
-	private LocalDateTime registeredTime;
+	private Long registeredTime;
 }

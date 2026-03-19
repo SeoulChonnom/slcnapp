@@ -25,4 +25,9 @@ public class UserStore {
 		return userJpoMapper.toDomain(userJpo);
 	}
 
+	public User findUserByUserName(String name) {
+		return userJpoMapper.toDomain(
+			userRepository.findUserJpoByUsername(name).orElseThrow(InvalidUserException::new));
+	}
+
 }

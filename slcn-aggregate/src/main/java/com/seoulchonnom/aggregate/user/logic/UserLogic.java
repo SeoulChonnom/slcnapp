@@ -1,9 +1,9 @@
 package com.seoulchonnom.aggregate.user.logic;
 
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.seoulchonnom.aggregate.common.generator.PasswordGenerator;
 import com.seoulchonnom.aggregate.common.generator.store.entity.SequenceName;
 import com.seoulchonnom.aggregate.user.exception.InvalidUserException;
 import com.seoulchonnom.aggregate.user.store.UserStore;
@@ -19,7 +19,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UserLogic {
-	private final PasswordEncoder passwordEncoder;
+	private final PasswordGenerator passwordGenerator;
 	private final IdGenerator idGenerator;
 	private final UserStore userStore;
 
@@ -28,7 +28,7 @@ public class UserLogic {
 	@Transactional
 	public void registerUser(UserCdo userCdo) {
 		String userId = idGenerator.nextDomainId(SequenceName.USER.toString());
-		User user = new User(userCdo, userId, passwordEncoder.encode(userCdo.getPassword()));
+		User user = new User(userCdo, userId, passwordGenerator.encode(userCdo.getPassword()));
 
 		userStore.save(user);
 	}

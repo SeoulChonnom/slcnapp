@@ -10,4 +10,6 @@ import com.seoulchonnom.aggregate.user.store.jpo.UserJpo;
 @Repository
 public interface UserRepository extends JpaRepository<UserJpo, String> {
 	Optional<UserJpo> findUserJpoById(String id);
+
+	Optional<UserJpo> findUserJpoByUsername(String username);
 }
