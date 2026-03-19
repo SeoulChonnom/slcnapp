@@ -6,6 +6,7 @@ import lombok.Setter;
 @Getter
 @Setter
 public class Authority {
+	private String userId;
 	private Role role;
 	private long registeredTime;
 

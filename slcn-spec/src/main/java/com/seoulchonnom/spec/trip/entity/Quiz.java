@@ -16,6 +16,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Getter
 public class Quiz extends DomainEntity {
+	private String tripId;
 	private String quizIndex;
 	private String answer;
 
