@@ -1,6 +1,6 @@
-package com.seoulchonnom.boot.common.handler;
+package com.seoulchonnom.rest.common.handler;
 
-import static com.seoulchonnom.slcnapp.user.UserConstant.*;
+import static com.seoulchonnom.spec.user.constant.UserConstant.*;
 
 import java.io.IOException;
 
@@ -11,7 +11,7 @@ import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.seoulchonnom.slcnapp.common.dto.BaseResponse;
+import com.seoulchonnom.spec.common.response.ErrorResponse;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -31,6 +31,6 @@ public class CommonAccessDeniedHandler implements AccessDeniedHandler {
 		response.setStatus(HttpStatus.FORBIDDEN.value());
 
 		response.getWriter()
-			.write(new ObjectMapper().writeValueAsString(BaseResponse.from(false, ACCESS_ROLE_DENIED_ERROR_MESSAGE)));
+			.write(new ObjectMapper().writeValueAsString(ErrorResponse.from(false, ACCESS_ROLE_DENIED_ERROR_MESSAGE)));
 	}
 }
