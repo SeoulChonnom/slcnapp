@@ -15,8 +15,13 @@ public class Authority {
 		this.registeredTime = System.currentTimeMillis();
 	}
 
-	public Authority() {
+	public Authority(String userId) {
 		this.role = Role.USER;
+		this.registeredTime = System.currentTimeMillis();
+		this.userId = userId;
+	}
+
+	public Authority() {
 		this.registeredTime = System.currentTimeMillis();
 	}
 }

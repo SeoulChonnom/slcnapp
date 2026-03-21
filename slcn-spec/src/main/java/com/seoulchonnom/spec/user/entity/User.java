@@ -24,13 +24,11 @@ public class User extends DomainEntity {
 
 	public User(UserCdo userCdo, String id, String password) {
 		super(id);
-		User.builder()
-			.name(userCdo.getName())
-			.username(userCdo.getUserName())
-			.password(password)
-			.authorityList(new ArrayList<>())
-			.build();
-		this.authorityList.add(new Authority());
+		this.name = userCdo.getName();
+		this.username = userCdo.getUserName();
+		this.password = password;
+		this.authorityList = new ArrayList<>();
+		this.authorityList.add(new Authority(this.id));
 	}
 
 	public UserRdo toRdo(String token) {
