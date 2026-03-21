@@ -217,8 +217,8 @@ fabric.properties
 hs_err_pid*
 replay_pid*
 
-src/main/resources/application.properties
-src/main/resources/application.yml
+.env
+
 /target
 
 ### Gradle ###
