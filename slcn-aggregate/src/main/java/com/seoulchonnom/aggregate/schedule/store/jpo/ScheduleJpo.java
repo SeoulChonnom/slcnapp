@@ -7,8 +7,10 @@ import com.seoulchonnom.spec.schedule.entity.ScheduleCategory;
 import com.seoulchonnom.spec.schedule.entity.ScheduleState;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
 
 @Entity
+@Table(name = "schedule", schema = "slcn")
 public class ScheduleJpo extends DomainEntityJpo {
 
 	private String calendarId;
@@ -19,8 +21,10 @@ public class ScheduleJpo extends DomainEntityJpo {
 
 	private boolean isAllDay;
 
+	@jakarta.persistence.Column(name = "start_time")
 	private LocalDateTime start;
 
+	@jakarta.persistence.Column(name = "end_time")
 	private LocalDateTime end;
 
 	private long goingDuration;

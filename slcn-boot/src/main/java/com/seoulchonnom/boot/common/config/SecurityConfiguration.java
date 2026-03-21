@@ -10,6 +10,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsUtils;
 
+import com.seoulchonnom.auth.filter.JwtAuthenticationFilter;
 import com.seoulchonnom.boot.common.entrypoint.CommonAuthenticationEntryPoint;
 import com.seoulchonnom.rest.common.handler.CommonAccessDeniedHandler;
 
@@ -19,6 +20,8 @@ import lombok.RequiredArgsConstructor;
 @EnableWebSecurity
 @RequiredArgsConstructor
 public class SecurityConfiguration {
+
+	private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
 	@Bean
 	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -33,7 +36,7 @@ public class SecurityConfiguration {
 				.anyRequest().hasAuthority("USER"))
 			.exceptionHandling(handling -> handling.authenticationEntryPoint(new CommonAuthenticationEntryPoint()))
 			.exceptionHandling(handling -> handling.accessDeniedHandler(new CommonAccessDeniedHandler()))
-			.addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
+			.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
 		return http.build();
 	}
