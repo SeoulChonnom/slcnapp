@@ -1,5 +1,7 @@
 package com.seoulchonnom.rest.user;
 
+import static com.seoulchonnom.spec.user.constant.UserConstant.*;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
@@ -27,14 +29,15 @@ public class UserResource implements UserFacade {
 
 	@Override
 	@PostMapping("/register")
-	public ResponseEntity<Void> registerUser(@RequestBody UserCdo userCdo) {
+	public ResponseEntity<String> registerUser(@RequestBody UserCdo userCdo) {
 		userLogic.registerUser(userCdo);
-		return new ResponseEntity<>(HttpStatus.OK);
+		return new ResponseEntity<>(USER_REGISTER_SUCCESS_MESSAGE, HttpStatus.OK);
 	}
 
 	@Override
 	@PostMapping("/login")
 	public ResponseEntity<UserRdo> loginUser(HttpServletResponse response, @RequestBody UserLoginCdo userLoginCdo) {
+		
 		return new ResponseEntity<>(null);
 	}
 

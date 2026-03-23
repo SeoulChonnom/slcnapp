@@ -20,7 +20,7 @@ public interface UserFacade {
 	@Parameters({
 		@Parameter(name = "X-AUTH-TOKEN", description = "AccessToken", required = true, in = ParameterIn.HEADER)})
 	@Operation(summary = "회원 가입", description = "회원 가입 API")
-	ResponseEntity<Void> registerUser(UserCdo userCdo);
+	ResponseEntity<String> registerUser(UserCdo userCdo);
 
 	@Operation(summary = "로그인", description = "로그인 API")
 	@ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Success")})
