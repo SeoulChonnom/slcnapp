@@ -26,8 +26,12 @@ public class IdGeneratorLogic implements IdGenerator {
 	private String nextId(IdSequence idSequence) {
 		int now = Integer.parseInt(idSequence.getLastId(), 16);
 
-		String nextId = Integer.toHexString(now + 1);
-		idSequence.setLastId(nextId);
+		StringBuilder nextId = new StringBuilder(Integer.toHexString(now + 1));
+		idSequence.setLastId(nextId.toString());
+
+		while(nextId.length() < 4 ) {
+			nextId.insert(0, "0");
+		}
 		return idSequence.getName() + '-' + nextId;
 	}
 }
