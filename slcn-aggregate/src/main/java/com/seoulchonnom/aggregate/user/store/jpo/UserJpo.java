@@ -4,10 +4,11 @@ import java.util.List;
 
 import com.seoulchonnom.aggregate.common.entity.DomainEntityJpo;
 
-import jakarta.persistence.CascadeType;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
-import jakarta.persistence.OneToMany;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -25,6 +26,7 @@ public class UserJpo extends DomainEntityJpo {
 	private String name;
 	private String password;
 
-	@OneToMany(mappedBy = "userId", fetch = FetchType.EAGER, cascade = CascadeType.ALL)
+	@ElementCollection(fetch = FetchType.LAZY)
+	@CollectionTable(name = "authority", schema = "slcn", joinColumns = @JoinColumn(name = "user_id"))
 	private List<AuthorityJpo> authorityList;
 }

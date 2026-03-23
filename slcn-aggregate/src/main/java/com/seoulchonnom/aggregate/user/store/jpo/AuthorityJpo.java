@@ -2,9 +2,9 @@ package com.seoulchonnom.aggregate.user.store.jpo;
 
 import com.seoulchonnom.spec.user.entity.Role;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.Embeddable;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -14,11 +14,9 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-@Entity
-@Table(name = "authority", schema = "slcn")
+@Embeddable
 public class AuthorityJpo {
-	@Id
-	private String userId;
+	@Enumerated(EnumType.STRING)
 	private Role role;
 	private Long registeredTime;
 }

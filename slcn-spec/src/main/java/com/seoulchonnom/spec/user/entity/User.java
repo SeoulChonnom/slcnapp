@@ -28,7 +28,7 @@ public class User extends DomainEntity {
 		this.username = userCdo.getUserName();
 		this.password = password;
 		this.authorityList = new ArrayList<>();
-		this.authorityList.add(new Authority(this.id));
+		this.authorityList.add(new Authority());
 	}
 
 	public UserRdo toRdo(String token) {

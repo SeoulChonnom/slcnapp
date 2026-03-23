@@ -6,7 +6,6 @@ import lombok.Setter;
 @Getter
 @Setter
 public class Authority {
-	private String userId;
 	private Role role;
 	private long registeredTime;
 
@@ -15,13 +14,8 @@ public class Authority {
 		this.registeredTime = System.currentTimeMillis();
 	}
 
-	public Authority(String userId) {
-		this.role = Role.USER;
-		this.registeredTime = System.currentTimeMillis();
-		this.userId = userId;
-	}
-
 	public Authority() {
+		this.role = Role.USER;
 		this.registeredTime = System.currentTimeMillis();
 	}
 }
