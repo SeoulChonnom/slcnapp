@@ -1,11 +1,10 @@
 package com.seoulchonnom.aggregate.trip.exception;
 
-import static com.seoulchonnom.spec.trip.constant.TripConstant.*;
-
 import com.seoulchonnom.aggregate.common.exception.BadRequestException;
+import com.seoulchonnom.spec.common.exception.ErrorCode;
 
 public class TripNotFoundException extends BadRequestException {
 	public TripNotFoundException() {
-		super(TRIP_NOT_FOUND_ERROR_MESSAGE);
+		super(ErrorCode.TRIP_NOT_FOUND);
 	}
 }

@@ -1,7 +1,14 @@
 package com.seoulchonnom.aggregate.common.exception;
 
-public class PayloadTooLargeException extends RuntimeException {
+import com.seoulchonnom.spec.common.exception.BusinessException;
+import com.seoulchonnom.spec.common.exception.ErrorCode;
+
+public class PayloadTooLargeException extends BusinessException {
+	public PayloadTooLargeException() {
+		super(ErrorCode.PAYLOAD_TOO_LARGE);
+	}
+
 	public PayloadTooLargeException(String message) {
-		super(message);
+		super(ErrorCode.PAYLOAD_TOO_LARGE, message);
 	}
 }

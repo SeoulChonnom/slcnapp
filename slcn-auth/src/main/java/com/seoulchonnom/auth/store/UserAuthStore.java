@@ -15,4 +15,8 @@ public class UserAuthStore {
 	public UserDetail getUserDetail(String name) {
 		return new UserDetail(userStore.findUserByUserName(name));
 	}
+
+	public UserDetail getUserDetailById(String id) {
+		return new UserDetail(userStore.findUserById(id));
+	}
 }

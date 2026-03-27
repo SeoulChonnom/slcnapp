@@ -24,6 +24,9 @@ spring:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
   jwt:
     secretKey: "${SLCN_JWT_SECRETKEY}"
+    algorithm: "${SLCN_JWT_ALGORITHM:HS512}"
+    accessAudiences: "${SLCN_JWT_ACCESS_AUDIENCES:slcn-platform}"
+    refreshAudience: "${SLCN_JWT_REFRESH_AUDIENCE:slcn-auth-refresh}"
   mvc:
     pathmatch:
       matching-strategy: ant_path_matcher
@@ -47,6 +50,8 @@ upload:
 cookie:
   expire:
     time: 1209600
+  secure: false
+  sameSite: Lax
 login:
   fail:
     limit:

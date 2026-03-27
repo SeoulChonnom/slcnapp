@@ -1,11 +1,10 @@
 package com.seoulchonnom.aggregate.schedule.exception;
 
-import static com.seoulchonnom.spec.schedule.constant.ScheduleConstant.*;
-
 import com.seoulchonnom.aggregate.common.exception.BadRequestException;
+import com.seoulchonnom.spec.common.exception.ErrorCode;
 
 public class ScheduleNotFoundException extends BadRequestException {
 	public ScheduleNotFoundException() {
-		super(SCHEDULE_NOT_FOND_ERROR_MESSAGE);
+		super(ErrorCode.SCHEDULE_NOT_FOUND);
 	}
 }

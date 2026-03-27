@@ -1,11 +1,10 @@
 package com.seoulchonnom.aggregate.file.exception;
 
-import static com.seoulchonnom.spec.file.constant.FileConstant.*;
-
 import com.seoulchonnom.aggregate.common.exception.BadRequestException;
+import com.seoulchonnom.spec.common.exception.ErrorCode;
 
 public class FileUploadException extends BadRequestException {
 	public FileUploadException() {
-		super(FILE_UPLOAD_ERROR_MESSAGE);
+		super(ErrorCode.FILE_UPLOAD_FAILED);
 	}
 }

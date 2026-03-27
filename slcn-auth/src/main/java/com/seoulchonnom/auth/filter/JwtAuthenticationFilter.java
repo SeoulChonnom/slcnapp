@@ -7,6 +7,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.GenericFilterBean;
 
 import com.seoulchonnom.auth.util.JwtTokenProvider;
+import com.seoulchonnom.auth.util.JwtTokenProvider.TokenValidationResult;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -24,8 +25,9 @@ public class JwtAuthenticationFilter extends GenericFilterBean {
 	public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException,
 		ServletException {
 		String token = jwtTokenProvider.resolveToken((HttpServletRequest)request);
-		if (token != null && jwtTokenProvider.validateToken(token)) {
-			Authentication authentication = jwtTokenProvider.getAuthentication(token);
+		TokenValidationResult validationResult = jwtTokenProvider.validateAccessToken(token);
+		if (validationResult.valid()) {
+			Authentication authentication = jwtTokenProvider.getAuthentication(validationResult.claims());
 			SecurityContextHolder.getContext().setAuthentication(authentication);
 		}
 		chain.doFilter(request, response);

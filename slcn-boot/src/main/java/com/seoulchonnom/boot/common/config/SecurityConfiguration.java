@@ -11,8 +11,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsUtils;
 
 import com.seoulchonnom.auth.filter.JwtAuthenticationFilter;
-import com.seoulchonnom.boot.common.entrypoint.CommonAuthenticationEntryPoint;
-import com.seoulchonnom.rest.common.handler.CommonAccessDeniedHandler;
+import com.seoulchonnom.auth.handler.CommonAccessDeniedHandler;
+import com.seoulchonnom.auth.handler.CommonAuthenticationEntryPoint;
 
 import lombok.RequiredArgsConstructor;
 
@@ -22,6 +22,8 @@ import lombok.RequiredArgsConstructor;
 public class SecurityConfiguration {
 
 	private final JwtAuthenticationFilter jwtAuthenticationFilter;
+	private final CommonAuthenticationEntryPoint commonAuthenticationEntryPoint;
+	private final CommonAccessDeniedHandler commonAccessDeniedHandler;
 
 	@Bean
 	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -30,13 +32,13 @@ public class SecurityConfiguration {
 			.sessionManagement(management -> management.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 			.authorizeHttpRequests((authorizeRequests) -> authorizeRequests
 				.requestMatchers("/swagger-ui/**", "/v3/**").permitAll()
-				.requestMatchers("/user/login", "/user/token").permitAll()
-				.requestMatchers(CorsUtils::isPreFlightRequest).permitAll()
-				.requestMatchers("/user/register").hasAuthority("ADMIN")
-				.anyRequest().hasAuthority("USER"))
-			.exceptionHandling(handling -> handling.authenticationEntryPoint(new CommonAuthenticationEntryPoint()))
-			.exceptionHandling(handling -> handling.accessDeniedHandler(new CommonAccessDeniedHandler()))
-			.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+					.requestMatchers("/user/login", "/user/token").permitAll()
+					.requestMatchers(CorsUtils::isPreFlightRequest).permitAll()
+					.requestMatchers("/user/register").hasAuthority("ADMIN")
+					.anyRequest().hasAuthority("USER"))
+				.exceptionHandling(handling -> handling.authenticationEntryPoint(commonAuthenticationEntryPoint))
+				.exceptionHandling(handling -> handling.accessDeniedHandler(commonAccessDeniedHandler))
+				.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
 		return http.build();
 	}

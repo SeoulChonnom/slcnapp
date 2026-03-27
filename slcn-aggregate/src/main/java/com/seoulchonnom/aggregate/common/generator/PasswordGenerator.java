@@ -19,4 +19,8 @@ public class PasswordGenerator {
 		return this.passwordEncoder.encode(rawPassword);
 	}
 
+	public boolean matches(CharSequence rawPassword, String encodedPassword) {
+		return this.passwordEncoder.matches(rawPassword, encodedPassword);
+	}
+
 }

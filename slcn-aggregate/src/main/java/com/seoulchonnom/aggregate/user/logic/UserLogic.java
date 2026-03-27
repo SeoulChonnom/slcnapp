@@ -11,7 +11,6 @@ import com.seoulchonnom.spec.common.generator.IdGenerator;
 import com.seoulchonnom.spec.user.entity.User;
 import com.seoulchonnom.spec.user.facade.sdo.TokenRdo;
 import com.seoulchonnom.spec.user.facade.sdo.UserCdo;
-import com.seoulchonnom.spec.user.facade.sdo.UserRdo;
 
 import lombok.RequiredArgsConstructor;
 
@@ -33,13 +32,11 @@ public class UserLogic {
 		userStore.save(user);
 	}
 
-	public UserRdo getUserInfo(TokenRdo tokenRdo) {
+	public User getUser(TokenRdo tokenRdo) {
 		if (tokenRdo.getUserId().equals(LOGIN_ERROR_CODE)) {
 			throw new InvalidUserException();
 		}
 
-		User user = userStore.findUserById(tokenRdo.getUserId());
-
-		return user.toRdo(tokenRdo.getAccessToken());
+		return userStore.findUserById(tokenRdo.getUserId());
 	}
 }
