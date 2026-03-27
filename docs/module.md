@@ -94,6 +94,7 @@
 {org}/{service}/spec/
 ├── common/
 │   ├── entity/          # 공통 도메인 엔티티 베이스 클래스
+│   │   └── vo/          # 값 객체
 │   ├── exception/       # 공통 예외 계약
 │   ├── generator/       # aggregate가 구현하는 공통 인터페이스
 │   └── response/        # 공통 응답 객체
@@ -104,20 +105,6 @@
 │   │   └── sdo/         # 공개 DTO
 │   └── mapper/          # Entity ↔ DTO 변환 매퍼
 ```
-
-### 확장 가능한 권장 구조
-
-도메인이 복잡해지면 아래 패키지를 추가할 수 있습니다.
-
-```text
-spec/{domain}/
-├── entity/
-│   └── vo/              # 값 객체
-├── exception/           # 도메인 전용 공개 예외
-└── util/                # 도메인 유틸리티
-```
-
-> Kafka를 사용하지 않으므로 현재 가이드 범위에서는 `event/`를 포함하지 않습니다.
 
 ### 패키지 상세
 
@@ -150,7 +137,7 @@ REST API의 공개 계약 인터페이스입니다.
 - `{service}-rest`의 Resource가 이 인터페이스를 구현합니다.
 - 추후 엔드포인트가 추가되더라도 API 계약은 `spec`에서 먼저 정의합니다.
 
-호출 주체에 따라 Facade를 분리할 수 있습니다.
+호출 주체에 따라 Facade를 분리할 수 있습니다.(추후 서비스가 커질 경우 대비)
 
 | 네이밍 | 대상 |
 | --- | --- |
@@ -182,6 +169,8 @@ Facade의 파라미터/반환 타입으로 사용하는 공개 DTO를 둡니다.
 ```text
 {org}/{service}/aggregate/
 ├── aggregate/
+│   ├── cache/              # 추후 Cache 필요시 사용
+│   ├── util/               # 추후 Util이 필요시 사용
 │   └── {domain}/
 │       ├── exception/
 │       ├── logic/
@@ -190,7 +179,9 @@ Facade의 파라미터/반환 타입으로 사용하는 공개 DTO를 둡니다.
 │           ├── mapper/
 │           ├── projection/
 │           ├── repository/
-│           └── doc/         # MongoDB 등 저장소 확장 시 사용 가능
+│           ├── doc/         # MongoDB 등 저장소 확장 시 사용 가능
+│           ├── query/                  # QueryDSL 동적 쿼리
+│           └── clause/                 # QueryDSL 조건 빌더
 ├── common/
 │   ├── entity/
 │   ├── exception/
@@ -199,22 +190,6 @@ Facade의 파라미터/반환 타입으로 사용하는 공개 DTO를 둡니다.
 └── flow/
     ├── {domain}/
     └── vo/
-```
-
-### 권장 확장 구조
-
-아래 구조는 도메인이 복잡해질 때 선택적으로 추가합니다.
-
-```text
-aggregate/{domain}/store/
-├── query/                  # QueryDSL 동적 쿼리
-└── clause/                 # QueryDSL 조건 빌더
-
-aggregate/
-├── cache/
-├── helper/
-├── proxy/
-└── util/
 ```
 
 ### 패키지 상세
