@@ -9,11 +9,13 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @NoArgsConstructor
 @Builder
 @AllArgsConstructor
 @Getter
+@Setter
 public class Quiz extends DomainEntity {
 	private String tripId;
 	private String quizIndex;
