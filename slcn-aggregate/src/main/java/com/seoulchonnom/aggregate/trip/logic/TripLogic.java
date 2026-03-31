@@ -12,6 +12,7 @@ import com.seoulchonnom.spec.trip.entity.Trip;
 import com.seoulchonnom.spec.trip.facade.sdo.TripCdo;
 import com.seoulchonnom.spec.trip.facade.sdo.TripInfoRdo;
 import com.seoulchonnom.spec.trip.facade.sdo.TripListRdo;
+import com.seoulchonnom.spec.trip.mapper.TripMapper;
 
 import lombok.RequiredArgsConstructor;
 
@@ -21,16 +22,16 @@ import lombok.RequiredArgsConstructor;
 public class TripLogic {
 	private final TripStore tripStore;
 	private final IdGenerator idGenerator;
+	private final TripMapper tripMapper;
 
 	public List<TripListRdo> getAllTripList() {
 		return tripStore.findAllByOrderByDateDesc().stream()
-			.map(Trip::toListRdo)
+			.map(tripMapper::toTripListRdo)
 			.toList();
 	}
 
 	public TripInfoRdo getTripInfo(String id) {
-		//
-		return tripStore.findById(id).toInfoRdo();
+		return tripMapper.toTripInfoRdo(tripStore.findById(id));
 	}
 
 	@Transactional

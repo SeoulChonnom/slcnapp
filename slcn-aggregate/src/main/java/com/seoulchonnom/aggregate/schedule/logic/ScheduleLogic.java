@@ -17,6 +17,7 @@ import com.seoulchonnom.spec.schedule.entity.Schedule;
 import com.seoulchonnom.spec.schedule.facade.sdo.ScheduleCdo;
 import com.seoulchonnom.spec.schedule.facade.sdo.ScheduleRdo;
 import com.seoulchonnom.spec.schedule.facade.sdo.ScheduleUdo;
+import com.seoulchonnom.spec.schedule.mapper.ScheduleMapper;
 
 import lombok.RequiredArgsConstructor;
 
@@ -25,6 +26,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ScheduleLogic {
 	private final ScheduleStore scheduleStore;
+	private final ScheduleMapper scheduleMapper;
 
 	public List<ScheduleRdo> getSchedulesForNow() {
 		LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
@@ -45,7 +47,9 @@ public class ScheduleLogic {
 
 		List<Schedule> scheduleList = scheduleStore.findAllByStartBetweenAndIsVisible(startDate, endDate, true);
 
-		return scheduleList.stream().map(Schedule::toRdo).toList();
+		return scheduleList.stream()
+			.map(scheduleMapper::toScheduleRdo)
+			.toList();
 	}
 
 	public String registerSchedule(ScheduleCdo scheduleCdo) {

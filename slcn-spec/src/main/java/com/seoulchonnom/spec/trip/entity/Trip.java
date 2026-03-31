@@ -6,8 +6,6 @@ import org.springframework.beans.BeanUtils;
 
 import com.seoulchonnom.spec.common.entity.DomainEntity;
 import com.seoulchonnom.spec.trip.facade.sdo.TripCdo;
-import com.seoulchonnom.spec.trip.facade.sdo.TripInfoRdo;
-import com.seoulchonnom.spec.trip.facade.sdo.TripListRdo;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -47,18 +45,5 @@ public class Trip extends DomainEntity {
 		super(id);
 		BeanUtils.copyProperties(tripCdo, this);
 		this.quizList = tripCdo.getQuizCdoList().stream().map(Quiz::new).toList();
-	}
-
-	public TripListRdo toListRdo() {
-		TripListRdo tripListRdo = new TripListRdo();
-		BeanUtils.copyProperties(this, tripListRdo, "quizList");
-		tripListRdo.setQuizList(this.quizList.stream().map(Quiz::toRdo).toList());
-		return tripListRdo;
-	}
-
-	public TripInfoRdo toInfoRdo() {
-		TripInfoRdo tripInfoRdo = new TripInfoRdo();
-		BeanUtils.copyProperties(this, tripInfoRdo);
-		return tripInfoRdo;
 	}
 }

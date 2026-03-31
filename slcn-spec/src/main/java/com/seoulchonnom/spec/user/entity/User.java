@@ -5,7 +5,6 @@ import java.util.List;
 
 import com.seoulchonnom.spec.common.entity.DomainEntity;
 import com.seoulchonnom.spec.user.facade.sdo.UserCdo;
-import com.seoulchonnom.spec.user.facade.sdo.UserRdo;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -29,14 +28,5 @@ public class User extends DomainEntity {
 		this.password = password;
 		this.authorityList = new ArrayList<>();
 		this.authorityList.add(new Authority());
-	}
-
-	public UserRdo toRdo(String token) {
-		return UserRdo.builder()
-			.accessToken(token)
-			.username(this.username)
-			.name(this.name)
-			.roleList(this.authorityList.stream().map(Authority::getRole).toList())
-			.build();
 	}
 }

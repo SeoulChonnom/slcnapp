@@ -6,7 +6,6 @@ import org.springframework.beans.BeanUtils;
 
 import com.seoulchonnom.spec.common.entity.DomainEntity;
 import com.seoulchonnom.spec.schedule.facade.sdo.ScheduleCdo;
-import com.seoulchonnom.spec.schedule.facade.sdo.ScheduleRdo;
 import com.seoulchonnom.spec.schedule.facade.sdo.ScheduleUdo;
 
 import lombok.AllArgsConstructor;
@@ -60,12 +59,6 @@ public class Schedule extends DomainEntity {
 	public Schedule(ScheduleCdo scheduleCdo) {
 		super();
 		BeanUtils.copyProperties(scheduleCdo, this);
-	}
-
-	public ScheduleRdo toRdo() {
-		ScheduleRdo scheduleRdo = new ScheduleRdo();
-		BeanUtils.copyProperties(this, scheduleRdo);
-		return scheduleRdo;
 	}
 
 	public void updateSchedule(ScheduleUdo scheduleUdo) {
