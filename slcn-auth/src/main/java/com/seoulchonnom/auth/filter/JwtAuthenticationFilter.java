@@ -19,7 +19,7 @@ import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
-	private static final Set<String> PUBLIC_AUTH_PATHS = Set.of("/user/login", "/user/register", "/user/token");
+	private static final Set<String> PUBLIC_AUTH_PATHS = Set.of("/user/login", "/user/token");
 
 	private final JwtTokenProvider jwtTokenProvider;
 
