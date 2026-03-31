@@ -1,5 +1,8 @@
 package com.seoulchonnom.spec.user.facade.sdo;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -11,6 +14,10 @@ import lombok.NoArgsConstructor;
 @Builder
 public class UserCdo {
 	String name;
-	String userName;
+
+	@JsonProperty("username")
+	@JsonAlias("userName")
+	String username;
+
 	String password;
 }

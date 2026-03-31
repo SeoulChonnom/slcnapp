@@ -10,11 +10,13 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @NoArgsConstructor
 @Builder
 @AllArgsConstructor
 @Getter
+@Setter
 public class User extends DomainEntity {
 	private String username;
 	private String name;
@@ -24,7 +26,7 @@ public class User extends DomainEntity {
 	public User(UserCdo userCdo, String id, String password) {
 		super(id);
 		this.name = userCdo.getName();
-		this.username = userCdo.getUserName();
+		this.username = userCdo.getUsername();
 		this.password = password;
 		this.authorityList = new ArrayList<>();
 		this.authorityList.add(new Authority());
