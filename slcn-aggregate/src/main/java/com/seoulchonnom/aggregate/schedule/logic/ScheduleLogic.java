@@ -52,7 +52,8 @@ public class ScheduleLogic {
 			.toList();
 	}
 
-	public String registerSchedule(ScheduleCdo scheduleCdo) {
+	@Transactional
+	public ScheduleRdo registerSchedule(ScheduleCdo scheduleCdo) {
 		if (!isValidDateTime(scheduleCdo.getStart()) || !isValidDateTime(scheduleCdo.getEnd())) {
 			throw new InvalidScheduleRegisterRequestException();
 		}
@@ -60,10 +61,11 @@ public class ScheduleLogic {
 		Schedule schedule = new Schedule(scheduleCdo);
 
 		scheduleStore.save(schedule);
-		return schedule.getId();
+		return scheduleMapper.toScheduleRdo(schedule);
 	}
 
-	public void modifySchedule(ScheduleUdo scheduleUdo) {
+	@Transactional
+	public ScheduleRdo modifySchedule(ScheduleUdo scheduleUdo) {
 		if (!isValidDateTime(scheduleUdo.getStart()) || !isValidDateTime(scheduleUdo.getEnd())) {
 			throw new InvalidScheduleRegisterRequestException();
 		}
@@ -72,14 +74,17 @@ public class ScheduleLogic {
 		schedule.updateSchedule(scheduleUdo);
 
 		scheduleStore.save(schedule);
+		return scheduleMapper.toScheduleRdo(schedule);
 	}
 
+	@Transactional
 	public void hideSchedule(String scheduleId) {
 		Schedule schedule = scheduleStore.findById(scheduleId);
 		schedule.hideSchedule();
 		scheduleStore.save(schedule);
 	}
 
+	@Transactional
 	public void deleteSchedule(String scheduleId) {
 		Schedule schedule = scheduleStore.findById(scheduleId);
 		scheduleStore.delete(schedule);

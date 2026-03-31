@@ -30,14 +30,15 @@ public class TripLogic {
 			.toList();
 	}
 
-	public TripInfoRdo getTripInfo(String id) {
-		return tripMapper.toTripInfoRdo(tripStore.findById(id));
+	public TripInfoRdo getTripInfoByDate(String tripDate) {
+		return tripMapper.toTripInfoRdo(tripStore.findByDate(tripDate));
 	}
 
 	@Transactional
-	public void registerTrip(TripCdo tripCdo) {
+	public TripInfoRdo registerTrip(TripCdo tripCdo) {
 		String nextTripId = idGenerator.nextDomainId(SequenceName.TRIP.toString());
 		Trip trip = new Trip(tripCdo, nextTripId);
 		tripStore.saveTrip(trip);
+		return tripMapper.toTripInfoRdo(trip);
 	}
 }

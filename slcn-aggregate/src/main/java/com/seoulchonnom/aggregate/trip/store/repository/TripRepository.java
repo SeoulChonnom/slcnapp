@@ -11,4 +11,6 @@ public interface TripRepository extends JpaRepository<TripJpo, String> {
 	List<TripJpo> findAllByOrderByDateDesc();
 
 	Optional<TripJpo> findById(String id);
+
+	Optional<TripJpo> findByDate(String date);
 }
