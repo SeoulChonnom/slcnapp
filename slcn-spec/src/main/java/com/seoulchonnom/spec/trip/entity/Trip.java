@@ -44,6 +44,12 @@ public class Trip extends DomainEntity {
 	public Trip(TripCdo tripCdo, String id) {
 		super(id);
 		BeanUtils.copyProperties(tripCdo, this);
-		this.quizList = tripCdo.getQuizCdoList().stream().map(Quiz::new).toList();
+		this.quizList = tripCdo.getQuizCdoList().stream()
+			.map(quizCdo -> {
+				Quiz quiz = new Quiz(quizCdo);
+				quiz.setTripId(id);
+				return quiz;
+			})
+			.toList();
 	}
 }

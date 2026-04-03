@@ -22,7 +22,6 @@ public class Quiz extends DomainEntity {
 	private String answer;
 
 	public Quiz(QuizCdo quizCdo) {
-		Quiz quiz = new Quiz();
-		BeanUtils.copyProperties(quizCdo, quiz);
+		BeanUtils.copyProperties(quizCdo, this);
 	}
 }

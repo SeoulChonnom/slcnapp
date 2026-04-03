@@ -33,7 +33,7 @@ public class TripResource implements TripFacade {
 
 	@Override
 	@GetMapping("/detail")
-	public ResponseEntity<TripInfoRdo> getTripByDate(@RequestParam String tripDate) {
+	public ResponseEntity<TripInfoRdo> getTripByDate(@RequestParam("tripDate") String tripDate) {
 		return new ResponseEntity<>(tripLogic.getTripInfoByDate(tripDate), HttpStatus.OK);
 	}
 

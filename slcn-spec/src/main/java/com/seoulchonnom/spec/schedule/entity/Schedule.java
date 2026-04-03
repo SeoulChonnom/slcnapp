@@ -1,5 +1,7 @@
 package com.seoulchonnom.spec.schedule.entity;
 
+import static com.seoulchonnom.spec.schedule.constant.ScheduleConstant.*;
+
 import java.time.LocalDateTime;
 
 import org.springframework.beans.BeanUtils;
@@ -58,11 +60,15 @@ public class Schedule extends DomainEntity {
 
 	public Schedule(ScheduleCdo scheduleCdo) {
 		super();
-		BeanUtils.copyProperties(scheduleCdo, this);
+		BeanUtils.copyProperties(scheduleCdo, this, "start", "end");
+		this.start = LocalDateTime.parse(scheduleCdo.getStart(), DATE_TIME_FORMATTER);
+		this.end = LocalDateTime.parse(scheduleCdo.getEnd(), DATE_TIME_FORMATTER);
 	}
 
 	public void updateSchedule(ScheduleUdo scheduleUdo) {
-		BeanUtils.copyProperties(scheduleUdo, this);
+		BeanUtils.copyProperties(scheduleUdo, this, "start", "end");
+		this.start = LocalDateTime.parse(scheduleUdo.getStart(), DATE_TIME_FORMATTER);
+		this.end = LocalDateTime.parse(scheduleUdo.getEnd(), DATE_TIME_FORMATTER);
 	}
 
 	public void hideSchedule() {

@@ -1,6 +1,7 @@
 package com.seoulchonnom.aggregate.user.store;
 
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.seoulchonnom.aggregate.user.exception.InvalidUserException;
 import com.seoulchonnom.aggregate.user.store.jpo.UserJpo;
@@ -12,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 
 @Repository
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class UserStore {
 	private final UserRepository userRepository;
 	private final UserJpoMapper userJpoMapper;
