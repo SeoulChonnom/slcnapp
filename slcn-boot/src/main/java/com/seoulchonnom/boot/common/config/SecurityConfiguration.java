@@ -31,7 +31,7 @@ public class SecurityConfiguration {
 		http.csrf(AbstractHttpConfigurer::disable)
 			.sessionManagement(management -> management.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 			.authorizeHttpRequests((authorizeRequests) -> authorizeRequests
-				.requestMatchers("/swagger-ui/**", "/v3/**").permitAll()
+				.requestMatchers("/swagger-ui/**", "/v3/**", "/error").permitAll()
 					.requestMatchers("/user/login", "/user/token").permitAll()
 					.requestMatchers(CorsUtils::isPreFlightRequest).permitAll()
 					.requestMatchers("/user/register").hasAuthority("ADMIN")

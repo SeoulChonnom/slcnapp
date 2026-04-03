@@ -7,9 +7,13 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.seoulchonnom.spec.common.exception.BusinessException;
+import com.seoulchonnom.spec.common.exception.ErrorCode;
 import com.seoulchonnom.spec.common.response.ErrorResponse;
 
+import lombok.extern.slf4j.Slf4j;
+
 @RestControllerAdvice
+@Slf4j
 public class CommonExceptionHandler {
 	@ExceptionHandler(BusinessException.class)
 	public ResponseEntity<ErrorResponse> businessException(BusinessException e) {
@@ -23,5 +27,13 @@ public class CommonExceptionHandler {
 		return new ResponseEntity<>(
 			ErrorResponse.from(false, "입력이 올바르지 않습니다."),
 				HttpStatus.BAD_REQUEST);
+	}
+
+	@ExceptionHandler(Exception.class)
+	public ResponseEntity<ErrorResponse> exception(Exception e) {
+		log.error("Unhandled exception", e);
+		return new ResponseEntity<>(
+			ErrorResponse.from(false, ErrorCode.INTERNAL_SERVER_ERROR.getMessage()),
+			ErrorCode.INTERNAL_SERVER_ERROR.getHttpStatus());
 	}
 }

@@ -30,8 +30,8 @@ public class CommonAuthenticationEntryPoint implements AuthenticationEntryPoint 
 
 		response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 		response.setCharacterEncoding("UTF-8");
-		response.setStatus(ErrorCode.ACCESS_ROLE_MISSING.getHttpStatus().value());
+		response.setStatus(ErrorCode.UNAUTHORIZED.getHttpStatus().value());
 		response.getWriter().write(objectMapper.writeValueAsString(
-			ErrorResponse.from(false, ErrorCode.ACCESS_ROLE_MISSING.getMessage())));
+			ErrorResponse.from(false, ErrorCode.UNAUTHORIZED.getMessage())));
 	}
 }
