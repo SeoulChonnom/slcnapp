@@ -104,6 +104,7 @@ SecurityContextHolder
 
 - Shared domain entities live in `slcn-spec` and stay free of JPA persistence annotations.
 - JPA persistence models live in `slcn-aggregate/.../store/jpo`.
+- MongoDB persistence models live in `slcn-aggregate/.../store/doc` and follow the `{Domain}Doc` naming rule.
 - Store classes encapsulate repository access and mapping.
 - JPO ↔ domain mapping lives under `slcn-aggregate/.../store/mapper`.
 - Public domain-to-DTO mapping belongs in `slcn-spec/.../mapper`.

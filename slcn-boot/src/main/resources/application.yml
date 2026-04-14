@@ -7,6 +7,8 @@ spring:
     password: "${SLCN_POSTGRESQL_PW}"
     driver-class-name: org.postgresql.Driver
   data:
+    mongodb:
+      uri: "${SLCN_MONGODB_URL}"
     redis:
       host: "${SLCN_REDIS_URL}"
       port: "${SLCN_REDIS_PORT}"

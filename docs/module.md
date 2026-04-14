@@ -239,7 +239,7 @@ Flow 네이밍 규칙:
 | `mapper/*Mapper.java` | JPO ↔ Domain 변환 |
 | `repository/*Repository.java` | Spring Data Repository |
 | `projection/` | 읽기 최적화 결과 객체 |
-| `doc/` | 문서형 저장소 모델. 현재는 가이드 범위에서 상세 규칙 제외 |
+| `doc/` | 문서형 저장소 모델. MongoDB 영속성 관리 클래스는 `{도메인 이름}Doc`으로 명명 |
 
 #### `config/`
 

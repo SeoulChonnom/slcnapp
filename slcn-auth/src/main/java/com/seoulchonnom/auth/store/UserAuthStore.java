@@ -4,6 +4,8 @@ import org.springframework.stereotype.Repository;
 
 import com.seoulchonnom.aggregate.user.store.UserStore;
 import com.seoulchonnom.auth.store.projection.UserDetail;
+import com.seoulchonnom.spec.user.entity.UserLogin;
+import com.seoulchonnom.spec.user.entity.UserLoginHistory;
 
 import lombok.RequiredArgsConstructor;
 
@@ -18,5 +20,17 @@ public class UserAuthStore {
 
 	public UserDetail getUserDetailById(String id) {
 		return new UserDetail(userStore.findUserById(id));
+	}
+
+	public UserLogin getUserLogin(String userId) {
+		return userStore.findUserLoginByUserId(userId);
+	}
+
+	public void saveUserLogin(UserLogin userLogin) {
+		userStore.saveUserLogin(userLogin);
+	}
+
+	public void saveUserLoginHistory(UserLoginHistory userLoginHistory) {
+		userStore.saveUserLoginHistory(userLoginHistory);
 	}
 }

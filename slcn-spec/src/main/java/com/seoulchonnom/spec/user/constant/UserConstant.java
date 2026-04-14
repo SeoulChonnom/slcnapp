@@ -14,5 +14,6 @@ public class UserConstant {
 	public static final String ACCESS_ROLE_DENIED_ERROR_MESSAGE = "접근 권한이 부족합니다.";
 	public static final String REFRESH_TOKEN_INVALID_ERROR_MESSAGE = "리프레쉬 토큰이 유효하지 않습니다.";
 	public static final String USER_LOGIN_FAIL_COUNT_OVER_ERROR_MESSAGE = "회원 로그인 실패 횟수가 초과 되었습니다.";
+	public static final String USER_LOGIN_NOT_FOUND_ERROR_MESSAGE = "회원 로그인 정보를 찾을 수 없습니다.";
 
 }

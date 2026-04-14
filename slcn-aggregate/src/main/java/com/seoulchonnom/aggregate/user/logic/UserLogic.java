@@ -30,6 +30,7 @@ public class UserLogic {
 		User user = new User(userCdo, userId, passwordGenerator.encode(userCdo.getPassword()));
 
 		userStore.save(user);
+		userStore.initializeUserLogin(userId);
 	}
 
 	public User getUser(TokenRdo tokenRdo) {
