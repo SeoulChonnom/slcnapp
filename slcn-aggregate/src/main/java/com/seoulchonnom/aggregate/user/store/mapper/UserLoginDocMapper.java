@@ -23,7 +23,7 @@ public class UserLoginDocMapper {
 
 	public UserLogin toDomain(UserLoginDoc userLoginDoc) {
 		return new UserLogin(
-			userLoginDoc.getUserId(),
+			userLoginDoc.getId(),
 			toEpochMillis(userLoginDoc.getLastLoginTime()),
 			userLoginDoc.getLoginFailCount(),
 			toEpochMillis(userLoginDoc.getLastLoginFailTime()));

@@ -17,7 +17,8 @@ import lombok.Setter;
 @AllArgsConstructor
 public class UserLoginDoc {
 	@Id
-	private String userId;
+
+	private String id;
 	private LocalDateTime lastLoginTime;
 
 	private int loginFailCount;
