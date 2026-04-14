@@ -9,6 +9,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import com.seoulchonnom.aggregate.calendar.store.CalendarStore;
 import com.seoulchonnom.aggregate.common.exception.BadRequestException;
 import com.seoulchonnom.aggregate.schedule.exception.InvalidScheduleDateException;
 import com.seoulchonnom.aggregate.schedule.exception.InvalidScheduleRegisterRequestException;
@@ -20,9 +21,10 @@ import com.seoulchonnom.spec.schedule.facade.sdo.ScheduleSearchSdo;
 import com.seoulchonnom.spec.schedule.mapper.ScheduleMapper;
 
 class ScheduleLogicTest {
+	private final CalendarStore calendarStore = mock(CalendarStore.class);
 	private final ScheduleStore scheduleStore = mock(ScheduleStore.class);
 	private final ScheduleMapper scheduleMapper = mock(ScheduleMapper.class);
-	private final ScheduleLogic scheduleLogic = new ScheduleLogic(scheduleStore, scheduleMapper);
+	private final ScheduleLogic scheduleLogic = new ScheduleLogic(calendarStore, scheduleStore, scheduleMapper);
 
 	@Test
 	void getSchedules_shouldUseRangeQueryWhenStartAndEndProvided() {
@@ -71,6 +73,7 @@ class ScheduleLogicTest {
 		scheduleCdo.setTitle(" ");
 		scheduleCdo.setStart("2026-04-01T09:00:00+09:00");
 		scheduleCdo.setEnd("2026-04-01T10:00:00+09:00");
+		when(calendarStore.existsVisibleById("cal1")).thenReturn(true);
 
 		assertThatThrownBy(() -> scheduleLogic.registerSchedule(scheduleCdo))
 			.isInstanceOf(BadRequestException.class)
@@ -84,9 +87,24 @@ class ScheduleLogicTest {
 		scheduleCdo.setTitle("Meeting");
 		scheduleCdo.setStart("2026-04-01 09:00:00");
 		scheduleCdo.setEnd("2026-04-01 10:00:00");
+		when(calendarStore.existsVisibleById("cal1")).thenReturn(true);
 
 		assertThatThrownBy(() -> scheduleLogic.registerSchedule(scheduleCdo))
 			.isInstanceOf(InvalidScheduleRegisterRequestException.class);
+	}
+
+	@Test
+	void registerSchedule_shouldRejectHiddenOrMissingCalendar() {
+		ScheduleCdo scheduleCdo = new ScheduleCdo();
+		scheduleCdo.setCalendarId("cal1");
+		scheduleCdo.setTitle("Meeting");
+		scheduleCdo.setStart("2026-04-01T09:00:00+09:00");
+		scheduleCdo.setEnd("2026-04-01T10:00:00+09:00");
+		when(calendarStore.existsVisibleById("cal1")).thenReturn(false);
+
+		assertThatThrownBy(() -> scheduleLogic.registerSchedule(scheduleCdo))
+			.isInstanceOf(BadRequestException.class)
+			.hasMessage("사용할 수 없는 calendarId입니다.");
 	}
 
 	@Test
@@ -98,6 +116,7 @@ class ScheduleLogicTest {
 		scheduleCdo.setStart("2026-04-01");
 		scheduleCdo.setEnd("2026-04-02");
 		scheduleCdo.setLocation("Seoul");
+		when(calendarStore.existsVisibleById("cal1")).thenReturn(true);
 		ScheduleRdo scheduleRdo = new ScheduleRdo();
 		when(scheduleMapper.toScheduleRdo(any(Schedule.class))).thenReturn(scheduleRdo);
 

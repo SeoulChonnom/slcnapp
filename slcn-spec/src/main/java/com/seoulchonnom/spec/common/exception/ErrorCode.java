@@ -1,5 +1,6 @@
 package com.seoulchonnom.spec.common.exception;
 
+import static com.seoulchonnom.spec.calendar.constant.CalendarConstant.*;
 import static com.seoulchonnom.spec.file.constant.FileConstant.*;
 import static com.seoulchonnom.spec.schedule.constant.ScheduleConstant.*;
 import static com.seoulchonnom.spec.trip.constant.TripConstant.*;
@@ -28,6 +29,7 @@ public enum ErrorCode {
 
 	INVALID_SCHEDULE_DATE(HttpStatus.BAD_REQUEST, INVALID_DATE_ERROR_MESSAGE),
 	SCHEDULE_NOT_FOUND(HttpStatus.BAD_REQUEST, SCHEDULE_NOT_FOND_ERROR_MESSAGE),
+	CALENDAR_NOT_FOUND(HttpStatus.BAD_REQUEST, CALENDAR_NOT_FOUND_ERROR_MESSAGE),
 	TRIP_NOT_FOUND(HttpStatus.BAD_REQUEST, TRIP_NOT_FOUND_ERROR_MESSAGE),
 
 	FILE_UPLOAD_FAILED(HttpStatus.BAD_REQUEST, FILE_UPLOAD_ERROR_MESSAGE),

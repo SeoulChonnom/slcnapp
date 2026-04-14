@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import com.seoulchonnom.aggregate.calendar.store.CalendarStore;
 import com.seoulchonnom.aggregate.common.exception.BadRequestException;
 import com.seoulchonnom.aggregate.schedule.exception.InvalidScheduleDateException;
 import com.seoulchonnom.aggregate.schedule.exception.InvalidScheduleRegisterRequestException;
@@ -27,6 +28,7 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
 public class ScheduleLogic {
+	private final CalendarStore calendarStore;
 	private final ScheduleStore scheduleStore;
 	private final ScheduleMapper scheduleMapper;
 
@@ -143,6 +145,10 @@ public class ScheduleLogic {
 	private void validateScheduleMutation(String calendarId, String title, boolean allDay, String start, String end) {
 		if (!StringUtils.hasText(calendarId)) {
 			throw new BadRequestException("calendarId는 필수입니다.");
+		}
+
+		if (!calendarStore.existsVisibleById(calendarId)) {
+			throw new BadRequestException("사용할 수 없는 calendarId입니다.");
 		}
 
 		if (!StringUtils.hasText(title)) {
