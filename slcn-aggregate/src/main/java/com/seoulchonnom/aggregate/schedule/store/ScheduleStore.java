@@ -30,9 +30,8 @@ public class ScheduleStore {
 		return scheduleJpoMapper.toDomain(scheduleRepository.findById(id).orElseThrow(ScheduleNotFoundException::new));
 	}
 
-	public List<Schedule> findAllByStartBetweenAndIsVisible(LocalDateTime startDate, LocalDateTime endDate,
-		boolean isVisible) {
-		return scheduleRepository.findAllByStartBetweenAndIsVisible(startDate, endDate, isVisible)
+	public List<Schedule> findAllByDateRange(LocalDateTime startDate, LocalDateTime endDate) {
+		return scheduleRepository.findAllByStartBeforeAndEndAfterAndHiddenFalse(endDate, startDate)
 			.stream().map(scheduleJpoMapper::toDomain).toList();
 	}
 

@@ -1,21 +1,40 @@
 package com.seoulchonnom.aggregate.schedule.store.mapper;
 
-import org.mapstruct.AfterMapping;
-import org.mapstruct.Builder;
-import org.mapstruct.Mapper;
-import org.mapstruct.MappingTarget;
+import org.springframework.stereotype.Component;
 
 import com.seoulchonnom.aggregate.schedule.store.jpo.ScheduleJpo;
 import com.seoulchonnom.spec.schedule.entity.Schedule;
 
-@Mapper(componentModel = "spring", builder = @Builder(disableBuilder = true))
-public interface ScheduleJpoMapper {
-	ScheduleJpo toJpo(Schedule schedule);
+@Component
+public class ScheduleJpoMapper {
+	public ScheduleJpo toJpo(Schedule schedule) {
+		ScheduleJpo scheduleJpo = new ScheduleJpo();
+		scheduleJpo.setId(schedule.getId());
+		scheduleJpo.setEntityVersion(schedule.getEntityVersion());
+		scheduleJpo.setRegisteredTime(schedule.getRegisteredTime());
+		scheduleJpo.setModifiedTime(schedule.getModifiedTime());
+		scheduleJpo.setCalendarId(schedule.getCalendarId());
+		scheduleJpo.setTitle(schedule.getTitle());
+		scheduleJpo.setBody(schedule.getBody());
+		scheduleJpo.setAllDay(schedule.isAllDay());
+		scheduleJpo.setStart(schedule.getStart());
+		scheduleJpo.setEnd(schedule.getEnd());
+		scheduleJpo.setLocation(schedule.getLocation());
+		scheduleJpo.setHidden(schedule.isHidden());
+		return scheduleJpo;
+	}
 
-	Schedule toDomain(ScheduleJpo scheduleJpo);
-
-	@AfterMapping
-	default void mapInheritedFields(ScheduleJpo scheduleJpo, @MappingTarget Schedule schedule) {
+	public Schedule toDomain(ScheduleJpo scheduleJpo) {
+		Schedule schedule = Schedule.builder()
+			.calendarId(scheduleJpo.getCalendarId())
+			.title(scheduleJpo.getTitle())
+			.body(scheduleJpo.getBody())
+			.allDay(scheduleJpo.isAllDay())
+			.start(scheduleJpo.getStart())
+			.end(scheduleJpo.getEnd())
+			.location(scheduleJpo.getLocation())
+			.hidden(scheduleJpo.isHidden())
+			.build();
 		schedule.setId(scheduleJpo.getId());
 		schedule.setEntityVersion(scheduleJpo.getEntityVersion());
 		if (scheduleJpo.getRegisteredTime() != null) {
@@ -24,5 +43,6 @@ public interface ScheduleJpoMapper {
 		if (scheduleJpo.getModifiedTime() != null) {
 			schedule.setModifiedTime(scheduleJpo.getModifiedTime());
 		}
+		return schedule;
 	}
 }

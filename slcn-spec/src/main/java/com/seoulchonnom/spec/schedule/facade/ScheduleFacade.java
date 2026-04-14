@@ -27,7 +27,7 @@ public interface ScheduleFacade {
 	@Parameters({
 		@Parameter(name = "X-AUTH-TOKEN", description = "AccessToken", required = true, in = ParameterIn.HEADER)
 	})
-	@Operation(summary = "특정 달 일정 조회", description = "달력 이동 시 해당 달의 일정 조회 API")
+	@Operation(summary = "일정 범위 조회", description = "보이는 범위와 겹치는 일정 조회 API")
 	ResponseEntity<List<ScheduleRdo>> getSchedulesForYearAndMonth(ScheduleSearchSdo scheduleSearchSdo);
 
 	@Parameters({

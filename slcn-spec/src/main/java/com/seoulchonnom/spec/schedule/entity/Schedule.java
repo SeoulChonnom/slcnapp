@@ -4,8 +4,6 @@ import static com.seoulchonnom.spec.schedule.constant.ScheduleConstant.*;
 
 import java.time.LocalDateTime;
 
-import org.springframework.beans.BeanUtils;
-
 import com.seoulchonnom.spec.common.entity.DomainEntity;
 import com.seoulchonnom.spec.schedule.facade.sdo.ScheduleCdo;
 import com.seoulchonnom.spec.schedule.facade.sdo.ScheduleUdo;
@@ -28,50 +26,39 @@ public class Schedule extends DomainEntity {
 
 	private String body;
 
-	private boolean isAllDay;
+	private boolean allDay;
 
 	private LocalDateTime start;
 
 	private LocalDateTime end;
 
-	private long goingDuration;
-	private long comingDuration;
-
 	private String location;
 
-	private ScheduleCategory category;
-
-	private String dueDateClass;
-	private String recurrenceRule;
-
-	private ScheduleState state;
-
-	private boolean isVisible;
-	private boolean isPending;
-	private boolean isFocused;
-	private boolean isReadOnly;
-	private boolean isPrivate;
-
-	private String color;
-	private String backgroundColor;
-	private String dragBackgroundColor;
-	private String borderColor;
-	private String customStyle;
+	private boolean hidden;
 
 	public Schedule(ScheduleCdo scheduleCdo) {
 		super();
-		BeanUtils.copyProperties(scheduleCdo, this, "start", "end");
-		this.start = LocalDateTime.parse(scheduleCdo.getStart(), DATE_TIME_FORMATTER);
-		this.end = LocalDateTime.parse(scheduleCdo.getEnd(), DATE_TIME_FORMATTER);
+		this.calendarId = scheduleCdo.getCalendarId();
+		this.title = scheduleCdo.getTitle();
+		this.body = scheduleCdo.getBody();
+		this.allDay = scheduleCdo.isAllDay();
+		this.start = parseMutationDateTime(scheduleCdo.getStart(), scheduleCdo.isAllDay());
+		this.end = parseMutationDateTime(scheduleCdo.getEnd(), scheduleCdo.isAllDay());
+		this.location = scheduleCdo.getLocation();
+		this.hidden = false;
 	}
 
 	public void updateSchedule(ScheduleUdo scheduleUdo) {
-		BeanUtils.copyProperties(scheduleUdo, this, "start", "end");
-		this.start = LocalDateTime.parse(scheduleUdo.getStart(), DATE_TIME_FORMATTER);
-		this.end = LocalDateTime.parse(scheduleUdo.getEnd(), DATE_TIME_FORMATTER);
+		this.calendarId = scheduleUdo.getCalendarId();
+		this.title = scheduleUdo.getTitle();
+		this.body = scheduleUdo.getBody();
+		this.allDay = scheduleUdo.isAllDay();
+		this.start = parseMutationDateTime(scheduleUdo.getStart(), scheduleUdo.isAllDay());
+		this.end = parseMutationDateTime(scheduleUdo.getEnd(), scheduleUdo.isAllDay());
+		this.location = scheduleUdo.getLocation();
 	}
 
 	public void hideSchedule() {
-		this.isVisible = false;
+		this.hidden = true;
 	}
 }

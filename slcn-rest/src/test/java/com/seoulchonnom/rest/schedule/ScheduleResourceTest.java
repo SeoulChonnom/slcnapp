@@ -20,15 +20,15 @@ class ScheduleResourceTest {
 	void getSchedulesForYearAndMonth_shouldDelegateToScheduleLogic() {
 		ScheduleLogic scheduleLogic = mock(ScheduleLogic.class);
 		ScheduleResource scheduleResource = new ScheduleResource(scheduleLogic);
-		ScheduleSearchSdo searchSdo = new ScheduleSearchSdo(2026, 3);
+		ScheduleSearchSdo searchSdo = new ScheduleSearchSdo("2026-04-01T00:00:00+09:00", "2026-05-01T00:00:00+09:00");
 		List<ScheduleRdo> scheduleList = List.of(new ScheduleRdo());
-		when(scheduleLogic.getSchedulesForMonth(2026, 3)).thenReturn(scheduleList);
+		when(scheduleLogic.getSchedules(searchSdo)).thenReturn(scheduleList);
 
 		ResponseEntity<List<ScheduleRdo>> response = scheduleResource.getSchedulesForYearAndMonth(searchSdo);
 
 		assertEquals(HttpStatus.OK, response.getStatusCode());
 		assertEquals(scheduleList, response.getBody());
-		verify(scheduleLogic).getSchedulesForMonth(2026, 3);
+		verify(scheduleLogic).getSchedules(searchSdo);
 	}
 
 	@Test

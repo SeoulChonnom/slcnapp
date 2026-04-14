@@ -18,23 +18,7 @@ public class ScheduleMapper {
 		scheduleRdo.setAllDay(schedule.isAllDay());
 		scheduleRdo.setStart(formatStartDateTime(schedule));
 		scheduleRdo.setEnd(formatEndDateTime(schedule));
-		scheduleRdo.setGoingDuration(schedule.getGoingDuration());
-		scheduleRdo.setComingDuration(schedule.getComingDuration());
 		scheduleRdo.setLocation(schedule.getLocation());
-		scheduleRdo.setCategory(schedule.getCategory());
-		scheduleRdo.setDueDateClass(schedule.getDueDateClass());
-		scheduleRdo.setRecurrenceRule(schedule.getRecurrenceRule());
-		scheduleRdo.setState(schedule.getState());
-		scheduleRdo.setVisible(schedule.isVisible());
-		scheduleRdo.setPending(schedule.isPending());
-		scheduleRdo.setFocused(schedule.isFocused());
-		scheduleRdo.setReadOnly(schedule.isReadOnly());
-		scheduleRdo.setPrivate(schedule.isPrivate());
-		scheduleRdo.setColor(schedule.getColor());
-		scheduleRdo.setBackgroundColor(schedule.getBackgroundColor());
-		scheduleRdo.setDragBackgroundColor(schedule.getDragBackgroundColor());
-		scheduleRdo.setBorderColor(schedule.getBorderColor());
-		scheduleRdo.setCustomStyle(schedule.getCustomStyle());
 		return scheduleRdo;
 	}
 
@@ -43,7 +27,7 @@ public class ScheduleMapper {
 			return null;
 		}
 
-		return schedule.getStart().format(DATE_TIME_FORMATTER);
+		return formatScheduleDateTime(schedule.getStart(), schedule.isAllDay());
 	}
 
 	private String formatEndDateTime(Schedule schedule) {
@@ -51,6 +35,6 @@ public class ScheduleMapper {
 			return null;
 		}
 
-		return schedule.getEnd().format(DATE_TIME_FORMATTER);
+		return formatScheduleDateTime(schedule.getEnd(), schedule.isAllDay());
 	}
 }

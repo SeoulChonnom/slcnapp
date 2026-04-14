@@ -11,18 +11,16 @@ import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
 import com.seoulchonnom.aggregate.schedule.store.jpo.ScheduleJpo;
 import com.seoulchonnom.spec.schedule.entity.Schedule;
-import com.seoulchonnom.spec.schedule.entity.ScheduleCategory;
-import com.seoulchonnom.spec.schedule.entity.ScheduleState;
 
 @SpringJUnitConfig
-@ContextConfiguration(classes = ScheduleJpoMapperImpl.class)
+@ContextConfiguration(classes = ScheduleJpoMapper.class)
 class ScheduleJpoMapperTest {
 
 	@Autowired
 	private ScheduleJpoMapper scheduleJpoMapper;
 
 	@Test
-	void toDomain_shouldPreserveAllFields() {
+	void toDomain_shouldPreserveManagedFields() {
 		LocalDateTime start = LocalDateTime.of(2026, 3, 31, 9, 0);
 		LocalDateTime end = LocalDateTime.of(2026, 3, 31, 10, 0);
 
@@ -37,23 +35,8 @@ class ScheduleJpoMapperTest {
 		scheduleJpo.setAllDay(true);
 		scheduleJpo.setStart(start);
 		scheduleJpo.setEnd(end);
-		scheduleJpo.setGoingDuration(10L);
-		scheduleJpo.setComingDuration(20L);
 		scheduleJpo.setLocation("Seoul");
-		scheduleJpo.setCategory(ScheduleCategory.time);
-		scheduleJpo.setDueDateClass("due");
-		scheduleJpo.setRecurrenceRule("FREQ=DAILY");
-		scheduleJpo.setState(ScheduleState.Busy);
-		scheduleJpo.setVisible(true);
-		scheduleJpo.setPending(false);
-		scheduleJpo.setFocused(true);
-		scheduleJpo.setReadOnly(false);
-		scheduleJpo.setPrivate(false);
-		scheduleJpo.setColor("#111");
-		scheduleJpo.setBackgroundColor("#222");
-		scheduleJpo.setDragBackgroundColor("#333");
-		scheduleJpo.setBorderColor("#444");
-		scheduleJpo.setCustomStyle("style");
+		scheduleJpo.setHidden(true);
 
 		Schedule schedule = scheduleJpoMapper.toDomain(scheduleJpo);
 
@@ -67,9 +50,42 @@ class ScheduleJpoMapperTest {
 		assertThat(schedule.getStart()).isEqualTo(start);
 		assertThat(schedule.getEnd()).isEqualTo(end);
 		assertThat(schedule.getLocation()).isEqualTo("Seoul");
-		assertThat(schedule.getCategory()).isEqualTo(ScheduleCategory.time);
-		assertThat(schedule.getState()).isEqualTo(ScheduleState.Busy);
-		assertThat(schedule.isVisible()).isTrue();
-		assertThat(schedule.getCustomStyle()).isEqualTo("style");
+		assertThat(schedule.isHidden()).isTrue();
+	}
+
+	@Test
+	void toJpo_shouldPreserveManagedFields() {
+		LocalDateTime start = LocalDateTime.of(2026, 4, 2, 9, 0);
+		LocalDateTime end = LocalDateTime.of(2026, 4, 2, 10, 0);
+
+		Schedule schedule = Schedule.builder()
+			.calendarId("cal-2")
+			.title("Title")
+			.body("Body")
+			.allDay(false)
+			.start(start)
+			.end(end)
+			.location("Busan")
+			.hidden(false)
+			.build();
+		schedule.setId("SCHEDULE-2");
+		schedule.setEntityVersion(7L);
+		schedule.setRegisteredTime(300L);
+		schedule.setModifiedTime(400L);
+
+		ScheduleJpo scheduleJpo = scheduleJpoMapper.toJpo(schedule);
+
+		assertThat(scheduleJpo.getId()).isEqualTo("SCHEDULE-2");
+		assertThat(scheduleJpo.getEntityVersion()).isEqualTo(7L);
+		assertThat(scheduleJpo.getRegisteredTime()).isEqualTo(300L);
+		assertThat(scheduleJpo.getModifiedTime()).isEqualTo(400L);
+		assertThat(scheduleJpo.getCalendarId()).isEqualTo("cal-2");
+		assertThat(scheduleJpo.getTitle()).isEqualTo("Title");
+		assertThat(scheduleJpo.getBody()).isEqualTo("Body");
+		assertThat(scheduleJpo.isAllDay()).isFalse();
+		assertThat(scheduleJpo.getStart()).isEqualTo(start);
+		assertThat(scheduleJpo.getEnd()).isEqualTo(end);
+		assertThat(scheduleJpo.getLocation()).isEqualTo("Busan");
+		assertThat(scheduleJpo.isHidden()).isFalse();
 	}
 }

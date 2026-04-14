@@ -12,8 +12,8 @@ import lombok.Setter;
 @AllArgsConstructor
 @Schema(description = "알림 송신 DTO")
 public class ScheduleSearchSdo {
-	@Schema(description = "검색 년도", example = "2025")
-	private int year;
-	@Schema(description = "검색 달", example = "3")
-	private int month;
+	@Schema(description = "검색 시작 일시(ISO 8601)", example = "2026-04-01T00:00:00+09:00")
+	private String start;
+	@Schema(description = "검색 종료 일시(ISO 8601)", example = "2026-05-01T00:00:00+09:00")
+	private String end;
 }

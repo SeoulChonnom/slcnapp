@@ -39,9 +39,7 @@ public class ScheduleResource implements ScheduleFacade {
 	@Override
 	@GetMapping
 	public ResponseEntity<List<ScheduleRdo>> getSchedulesForYearAndMonth(@ModelAttribute ScheduleSearchSdo scheduleSearchSdo) {
-		return new ResponseEntity<>(
-			scheduleLogic.getSchedulesForMonth(scheduleSearchSdo.getYear(), scheduleSearchSdo.getMonth()),
-			HttpStatus.OK);
+		return new ResponseEntity<>(scheduleLogic.getSchedules(scheduleSearchSdo), HttpStatus.OK);
 	}
 
 	@Override
