@@ -27,5 +27,8 @@ public interface UserFacade {
 	ResponseEntity<UserRdo> loginUser(HttpServletResponse response, UserLoginCdo userLoginCdo);
 
 	@Operation(summary = "토큰 갱신", description = "RefreshToken 갱신")
-	ResponseEntity<UserRdo> reissueToken(String refreshToken, HttpServletResponse response);
+	ResponseEntity<UserRdo> reissueToken(String refreshToken, String sessionId, HttpServletResponse response);
+
+	@Operation(summary = "로그아웃", description = "현재 세션 로그아웃")
+	ResponseEntity<Void> logoutUser(String sessionId, HttpServletResponse response);
 }

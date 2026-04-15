@@ -1,5 +1,6 @@
 package com.seoulchonnom.auth.util;
 
+import java.time.Duration;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
@@ -117,6 +118,10 @@ public class JwtTokenProvider {
 
 	public TokenValidationResult validateRefreshToken(String token) {
 		return validateToken(token, REFRESH_TOKEN_TYPE, List.of(refreshAudience), false);
+	}
+
+	public Duration getRefreshTokenTtl() {
+		return Duration.ofMillis(REFRESH_TOKEN_VALID_TIME);
 	}
 
 	public String resolveToken(HttpServletRequest req) {

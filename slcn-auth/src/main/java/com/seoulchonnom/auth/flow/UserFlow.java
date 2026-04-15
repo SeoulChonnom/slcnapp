@@ -3,6 +3,7 @@ package com.seoulchonnom.auth.flow;
 import org.springframework.stereotype.Component;
 
 import com.seoulchonnom.aggregate.user.logic.UserLogic;
+import com.seoulchonnom.auth.flow.vo.TokenSessionVo;
 import com.seoulchonnom.auth.flow.vo.UserSessionVo;
 import com.seoulchonnom.auth.logic.UserAuthLogic;
 import com.seoulchonnom.spec.user.entity.User;
@@ -25,20 +26,28 @@ public class UserFlow {
 	}
 
 	public UserSessionVo login(UserLoginCdo userLoginCdo) {
-		TokenRdo tokenRdo = userAuthLogic.issueLoginToken(userLoginCdo);
+		TokenSessionVo tokenSessionVo = userAuthLogic.issueLoginToken(userLoginCdo);
+		TokenRdo tokenRdo = tokenSessionVo.tokenRdo();
 		User user = userLogic.getUser(tokenRdo);
 		return UserSessionVo.builder()
+			.sessionId(tokenSessionVo.sessionId())
 			.tokenRdo(tokenRdo)
 			.userRdo(userMapper.toUserRdo(user, tokenRdo.getAccessToken()))
 			.build();
 	}
 
-	public UserSessionVo reissue(String refreshToken) {
-		TokenRdo tokenRdo = userAuthLogic.reissueToken(refreshToken);
+	public UserSessionVo reissue(String refreshToken, String sessionId) {
+		TokenSessionVo tokenSessionVo = userAuthLogic.reissueToken(refreshToken, sessionId);
+		TokenRdo tokenRdo = tokenSessionVo.tokenRdo();
 		User user = userLogic.getUser(tokenRdo);
 		return UserSessionVo.builder()
+			.sessionId(tokenSessionVo.sessionId())
 			.tokenRdo(tokenRdo)
 			.userRdo(userMapper.toUserRdo(user, tokenRdo.getAccessToken()))
 			.build();
+	}
+
+	public void logout(String sessionId) {
+		userAuthLogic.logout(sessionId);
 	}
 }

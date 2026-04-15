@@ -11,6 +11,7 @@ import lombok.Getter;
 @Builder
 @AllArgsConstructor
 public class UserSessionVo {
+	private final String sessionId;
 	private final TokenRdo tokenRdo;
 	private final UserRdo userRdo;
 }
