@@ -13,7 +13,7 @@ import com.seoulchonnom.aggregate.schedule.store.jpo.ScheduleJpo;
 import com.seoulchonnom.spec.schedule.entity.Schedule;
 
 @SpringJUnitConfig
-@ContextConfiguration(classes = ScheduleJpoMapper.class)
+@ContextConfiguration(classes = ScheduleJpoMapperImpl.class)
 class ScheduleJpoMapperTest {
 
 	@Autowired

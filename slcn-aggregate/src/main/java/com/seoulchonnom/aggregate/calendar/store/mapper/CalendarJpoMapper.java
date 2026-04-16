@@ -1,44 +1,23 @@
 package com.seoulchonnom.aggregate.calendar.store.mapper;
 
-import org.springframework.stereotype.Component;
+import static org.mapstruct.MappingConstants.ComponentModel.*;
+
+import org.mapstruct.AfterMapping;
+import org.mapstruct.Builder;
+import org.mapstruct.Mapper;
+import org.mapstruct.MappingTarget;
 
 import com.seoulchonnom.aggregate.calendar.store.jpo.CalendarJpo;
 import com.seoulchonnom.spec.calendar.entity.Calendar;
 
-@Component
-public class CalendarJpoMapper {
-	public CalendarJpo toJpo(Calendar calendar) {
-		CalendarJpo calendarJpo = new CalendarJpo();
-		calendarJpo.setId(calendar.getId());
-		calendarJpo.setEntityVersion(calendar.getEntityVersion());
-		calendarJpo.setRegisteredTime(calendar.getRegisteredTime());
-		calendarJpo.setModifiedTime(calendar.getModifiedTime());
-		calendarJpo.setName(calendar.getName());
-		calendarJpo.setBackgroundColor(calendar.getBackgroundColor());
-		calendarJpo.setBorderColor(calendar.getBorderColor());
-		calendarJpo.setTextColor(calendar.getTextColor());
-		calendarJpo.setVisible(calendar.isVisible());
-		calendarJpo.setEditable(calendar.isEditable());
-		calendarJpo.setStartEditable(calendar.isStartEditable());
-		calendarJpo.setDurationEditable(calendar.isDurationEditable());
-		calendarJpo.setDefaultSelected(calendar.isDefaultSelected());
-		calendarJpo.setSortOrder(calendar.getSortOrder());
-		return calendarJpo;
-	}
+@Mapper(componentModel = SPRING, builder = @Builder(disableBuilder = true))
+public interface CalendarJpoMapper {
+	CalendarJpo toJpo(Calendar calendar);
 
-	public Calendar toDomain(CalendarJpo calendarJpo) {
-		Calendar calendar = Calendar.builder()
-			.name(calendarJpo.getName())
-			.backgroundColor(calendarJpo.getBackgroundColor())
-			.borderColor(calendarJpo.getBorderColor())
-			.textColor(calendarJpo.getTextColor())
-			.visible(calendarJpo.isVisible())
-			.editable(calendarJpo.isEditable())
-			.startEditable(calendarJpo.isStartEditable())
-			.durationEditable(calendarJpo.isDurationEditable())
-			.defaultSelected(calendarJpo.isDefaultSelected())
-			.sortOrder(calendarJpo.getSortOrder())
-			.build();
+	Calendar toDomain(CalendarJpo calendarJpo);
+
+	@AfterMapping
+	default void mapInheritedFields(CalendarJpo calendarJpo, @MappingTarget Calendar calendar) {
 		calendar.setId(calendarJpo.getId());
 		calendar.setEntityVersion(calendarJpo.getEntityVersion());
 		if (calendarJpo.getRegisteredTime() != null) {
@@ -47,6 +26,5 @@ public class CalendarJpoMapper {
 		if (calendarJpo.getModifiedTime() != null) {
 			calendar.setModifiedTime(calendarJpo.getModifiedTime());
 		}
-		return calendar;
 	}
 }

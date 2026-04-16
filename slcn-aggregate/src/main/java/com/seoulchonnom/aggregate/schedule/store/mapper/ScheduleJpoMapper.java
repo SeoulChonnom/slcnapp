@@ -1,40 +1,26 @@
 package com.seoulchonnom.aggregate.schedule.store.mapper;
 
-import org.springframework.stereotype.Component;
+import static org.mapstruct.MappingConstants.ComponentModel.*;
+
+import org.mapstruct.AfterMapping;
+import org.mapstruct.Builder;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 
 import com.seoulchonnom.aggregate.schedule.store.jpo.ScheduleJpo;
 import com.seoulchonnom.spec.schedule.entity.Schedule;
 
-@Component
-public class ScheduleJpoMapper {
-	public ScheduleJpo toJpo(Schedule schedule) {
-		ScheduleJpo scheduleJpo = new ScheduleJpo();
-		scheduleJpo.setId(schedule.getId());
-		scheduleJpo.setEntityVersion(schedule.getEntityVersion());
-		scheduleJpo.setRegisteredTime(schedule.getRegisteredTime());
-		scheduleJpo.setModifiedTime(schedule.getModifiedTime());
-		scheduleJpo.setCalendarId(schedule.getCalendarId());
-		scheduleJpo.setTitle(schedule.getTitle());
-		scheduleJpo.setBody(schedule.getBody());
-		scheduleJpo.setAllDay(schedule.isAllDay());
-		scheduleJpo.setStart(schedule.getStart());
-		scheduleJpo.setEnd(schedule.getEnd());
-		scheduleJpo.setLocation(schedule.getLocation());
-		scheduleJpo.setHidden(schedule.isHidden());
-		return scheduleJpo;
-	}
+@Mapper(componentModel = SPRING, builder = @Builder(disableBuilder = true))
+public interface ScheduleJpoMapper {
+	@Mapping(target = "allDay", source = "allDay")
+	ScheduleJpo toJpo(Schedule schedule);
 
-	public Schedule toDomain(ScheduleJpo scheduleJpo) {
-		Schedule schedule = Schedule.builder()
-			.calendarId(scheduleJpo.getCalendarId())
-			.title(scheduleJpo.getTitle())
-			.body(scheduleJpo.getBody())
-			.allDay(scheduleJpo.isAllDay())
-			.start(scheduleJpo.getStart())
-			.end(scheduleJpo.getEnd())
-			.location(scheduleJpo.getLocation())
-			.hidden(scheduleJpo.isHidden())
-			.build();
+	@Mapping(target = "allDay", source = "allDay")
+	Schedule toDomain(ScheduleJpo scheduleJpo);
+
+	@AfterMapping
+	default void mapInheritedFields(ScheduleJpo scheduleJpo, @MappingTarget Schedule schedule) {
 		schedule.setId(scheduleJpo.getId());
 		schedule.setEntityVersion(scheduleJpo.getEntityVersion());
 		if (scheduleJpo.getRegisteredTime() != null) {
@@ -43,6 +29,5 @@ public class ScheduleJpoMapper {
 		if (scheduleJpo.getModifiedTime() != null) {
 			schedule.setModifiedTime(scheduleJpo.getModifiedTime());
 		}
-		return schedule;
 	}
 }

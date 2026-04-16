@@ -1,9 +1,11 @@
 package com.seoulchonnom.spec.trip.mapper;
 
+import static org.mapstruct.MappingConstants.ComponentModel.*;
+
 import java.util.List;
 
-import org.springframework.beans.BeanUtils;
-import org.springframework.stereotype.Component;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 import com.seoulchonnom.spec.trip.entity.Quiz;
 import com.seoulchonnom.spec.trip.entity.Trip;
@@ -11,29 +13,16 @@ import com.seoulchonnom.spec.trip.facade.sdo.QuizRdo;
 import com.seoulchonnom.spec.trip.facade.sdo.TripInfoRdo;
 import com.seoulchonnom.spec.trip.facade.sdo.TripListRdo;
 
-@Component
-public class TripMapper {
-	public TripListRdo toTripListRdo(Trip trip) {
-		TripListRdo tripListRdo = new TripListRdo();
-		BeanUtils.copyProperties(trip, tripListRdo, "quizList");
-		tripListRdo.setQuizList(toQuizRdoList(trip.getQuizList()));
-		return tripListRdo;
-	}
+@Mapper(componentModel = SPRING)
+public interface TripMapper {
+	TripListRdo toTripListRdo(Trip trip);
 
-	public TripInfoRdo toTripInfoRdo(Trip trip) {
-		TripInfoRdo tripInfoRdo = new TripInfoRdo();
-		BeanUtils.copyProperties(trip, tripInfoRdo);
-		tripInfoRdo.setDrive(trip.getDriveUrl());
-		return tripInfoRdo;
-	}
+	@Mapping(target = "drive", source = "driveUrl")
+	TripInfoRdo toTripInfoRdo(Trip trip);
 
-	public QuizRdo toQuizRdo(Quiz quiz) {
-		QuizRdo quizRdo = new QuizRdo();
-		BeanUtils.copyProperties(quiz, quizRdo);
-		return quizRdo;
-	}
+	QuizRdo toQuizRdo(Quiz quiz);
 
-	private List<QuizRdo> toQuizRdoList(List<Quiz> quizList) {
+	default List<QuizRdo> map(List<Quiz> quizList) {
 		if (quizList == null) {
 			return List.of();
 		}

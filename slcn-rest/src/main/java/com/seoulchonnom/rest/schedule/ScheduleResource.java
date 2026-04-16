@@ -56,14 +56,14 @@ public class ScheduleResource implements ScheduleFacade {
 
 	@Override
 	@PatchMapping("/{scheduleId}/hide")
-	public ResponseEntity<Void> hideSchedule(@PathVariable("scheduleId") String scheduleId) {
+	public ResponseEntity<Void> hideSchedule(@PathVariable String scheduleId) {
 		scheduleLogic.hideSchedule(scheduleId);
 		return ResponseEntity.noContent().build();
 	}
 
 	@Override
 	@DeleteMapping("/{scheduleId}")
-	public ResponseEntity<Void> deleteSchedule(@PathVariable("scheduleId") String scheduleId) {
+	public ResponseEntity<Void> deleteSchedule(@PathVariable String scheduleId) {
 		scheduleLogic.deleteSchedule(scheduleId);
 		return ResponseEntity.noContent().build();
 	}

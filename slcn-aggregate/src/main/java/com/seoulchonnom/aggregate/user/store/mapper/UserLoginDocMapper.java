@@ -1,47 +1,40 @@
 package com.seoulchonnom.aggregate.user.store.mapper;
 
+import static org.mapstruct.MappingConstants.ComponentModel.*;
+
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 
-import org.springframework.stereotype.Component;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 import com.seoulchonnom.aggregate.user.store.doc.UserLoginDoc;
 import com.seoulchonnom.spec.user.entity.UserLogin;
 
-@Component
-public class UserLoginDocMapper {
-	private final ZoneId zoneId = ZoneId.systemDefault();
+@Mapper(componentModel = SPRING)
+public interface UserLoginDocMapper {
+	ZoneId ZONE_ID = ZoneId.systemDefault();
 
-	public UserLoginDoc toDoc(UserLogin userLogin) {
-		return new UserLoginDoc(
-			userLogin.getUserId(),
-			toLocalDateTime(userLogin.getLastLoginTime()),
-			userLogin.getLoginFailCount(),
-			toLocalDateTime(userLogin.getLastLoginFailTime()));
-	}
+	@Mapping(target = "id", source = "userId")
+	UserLoginDoc toDoc(UserLogin userLogin);
 
-	public UserLogin toDomain(UserLoginDoc userLoginDoc) {
-		return new UserLogin(
-			userLoginDoc.getId(),
-			toEpochMillis(userLoginDoc.getLastLoginTime()),
-			userLoginDoc.getLoginFailCount(),
-			toEpochMillis(userLoginDoc.getLastLoginFailTime()));
-	}
+	@Mapping(target = "userId", source = "id")
+	UserLogin toDomain(UserLoginDoc userLoginDoc);
 
-	private LocalDateTime toLocalDateTime(long epochMillis) {
+	default LocalDateTime map(long epochMillis) {
 		if (epochMillis <= 0L) {
 			return null;
 		}
 
-		return LocalDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), zoneId);
+		return LocalDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), ZONE_ID);
 	}
 
-	private long toEpochMillis(LocalDateTime localDateTime) {
+	default long map(LocalDateTime localDateTime) {
 		if (localDateTime == null) {
 			return 0L;
 		}
 
-		return localDateTime.atZone(zoneId).toInstant().toEpochMilli();
+		return localDateTime.atZone(ZONE_ID).toInstant().toEpochMilli();
 	}
 }

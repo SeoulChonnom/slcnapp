@@ -1,40 +1,27 @@
 package com.seoulchonnom.spec.schedule.mapper;
 
 import static com.seoulchonnom.spec.schedule.constant.ScheduleConstant.*;
+import static org.mapstruct.MappingConstants.ComponentModel.*;
 
-import org.springframework.stereotype.Component;
+import java.time.LocalDateTime;
+
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 import com.seoulchonnom.spec.schedule.entity.Schedule;
 import com.seoulchonnom.spec.schedule.facade.sdo.ScheduleRdo;
 
-@Component
-public class ScheduleMapper {
-	public ScheduleRdo toScheduleRdo(Schedule schedule) {
-		ScheduleRdo scheduleRdo = new ScheduleRdo();
-		scheduleRdo.setId(schedule.getId());
-		scheduleRdo.setCalendarId(schedule.getCalendarId());
-		scheduleRdo.setTitle(schedule.getTitle());
-		scheduleRdo.setBody(schedule.getBody());
-		scheduleRdo.setAllDay(schedule.isAllDay());
-		scheduleRdo.setStart(formatStartDateTime(schedule));
-		scheduleRdo.setEnd(formatEndDateTime(schedule));
-		scheduleRdo.setLocation(schedule.getLocation());
-		return scheduleRdo;
-	}
+@Mapper(componentModel = SPRING)
+public interface ScheduleMapper {
+	@Mapping(target = "start", expression = "java(formatDateTime(schedule.getStart(), schedule.isAllDay()))")
+	@Mapping(target = "end", expression = "java(formatDateTime(schedule.getEnd(), schedule.isAllDay()))")
+	ScheduleRdo toScheduleRdo(Schedule schedule);
 
-	private String formatStartDateTime(Schedule schedule) {
-		if (schedule.getStart() == null) {
+	default String formatDateTime(LocalDateTime dateTime, boolean isAllDay) {
+		if (dateTime == null) {
 			return null;
 		}
 
-		return formatScheduleDateTime(schedule.getStart(), schedule.isAllDay());
-	}
-
-	private String formatEndDateTime(Schedule schedule) {
-		if (schedule.getEnd() == null) {
-			return null;
-		}
-
-		return formatScheduleDateTime(schedule.getEnd(), schedule.isAllDay());
+		return formatScheduleDateTime(dateTime, isAllDay);
 	}
 }

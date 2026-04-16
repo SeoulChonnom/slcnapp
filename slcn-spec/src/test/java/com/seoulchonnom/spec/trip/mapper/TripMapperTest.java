@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.*;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.mapstruct.factory.Mappers;
 
 import com.seoulchonnom.spec.trip.entity.Quiz;
 import com.seoulchonnom.spec.trip.entity.Trip;
@@ -12,7 +13,7 @@ import com.seoulchonnom.spec.trip.facade.sdo.TripInfoRdo;
 import com.seoulchonnom.spec.trip.facade.sdo.TripListRdo;
 
 class TripMapperTest {
-	private final TripMapper tripMapper = new TripMapper();
+	private final TripMapper tripMapper = Mappers.getMapper(TripMapper.class);
 
 	@Test
 	void toTripListRdo_shouldMapQuizList() {

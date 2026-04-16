@@ -5,12 +5,13 @@ import static org.assertj.core.api.Assertions.*;
 import java.time.LocalDateTime;
 
 import org.junit.jupiter.api.Test;
+import org.mapstruct.factory.Mappers;
 
 import com.seoulchonnom.spec.schedule.entity.Schedule;
 import com.seoulchonnom.spec.schedule.facade.sdo.ScheduleRdo;
 
 class ScheduleMapperTest {
-	private final ScheduleMapper scheduleMapper = new ScheduleMapper();
+	private final ScheduleMapper scheduleMapper = Mappers.getMapper(ScheduleMapper.class);
 
 	@Test
 	void toScheduleRdo_shouldFormatDateTimeFields() {

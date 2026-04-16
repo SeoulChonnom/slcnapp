@@ -11,7 +11,7 @@ import com.seoulchonnom.aggregate.calendar.store.jpo.CalendarJpo;
 import com.seoulchonnom.spec.calendar.entity.Calendar;
 
 @SpringJUnitConfig
-@ContextConfiguration(classes = CalendarJpoMapper.class)
+@ContextConfiguration(classes = CalendarJpoMapperImpl.class)
 class CalendarJpoMapperTest {
 	@Autowired
 	private CalendarJpoMapper calendarJpoMapper;
