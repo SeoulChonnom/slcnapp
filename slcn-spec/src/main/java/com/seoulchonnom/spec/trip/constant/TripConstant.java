@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 public class TripConstant {
 
 	public static final String TRIP_NOT_FOUND_ERROR_MESSAGE = "해당 일자 나들이가 없습니다.";
+	public static final String INVALID_TRIP_REGISTER_ERROR_MESSAGE = "나들이 데이터가 잘못되었습니다.";
 
 	public static final String RETRIEVE_TRIP_LIST_SUCCESS_MESSAGE = "나들이 리스트 조회에 성공하였습니다.";
 	public static final String RETRIEVE_TRIP_INFO_SUCCESS_MESSAGE = "나들이 상세정보 조회에 성공하였습니다.";

@@ -17,6 +17,7 @@ import com.seoulchonnom.spec.trip.facade.sdo.TripCdo;
 import com.seoulchonnom.spec.trip.facade.sdo.TripInfoRdo;
 import com.seoulchonnom.spec.trip.facade.sdo.TripListRdo;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -39,7 +40,7 @@ public class TripResource implements TripFacade {
 
 	@Override
 	@PostMapping
-	public ResponseEntity<TripInfoRdo> createTrip(@RequestBody TripCdo tripCdo) {
+	public ResponseEntity<TripInfoRdo> createTrip(@RequestBody @Valid TripCdo tripCdo) {
 		return new ResponseEntity<>(tripLogic.registerTrip(tripCdo), HttpStatus.OK);
 	}
 }
