@@ -11,7 +11,7 @@ import org.springframework.http.ResponseEntity;
 
 import com.seoulchonnom.aggregate.trip.logic.TripLogic;
 import com.seoulchonnom.spec.trip.facade.sdo.TripCdo;
-import com.seoulchonnom.spec.trip.facade.sdo.TripInfoRdo;
+import com.seoulchonnom.spec.trip.facade.sdo.TripDetailRdo;
 import com.seoulchonnom.spec.trip.facade.sdo.TripListRdo;
 
 class TripResourceTest {
@@ -29,30 +29,30 @@ class TripResourceTest {
 	}
 
 	@Test
-	void getTripByDate_shouldUseDateQueryParameter() {
+	void getTripById_shouldUsePathVariable() {
 		TripLogic tripLogic = mock(TripLogic.class);
 		TripResource tripResource = new TripResource(tripLogic);
-		TripInfoRdo tripInfoRdo = new TripInfoRdo();
-		when(tripLogic.getTripInfoByDate("2026-03-31")).thenReturn(tripInfoRdo);
+		TripDetailRdo tripDetailRdo = new TripDetailRdo();
+		when(tripLogic.getTripById("TRIP-1")).thenReturn(tripDetailRdo);
 
-		ResponseEntity<TripInfoRdo> response = tripResource.getTripByDate("2026-03-31");
+		ResponseEntity<TripDetailRdo> response = tripResource.getTripById("TRIP-1");
 
 		assertEquals(HttpStatus.OK, response.getStatusCode());
-		assertEquals(tripInfoRdo, response.getBody());
-		verify(tripLogic).getTripInfoByDate("2026-03-31");
+		assertEquals(tripDetailRdo, response.getBody());
+		verify(tripLogic).getTripById("TRIP-1");
 	}
 
 	@Test
-	void createTrip_shouldReturnCreatedTripInfo() {
+	void createTrip_shouldReturnCreatedTripDetail() {
 		TripLogic tripLogic = mock(TripLogic.class);
 		TripResource tripResource = new TripResource(tripLogic);
-		TripInfoRdo tripInfoRdo = new TripInfoRdo();
+		TripDetailRdo tripDetailRdo = new TripDetailRdo();
 		TripCdo tripCdo = new TripCdo();
-		when(tripLogic.registerTrip(tripCdo)).thenReturn(tripInfoRdo);
+		when(tripLogic.registerTrip(tripCdo)).thenReturn(tripDetailRdo);
 
-		ResponseEntity<TripInfoRdo> response = tripResource.createTrip(tripCdo);
+		ResponseEntity<TripDetailRdo> response = tripResource.createTrip(tripCdo);
 
 		assertEquals(HttpStatus.OK, response.getStatusCode());
-		assertEquals(tripInfoRdo, response.getBody());
+		assertEquals(tripDetailRdo, response.getBody());
 	}
 }

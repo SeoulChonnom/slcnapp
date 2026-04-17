@@ -1,9 +1,5 @@
 package com.seoulchonnom.spec.trip.entity;
 
-import java.util.List;
-
-import org.springframework.beans.BeanUtils;
-
 import com.seoulchonnom.spec.common.entity.DomainEntity;
 import com.seoulchonnom.spec.trip.facade.sdo.TripCdo;
 
@@ -23,33 +19,24 @@ public class Trip extends DomainEntity {
 	private String type;
 	private String name;
 	private String logo;
-
 	private String firstMap;
 	private String secondMap;
-
 	private String nextButtonText;
 	private String previousButtonText;
-
 	private String driveUrl;
-
-	private String quizTitle;
-	private String quizAnswer;
-	private String quizAnswerTitle;
-	private String quizAnswerText;
-	private String quizErrorTitle;
-	private String quizErrorText;
-
-	private List<Quiz> quizList;
+	private TripQuiz quiz;
 
 	public Trip(TripCdo tripCdo, String id) {
 		super(id);
-		BeanUtils.copyProperties(tripCdo, this);
-		this.quizList = tripCdo.getQuizCdoList().stream()
-			.map(quizCdo -> {
-				Quiz quiz = new Quiz(quizCdo);
-				quiz.setTripId(id);
-				return quiz;
-			})
-			.toList();
+		this.date = tripCdo.getDate();
+		this.type = tripCdo.getType();
+		this.name = tripCdo.getName();
+		this.logo = tripCdo.getLogo();
+		this.firstMap = tripCdo.getFirstMap();
+		this.secondMap = tripCdo.getSecondMap();
+		this.nextButtonText = tripCdo.getNextButtonText();
+		this.previousButtonText = tripCdo.getPreviousButtonText();
+		this.driveUrl = tripCdo.getDriveUrl();
+		this.quiz = new TripQuiz(tripCdo.getQuiz(), id);
 	}
 }

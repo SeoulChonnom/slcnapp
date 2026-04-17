@@ -9,33 +9,53 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
-import com.seoulchonnom.aggregate.trip.store.jpo.QuizJpo;
 import com.seoulchonnom.aggregate.trip.store.jpo.TripJpo;
+import com.seoulchonnom.aggregate.trip.store.jpo.TripQuizJpo;
+import com.seoulchonnom.aggregate.trip.store.jpo.TripQuizOptionJpo;
 import com.seoulchonnom.spec.trip.entity.Trip;
 
 @SpringJUnitConfig
-@ContextConfiguration(classes = {TripJpoMapperImpl.class, QuizJpoMapperImpl.class})
+@ContextConfiguration(classes = {TripJpoMapperImpl.class, TripQuizJpoMapperImpl.class, TripQuizOptionJpoMapperImpl.class})
 class TripJpoMapperTest {
-
 	@Autowired
 	private TripJpoMapper tripJpoMapper;
 
 	@Test
 	void toDomain_shouldPreserveInheritedAndNestedFields() {
-		QuizJpo quizJpo = new QuizJpo();
-		quizJpo.setId("QUIZ-1");
-		quizJpo.setTripId("TRIP-1");
-		quizJpo.setQuizIndex("1");
-		quizJpo.setAnswer("A");
-
 		TripJpo tripJpo = new TripJpo();
 		tripJpo.setId("TRIP-1");
 		tripJpo.setEntityVersion(7L);
 		tripJpo.setRegisteredTime(100L);
 		tripJpo.setModifiedTime(200L);
 		tripJpo.setDate("2026-03-31");
+		tripJpo.setType("ryu");
 		tripJpo.setName("Trip Name");
-		tripJpo.setQuizList(List.of(quizJpo));
+		tripJpo.setLogo("logo.png");
+
+		TripQuizJpo tripQuizJpo = new TripQuizJpo();
+		tripQuizJpo.setTripId("TRIP-1");
+		tripQuizJpo.setTitle("Quiz Title");
+		tripQuizJpo.setCorrectOptionId("OPTION-2");
+		tripQuizJpo.setAnswerTitle("Answer Title");
+		tripQuizJpo.setAnswerText("Answer Text");
+		tripQuizJpo.setErrorTitle("Error Title");
+		tripQuizJpo.setErrorText("Error Text");
+
+		TripQuizOptionJpo option1 = new TripQuizOptionJpo();
+		option1.setId("OPTION-1");
+		option1.setText("wrong");
+		option1.setSortOrder(2);
+		option1.setQuiz(tripQuizJpo);
+
+		TripQuizOptionJpo option2 = new TripQuizOptionJpo();
+		option2.setId("OPTION-2");
+		option2.setText("right");
+		option2.setSortOrder(1);
+		option2.setQuiz(tripQuizJpo);
+
+		tripQuizJpo.setOptions(List.of(option1, option2));
+		tripQuizJpo.setTrip(tripJpo);
+		tripJpo.setQuiz(tripQuizJpo);
 
 		Trip trip = tripJpoMapper.toDomain(tripJpo);
 
@@ -44,11 +64,7 @@ class TripJpoMapperTest {
 		assertThat(trip.getRegisteredTime()).isEqualTo(100L);
 		assertThat(trip.getModifiedTime()).isEqualTo(200L);
 		assertThat(trip.getDate()).isEqualTo("2026-03-31");
-		assertThat(trip.getName()).isEqualTo("Trip Name");
-		assertThat(trip.getQuizList()).singleElement().satisfies(quiz -> {
-			assertThat(quiz.getId()).isEqualTo("QUIZ-1");
-			assertThat(quiz.getTripId()).isEqualTo("TRIP-1");
-			assertThat(quiz.getAnswer()).isEqualTo("A");
-		});
+		assertThat(trip.getQuiz().getCorrectOptionId()).isEqualTo("OPTION-2");
+		assertThat(trip.getQuiz().getOptions()).extracting("id").containsExactly("OPTION-2", "OPTION-1");
 	}
 }

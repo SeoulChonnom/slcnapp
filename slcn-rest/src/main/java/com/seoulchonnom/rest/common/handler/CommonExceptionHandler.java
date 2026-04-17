@@ -3,6 +3,7 @@ package com.seoulchonnom.rest.common.handler;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -27,6 +28,14 @@ public class CommonExceptionHandler {
 		return new ResponseEntity<>(
 			ErrorResponse.from(false, "입력이 올바르지 않습니다."),
 				HttpStatus.BAD_REQUEST);
+	}
+
+	@ExceptionHandler(MethodArgumentNotValidException.class)
+	public ResponseEntity<ErrorResponse> methodArgumentNotValidException(MethodArgumentNotValidException e) {
+		String message = e.getBindingResult().getFieldErrors().isEmpty()
+			? "입력이 올바르지 않습니다."
+			: e.getBindingResult().getFieldErrors().get(0).getDefaultMessage();
+		return new ResponseEntity<>(ErrorResponse.from(false, message), HttpStatus.BAD_REQUEST);
 	}
 
 	@ExceptionHandler(Exception.class)

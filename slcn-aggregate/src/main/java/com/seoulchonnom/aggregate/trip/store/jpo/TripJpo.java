@@ -1,46 +1,42 @@
 package com.seoulchonnom.aggregate.trip.store.jpo;
 
-import java.util.List;
-
 import com.seoulchonnom.aggregate.common.entity.DomainEntityJpo;
 
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
-import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "trip", schema = "slcn")
+@Table(name = "trip", schema = "slcn", uniqueConstraints = @UniqueConstraint(name = "uk_trip_date", columnNames = "date"))
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
 public class TripJpo extends DomainEntityJpo {
+	@Column(nullable = false)
 	private String date;
+	@Column(nullable = false)
 	private String type;
+	@Column(nullable = false)
 	private String name;
+	@Column(nullable = false)
 	private String logo;
-
+	@Column(nullable = false)
 	private String firstMap;
 	private String secondMap;
-
 	private String nextButtonText;
 	private String previousButtonText;
-
+	@Column(nullable = false)
 	private String driveUrl;
 
-	private String quizTitle;
-	private String quizAnswer;
-	private String quizAnswerTitle;
-	private String quizAnswerText;
-	private String quizErrorTitle;
-	private String quizErrorText;
-
-	@OneToMany(mappedBy = "tripId", fetch = FetchType.EAGER, cascade = CascadeType.ALL)
-	private List<QuizJpo> quizList;
+	@OneToOne(mappedBy = "trip", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+	private TripQuizJpo quiz;
 }

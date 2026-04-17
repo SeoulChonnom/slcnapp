@@ -7,11 +7,15 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-public class TripInfoRdo {
+public class TripDetailRdo {
+	private String id;
 	private String date;
+	private String type;
+	private String name;
+	private String logo;
 	private String firstMap;
 	private String secondMap;
 	private String nextButtonText;
 	private String previousButtonText;
-	private String drive;
+	private String driveUrl;
 }

@@ -28,8 +28,4 @@ public class TripStore {
 	public Trip findById(String id) {
 		return tripJpoMapper.toDomain(tripRepository.findById(id).orElseThrow(TripNotFoundException::new));
 	}
-
-	public Trip findByDate(String date) {
-		return tripJpoMapper.toDomain(tripRepository.findByDate(date).orElseThrow(TripNotFoundException::new));
-	}
 }
