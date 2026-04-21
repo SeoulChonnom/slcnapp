@@ -7,18 +7,15 @@ import com.seoulchonnom.spec.user.facade.sdo.UserLoginCdo;
 import com.seoulchonnom.spec.user.facade.sdo.UserRdo;
 
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.Parameters;
-import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 
 @Tag(name = "회원 관리 API", description = "회원 가입 및 로그인")
 public interface UserFacade {
-	@Parameters({
-		@Parameter(name = "X-AUTH-TOKEN", description = "AccessToken", required = true, in = ParameterIn.HEADER)})
+	@SecurityRequirement(name = "X-AUTH-TOKEN")
 	@Operation(summary = "회원 가입", description = "회원 가입 API")
 	ResponseEntity<String> registerUser(UserCdo userCdo);
 

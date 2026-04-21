@@ -35,6 +35,8 @@ public class FileLogic {
 	}
 
 	public ImageFileRdo getImageFile(String path) {
+		fileUtils.isValidPath(path);
+
 		try {
 			Path filePath = Paths.get(directory + path);
 			return ImageFileRdo.builder()

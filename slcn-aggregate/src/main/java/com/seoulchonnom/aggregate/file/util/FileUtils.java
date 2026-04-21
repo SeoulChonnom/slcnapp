@@ -22,9 +22,7 @@ public class FileUtils {
 
 	public String saveImages(MultipartFile multipartFile, String path) throws IOException {
 
-		if (path.isEmpty() || !path.matches(AVAILABLE_PATH)) {
-			throw new FilePathInvalidException();
-		}
+		isValidPath(path);
 
 		if (multipartFile.getSize() > MAX_FILE_SIZE) {
 			throw new FileSizeException();
@@ -40,6 +38,12 @@ public class FileUtils {
 		multipartFile.transferTo(new File(saveFileName));
 
 		return fileName;
+	}
+
+	public void isValidPath(String path) {
+		if (path.isEmpty() || !path.matches(AVAILABLE_PATH)) {
+			throw new FilePathInvalidException();
+		}
 	}
 
 	private String createSaveFileName(String path, String originalFilename) {
