@@ -9,13 +9,13 @@ import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
 import com.seoulchonnom.spec.trip.entity.Trip;
-import com.seoulchonnom.spec.trip.entity.TripQuiz;
-import com.seoulchonnom.spec.trip.entity.TripQuizOption;
+import com.seoulchonnom.spec.trip.entity.vo.Option;
+import com.seoulchonnom.spec.trip.entity.vo.Quiz;
+import com.seoulchonnom.spec.trip.facade.sdo.OptionRdo;
+import com.seoulchonnom.spec.trip.facade.sdo.QuizRdo;
+import com.seoulchonnom.spec.trip.facade.sdo.QuizResultRdo;
 import com.seoulchonnom.spec.trip.facade.sdo.TripDetailRdo;
 import com.seoulchonnom.spec.trip.facade.sdo.TripListRdo;
-import com.seoulchonnom.spec.trip.facade.sdo.TripQuizDetailRdo;
-import com.seoulchonnom.spec.trip.facade.sdo.TripQuizOptionRdo;
-import com.seoulchonnom.spec.trip.facade.sdo.TripQuizRdo;
 
 @Mapper(componentModel = SPRING)
 public interface TripMapper {
@@ -23,36 +23,30 @@ public interface TripMapper {
 
 	TripDetailRdo toTripDetailRdo(Trip trip);
 
-	@Mapping(target = "options", expression = "java(toTripQuizOptionRdoList(tripQuiz.getOptions()))")
-	TripQuizRdo toTripQuizRdo(TripQuiz tripQuiz);
+	OptionRdo toOptionRdo(Option option);
 
-	default List<TripQuizOptionRdo> toTripQuizOptionRdoList(List<TripQuizOption> options) {
+	@Mapping(target = "options", expression = "java(toOptionRdoList(quiz.getOptions()))")
+	QuizRdo toQuizRdo(Quiz quiz);
+
+	default List<OptionRdo> toOptionRdoList(List<Option> options) {
 		return options.stream()
-			.sorted(Comparator.comparingInt(TripQuizOption::getSortOrder))
-			.map(this::toTripQuizOptionRdo)
+			.sorted(Comparator.comparingInt(Option::getSortOrder))
+			.map(this::toOptionRdo)
 			.toList();
 	}
 
-	default TripQuizOptionRdo toTripQuizOptionRdo(TripQuizOption option) {
-		TripQuizOptionRdo tripQuizOptionRdo = new TripQuizOptionRdo();
-		tripQuizOptionRdo.setId(option.getId());
-		tripQuizOptionRdo.setText(option.getText());
-		tripQuizOptionRdo.setSortOrder(option.getSortOrder());
-		return tripQuizOptionRdo;
-	}
+	default QuizResultRdo toQuizDetailRdo(Quiz quiz, String optionId) {
+		QuizResultRdo quizResultRdo = new QuizResultRdo();
 
-	default TripQuizDetailRdo toTripQuizDetailRdo(TripQuiz tripQuiz, String optionId) {
-		TripQuizDetailRdo tripQuizDetailRdo = new TripQuizDetailRdo();
-
-		if (tripQuiz.getCorrectOptionId().equals(optionId)) {
-			tripQuizDetailRdo.setCorrect(true);
-			tripQuizDetailRdo.setTitle(tripQuiz.getAnswerTitle());
-			tripQuizDetailRdo.setText(tripQuiz.getAnswerText());
+		if (quiz.getCorrectOptionId().equals(optionId)) {
+			quizResultRdo.setCorrect(true);
+			quizResultRdo.setTitle(quiz.getAnswerTitle());
+			quizResultRdo.setText(quiz.getAnswerText());
 		} else {
-			tripQuizDetailRdo.setCorrect(false);
-			tripQuizDetailRdo.setTitle(tripQuiz.getErrorTitle());
-			tripQuizDetailRdo.setText(tripQuiz.getErrorText());
+			quizResultRdo.setCorrect(false);
+			quizResultRdo.setTitle(quiz.getErrorTitle());
+			quizResultRdo.setText(quiz.getErrorText());
 		}
-		return tripQuizDetailRdo;
+		return quizResultRdo;
 	}
 }

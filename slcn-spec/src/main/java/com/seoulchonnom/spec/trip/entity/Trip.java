@@ -1,6 +1,7 @@
 package com.seoulchonnom.spec.trip.entity;
 
 import com.seoulchonnom.spec.common.entity.DomainEntity;
+import com.seoulchonnom.spec.trip.entity.vo.Quiz;
 import com.seoulchonnom.spec.trip.facade.sdo.TripCdo;
 
 import lombok.AllArgsConstructor;
@@ -24,7 +25,7 @@ public class Trip extends DomainEntity {
 	private String nextButtonText;
 	private String previousButtonText;
 	private String driveUrl;
-	private TripQuiz quiz;
+	private Quiz quiz;
 
 	public Trip(TripCdo tripCdo, String id) {
 		super(id);
@@ -37,6 +38,6 @@ public class Trip extends DomainEntity {
 		this.nextButtonText = tripCdo.getNextButtonText();
 		this.previousButtonText = tripCdo.getPreviousButtonText();
 		this.driveUrl = tripCdo.getDriveUrl();
-		this.quiz = new TripQuiz(tripCdo.getQuiz(), id);
+		this.quiz = new Quiz(tripCdo.getQuiz());
 	}
 }

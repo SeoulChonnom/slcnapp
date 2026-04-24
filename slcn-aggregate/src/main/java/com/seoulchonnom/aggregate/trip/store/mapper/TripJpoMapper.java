@@ -37,6 +37,5 @@ public interface TripJpoMapper {
 		}
 
 		tripQuizJpo.setTrip(tripJpo);
-		tripQuizJpo.setTripId(tripJpo.getId());
 	}
 }

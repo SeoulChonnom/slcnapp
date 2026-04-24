@@ -14,7 +14,7 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class TripQuizCdo {
+public class QuizCdo {
 	@NotBlank(message = "나들이 퀴즈 타이틀은 필수값 입니다.")
 	private String title;
 
@@ -32,5 +32,5 @@ public class TripQuizCdo {
 
 	@NotEmpty(message = "나들이 퀴즈 보기 데이터는 필수값 입니다.")
 	@Valid
-	private List<TripQuizOptionCdo> options;
+	private List<OptionCdo> options;
 }

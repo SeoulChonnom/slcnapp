@@ -8,8 +8,8 @@ import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
 
 import com.seoulchonnom.spec.trip.entity.Trip;
-import com.seoulchonnom.spec.trip.entity.TripQuiz;
-import com.seoulchonnom.spec.trip.entity.TripQuizOption;
+import com.seoulchonnom.spec.trip.entity.vo.Option;
+import com.seoulchonnom.spec.trip.entity.vo.Quiz;
 import com.seoulchonnom.spec.trip.facade.sdo.TripDetailRdo;
 import com.seoulchonnom.spec.trip.facade.sdo.TripListRdo;
 
@@ -23,7 +23,7 @@ class TripMapperTest {
 			.type("ryu")
 			.name("Trip Name")
 			.logo("logo.png")
-			.quiz(TripQuiz.builder().title("Quiz Title").build())
+			.quiz(Quiz.builder().title("Quiz Title").build())
 			.build();
 		trip.setId("trip-1");
 
@@ -46,7 +46,7 @@ class TripMapperTest {
 			.nextButtonText("next")
 			.previousButtonText("prev")
 			.driveUrl("https://drive.example")
-			.quiz(TripQuiz.builder()
+			.quiz(Quiz.builder()
 				.tripId("trip-1")
 				.title("Quiz Title")
 				.correctOptionId("option-2")
@@ -54,9 +54,9 @@ class TripMapperTest {
 				.answerText("Answer Text")
 				.errorTitle("Error Title")
 				.errorText("Error Text")
-				.options(List.of(
-					TripQuizOption.builder().id("option-1").tripId("trip-1").text("wrong").sortOrder(2).build(),
-					TripQuizOption.builder().id("option-2").tripId("trip-1").text("right").sortOrder(1).build()))
+				.quizOptions(List.of(
+					Option.builder().id("option-1").tripId("trip-1").text("wrong").sortOrder(2).build(),
+					Option.builder().id("option-2").tripId("trip-1").text("right").sortOrder(1).build()))
 				.build())
 			.build();
 		trip.setId("trip-1");

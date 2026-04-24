@@ -4,11 +4,11 @@ import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 
+import com.seoulchonnom.spec.trip.facade.sdo.QuizRdo;
+import com.seoulchonnom.spec.trip.facade.sdo.QuizResultRdo;
 import com.seoulchonnom.spec.trip.facade.sdo.TripCdo;
 import com.seoulchonnom.spec.trip.facade.sdo.TripDetailRdo;
 import com.seoulchonnom.spec.trip.facade.sdo.TripListRdo;
-import com.seoulchonnom.spec.trip.facade.sdo.TripQuizDetailRdo;
-import com.seoulchonnom.spec.trip.facade.sdo.TripQuizRdo;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -25,10 +25,10 @@ public interface TripFacade {
 	ResponseEntity<TripDetailRdo> getTripById(String id);
 
 	@Operation(summary = "나들이 추가", description = "나들이 퀴즈 정보 API")
-	ResponseEntity<TripQuizRdo> getTripQuiz(String tripId);
+	ResponseEntity<QuizRdo> getTripQuiz(String tripId);
 
 	@Operation(summary = "나들이 추가", description = "나들이 퀴즈 검증 API")
-	ResponseEntity<TripQuizDetailRdo> checkTripQuizAnswer(String tripId, String optionId);
+	ResponseEntity<QuizResultRdo> checkTripQuizAnswer(String tripId, String optionId);
 
 	@Operation(summary = "나들이 추가", description = "나들이 추가용 API")
 	ResponseEntity<TripDetailRdo> createTrip(TripCdo tripCdo);

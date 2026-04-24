@@ -12,4 +12,8 @@ import lombok.Setter;
 public abstract class DomainEntityJpo extends EntityJpo {
 	protected Long registeredTime;
 	protected Long modifiedTime;
+
+	protected DomainEntityJpo(DomainEntityJpo domainEntityJpo) {
+		super(domainEntityJpo);
+	}
 }

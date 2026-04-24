@@ -5,7 +5,7 @@ import lombok.Setter;
 
 @Setter
 @NoArgsConstructor
-public class TripQuizDetailRdo {
+public class QuizResultRdo {
 	private boolean correct;
 	private String title;
 	private String text;

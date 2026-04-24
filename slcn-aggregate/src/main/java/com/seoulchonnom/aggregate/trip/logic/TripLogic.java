@@ -13,13 +13,13 @@ import com.seoulchonnom.aggregate.trip.exception.InvalidTripRegisterException;
 import com.seoulchonnom.aggregate.trip.store.TripStore;
 import com.seoulchonnom.spec.common.generator.IdGenerator;
 import com.seoulchonnom.spec.trip.entity.Trip;
-import com.seoulchonnom.spec.trip.entity.TripQuiz;
+import com.seoulchonnom.spec.trip.entity.vo.Quiz;
+import com.seoulchonnom.spec.trip.facade.sdo.OptionCdo;
+import com.seoulchonnom.spec.trip.facade.sdo.QuizRdo;
+import com.seoulchonnom.spec.trip.facade.sdo.QuizResultRdo;
 import com.seoulchonnom.spec.trip.facade.sdo.TripCdo;
 import com.seoulchonnom.spec.trip.facade.sdo.TripDetailRdo;
 import com.seoulchonnom.spec.trip.facade.sdo.TripListRdo;
-import com.seoulchonnom.spec.trip.facade.sdo.TripQuizDetailRdo;
-import com.seoulchonnom.spec.trip.facade.sdo.TripQuizOptionCdo;
-import com.seoulchonnom.spec.trip.facade.sdo.TripQuizRdo;
 import com.seoulchonnom.spec.trip.mapper.TripMapper;
 
 import lombok.RequiredArgsConstructor;
@@ -51,13 +51,13 @@ public class TripLogic {
 		return tripMapper.toTripDetailRdo(trip);
 	}
 
-	public TripQuizRdo getTripQuiz(String tripId) {
-		return tripMapper.toTripQuizRdo(tripStore.findById(tripId).getQuiz());
+	public QuizRdo getTripQuiz(String tripId) {
+		return tripMapper.toQuizRdo(tripStore.findById(tripId).getQuiz());
 	}
 
-	public TripQuizDetailRdo checkTripQuizAnswer(String tripId, String optionId) {
-		TripQuiz tripQuiz = tripStore.findById(tripId).getQuiz();
-		return tripMapper.toTripQuizDetailRdo(tripQuiz, optionId);
+	public QuizResultRdo checkTripQuizAnswer(String tripId, String optionId) {
+		Quiz quiz = tripStore.findById(tripId).getQuiz();
+		return tripMapper.toQuizDetailRdo(quiz, optionId);
 	}
 
 	private void validateTrip(TripCdo tripCdo) {
@@ -68,14 +68,14 @@ public class TripLogic {
 		}
 
 		long correctOptionCount = tripCdo.getQuiz().getOptions().stream()
-			.filter(TripQuizOptionCdo::isCorrect)
+			.filter(OptionCdo::isCorrect)
 			.count();
 		if (correctOptionCount != 1L) {
 			throw new InvalidTripRegisterException();
 		}
 
 		Set<Integer> sortOrderSet = new HashSet<>();
-		for (TripQuizOptionCdo option : tripCdo.getQuiz().getOptions()) {
+		for (OptionCdo option : tripCdo.getQuiz().getOptions()) {
 			if (option.getSortOrder() == null) {
 				throw new InvalidTripRegisterException();
 			}

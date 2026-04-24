@@ -14,11 +14,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.seoulchonnom.aggregate.trip.logic.TripLogic;
 import com.seoulchonnom.spec.trip.facade.TripFacade;
+import com.seoulchonnom.spec.trip.facade.sdo.QuizRdo;
+import com.seoulchonnom.spec.trip.facade.sdo.QuizResultRdo;
 import com.seoulchonnom.spec.trip.facade.sdo.TripCdo;
 import com.seoulchonnom.spec.trip.facade.sdo.TripDetailRdo;
 import com.seoulchonnom.spec.trip.facade.sdo.TripListRdo;
-import com.seoulchonnom.spec.trip.facade.sdo.TripQuizDetailRdo;
-import com.seoulchonnom.spec.trip.facade.sdo.TripQuizRdo;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -43,13 +43,13 @@ public class TripResource implements TripFacade {
 
 	@Override
 	@GetMapping("/quiz/{tripId}")
-	public ResponseEntity<TripQuizRdo> getTripQuiz(@PathVariable String tripId) {
+	public ResponseEntity<QuizRdo> getTripQuiz(@PathVariable String tripId) {
 		return new ResponseEntity<>(tripLogic.getTripQuiz(tripId), HttpStatus.OK);
 	}
 
 	@Override
 	@GetMapping("/quiz/check")
-	public ResponseEntity<TripQuizDetailRdo> checkTripQuizAnswer(@RequestParam String tripId, @RequestParam String optionId) {
+	public ResponseEntity<QuizResultRdo> checkTripQuizAnswer(@RequestParam String tripId, @RequestParam String optionId) {
 		return new ResponseEntity<>(tripLogic.checkTripQuizAnswer(tripId, optionId), HttpStatus.OK);
 	}
 

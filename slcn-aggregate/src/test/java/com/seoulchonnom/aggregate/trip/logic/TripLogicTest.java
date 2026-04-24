@@ -12,10 +12,10 @@ import com.seoulchonnom.aggregate.trip.exception.InvalidTripRegisterException;
 import com.seoulchonnom.aggregate.trip.store.TripStore;
 import com.seoulchonnom.spec.common.generator.IdGenerator;
 import com.seoulchonnom.spec.trip.entity.Trip;
+import com.seoulchonnom.spec.trip.facade.sdo.OptionCdo;
+import com.seoulchonnom.spec.trip.facade.sdo.QuizCdo;
 import com.seoulchonnom.spec.trip.facade.sdo.TripCdo;
 import com.seoulchonnom.spec.trip.facade.sdo.TripDetailRdo;
-import com.seoulchonnom.spec.trip.facade.sdo.TripQuizCdo;
-import com.seoulchonnom.spec.trip.facade.sdo.TripQuizOptionCdo;
 import com.seoulchonnom.spec.trip.mapper.TripMapper;
 
 class TripLogicTest {
@@ -81,14 +81,14 @@ class TripLogicTest {
 			null,
 			null,
 			"https://drive.example",
-			new TripQuizCdo(
+			new QuizCdo(
 				"퀴즈 제목",
 				"정답 제목",
 				"정답 설명",
 					"오답 제목",
 					"오답 설명",
 					List.of(
-						new TripQuizOptionCdo("오답", 1, false),
-						new TripQuizOptionCdo("정답", 2, true))));
+						new OptionCdo("오답", 1, false),
+						new OptionCdo("정답", 2, true))));
 	}
 }

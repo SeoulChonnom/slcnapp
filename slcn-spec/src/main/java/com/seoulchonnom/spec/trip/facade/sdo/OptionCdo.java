@@ -13,7 +13,7 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class TripQuizOptionCdo {
+public class OptionCdo {
 	@NotBlank(message = "나들이 퀴즈 보기 내용은 필수값 입니다.")
 	private String text;
 

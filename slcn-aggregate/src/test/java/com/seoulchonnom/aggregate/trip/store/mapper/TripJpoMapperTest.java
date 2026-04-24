@@ -33,7 +33,8 @@ class TripJpoMapperTest {
 		tripJpo.setLogo("logo.png");
 
 		TripQuizJpo tripQuizJpo = new TripQuizJpo();
-		tripQuizJpo.setTripId("TRIP-1");
+		tripQuizJpo.setId("4a0e0a8d-3e40-41c7-9d67-4d26cf6c62be");
+		tripQuizJpo.setTrip(tripJpo);
 		tripQuizJpo.setTitle("Quiz Title");
 		tripQuizJpo.setCorrectOptionId("OPTION-2");
 		tripQuizJpo.setAnswerTitle("Answer Title");
@@ -42,7 +43,7 @@ class TripJpoMapperTest {
 		tripQuizJpo.setErrorText("Error Text");
 
 		TripQuizOptionJpo option1 = new TripQuizOptionJpo();
-		option1.setId("OPTION-1");
+		option1.setId("4a0e0a8d-3e40-41c7-9d67-4d26cf6c62be");
 		option1.setText("wrong");
 		option1.setSortOrder(2);
 		option1.setQuiz(tripQuizJpo);

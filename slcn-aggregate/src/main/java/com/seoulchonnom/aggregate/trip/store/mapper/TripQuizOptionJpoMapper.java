@@ -10,17 +10,17 @@ import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
 import com.seoulchonnom.aggregate.trip.store.jpo.TripQuizOptionJpo;
-import com.seoulchonnom.spec.trip.entity.TripQuizOption;
+import com.seoulchonnom.spec.trip.entity.vo.Option;
 
 @Mapper(componentModel = SPRING, builder = @Builder(disableBuilder = true))
 public interface TripQuizOptionJpoMapper {
-	@Mapping(target = "tripId", source = "quiz.tripId")
-	TripQuizOption toDomain(TripQuizOptionJpo tripQuizOptionJpo);
+	@Mapping(target = "tripId", source = "quiz.trip.id")
+	Option toDomain(TripQuizOptionJpo tripQuizOptionJpo);
 
 	@Mapping(target = "quiz", ignore = true)
-	TripQuizOptionJpo toJpo(TripQuizOption tripQuizOption);
+	TripQuizOptionJpo toJpo(Option option);
 
-	default List<TripQuizOption> toDomainList(List<TripQuizOptionJpo> tripQuizOptionJpoList) {
+	default List<Option> toDomainList(List<TripQuizOptionJpo> tripQuizOptionJpoList) {
 		if (tripQuizOptionJpoList == null) {
 			return List.of();
 		}

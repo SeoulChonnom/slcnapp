@@ -37,5 +37,5 @@ public class TripCdo {
 
 	@NotNull(message = "나들이 퀴즈 데이터는 필수값 입니다.")
 	@Valid
-	private TripQuizCdo quiz;
+	private QuizCdo quiz;
 }

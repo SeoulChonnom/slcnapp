@@ -10,14 +10,14 @@ import org.mapstruct.MappingTarget;
 
 import com.seoulchonnom.aggregate.trip.store.jpo.TripQuizJpo;
 import com.seoulchonnom.aggregate.trip.store.jpo.TripQuizOptionJpo;
-import com.seoulchonnom.spec.trip.entity.TripQuiz;
+import com.seoulchonnom.spec.trip.entity.vo.Quiz;
 
 @Mapper(componentModel = SPRING, uses = TripQuizOptionJpoMapper.class, builder = @Builder(disableBuilder = true))
 public interface TripQuizJpoMapper {
-	TripQuiz toDomain(TripQuizJpo tripQuizJpo);
+	Quiz toDomain(TripQuizJpo tripQuizJpo);
 
 	@Mapping(target = "trip", ignore = true)
-	TripQuizJpo toJpo(TripQuiz tripQuiz);
+	TripQuizJpo toJpo(Quiz quiz);
 
 	@AfterMapping
 	default void linkOptions(@MappingTarget TripQuizJpo tripQuizJpo) {
