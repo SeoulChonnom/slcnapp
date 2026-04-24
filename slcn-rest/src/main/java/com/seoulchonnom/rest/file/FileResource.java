@@ -24,7 +24,7 @@ FileResource implements FileFacade {
 	private final FileLogic fileLogic;
 
 	@Override
-	@PostMapping
+	@PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
 	public ResponseEntity<String> uploadFile(@RequestParam("file") MultipartFile file, @RequestParam("path") String path) {
 		return new ResponseEntity<>(fileLogic.uploadFile(file, path), HttpStatus.OK);
 	}

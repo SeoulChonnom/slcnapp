@@ -16,13 +16,14 @@ import com.seoulchonnom.aggregate.file.exception.FileSizeException;
 
 @Component
 public class FileUtils {
-	private final String AVAILABLE_PATH = "logo|map";
 	@Value("${upload.path}")
 	private String directory;
 
 	public String saveImages(MultipartFile multipartFile, String path) throws IOException {
 
-		isValidPath(path);
+		if (path.isEmpty() || !path.matches(AVAILABLE_PATH)) {
+			throw new FilePathInvalidException();
+		}
 
 		if (multipartFile.getSize() > MAX_FILE_SIZE) {
 			throw new FileSizeException();
@@ -40,8 +41,8 @@ public class FileUtils {
 		return fileName;
 	}
 
-	public void isValidPath(String path) {
-		if (path.isEmpty() || !path.matches(AVAILABLE_PATH)) {
+	public void isValidFilePath(String path) {
+		if (path.isEmpty() || !path.matches(FILE_PATH_REGEX_STRING)) {
 			throw new FilePathInvalidException();
 		}
 	}
@@ -59,10 +60,6 @@ public class FileUtils {
 
 	private boolean isImage(String originalFilename) {
 
-		if (extractExt(originalFilename).matches(EXT_REGEX_STRING)) {
-			return true;
-		}
-		return false;
-
+		return extractExt(originalFilename).matches(EXT_REGEX_STRING);
 	}
 }
