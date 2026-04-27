@@ -19,7 +19,6 @@ import lombok.Setter;
 @Getter
 @Setter
 public class Quiz implements JsonSerializable {
-	private String id;
 	private String title;
 	private String correctOptionId;
 	private String answerTitle;
@@ -39,7 +38,7 @@ public class Quiz implements JsonSerializable {
 		int cnt = 1;
 
 		for (OptionCdo optionCdo : quizCdo.getOptions()) {
-			String optionId = "OPT" + cnt;
+			String optionId = "OPT-" + cnt;
 			Option option = new Option(optionCdo, optionId);
 			this.options.add(option);
 			if (optionCdo.isCorrect()) {

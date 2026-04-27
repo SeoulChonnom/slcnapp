@@ -47,16 +47,15 @@ class TripMapperTest {
 			.previousButtonText("prev")
 			.driveUrl("https://drive.example")
 			.quiz(Quiz.builder()
-				.tripId("trip-1")
 				.title("Quiz Title")
 				.correctOptionId("option-2")
 				.answerTitle("Answer Title")
 				.answerText("Answer Text")
 				.errorTitle("Error Title")
 				.errorText("Error Text")
-				.quizOptions(List.of(
-					Option.builder().id("option-1").tripId("trip-1").text("wrong").sortOrder(2).build(),
-					Option.builder().id("option-2").tripId("trip-1").text("right").sortOrder(1).build()))
+				.options(List.of(
+					Option.builder().id("option-1").text("wrong").sortOrder(2).build(),
+					Option.builder().id("option-2").text("right").sortOrder(1).build()))
 				.build())
 			.build();
 		trip.setId("trip-1");
