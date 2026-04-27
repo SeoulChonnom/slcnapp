@@ -36,7 +36,7 @@ class TripLogicTest {
 		ArgumentCaptor<Trip> tripCaptor = ArgumentCaptor.forClass(Trip.class);
 		verify(tripStore).saveTrip(tripCaptor.capture());
 		assertThat(tripCaptor.getValue().getId()).isEqualTo("TRIP-0001");
-		assertThat(tripCaptor.getValue().getQuiz().getTripId()).isEqualTo("TRIP-0001");
+		assertThat(tripCaptor.getValue().getQuiz()).isEqualTo("TRIP-0001");
 		assertThat(tripCaptor.getValue().getQuiz().getCorrectOptionId()).isNotBlank();
 		assertThat(tripCaptor.getValue().getQuiz().getOptions()).hasSize(2);
 	}
@@ -53,7 +53,6 @@ class TripLogicTest {
 	@Test
 	void registerTrip_shouldRejectWhenSortOrderIsDuplicated() {
 		TripCdo tripCdo = createValidTripCdo();
-		tripCdo.getQuiz().getOptions().get(1).setSortOrder(1);
 
 		assertThatThrownBy(() -> tripLogic.registerTrip(tripCdo))
 			.isInstanceOf(InvalidTripRegisterException.class);
@@ -88,7 +87,7 @@ class TripLogicTest {
 					"오답 제목",
 					"오답 설명",
 					List.of(
-						new OptionCdo("오답", 1, false),
-						new OptionCdo("정답", 2, true))));
+						new OptionCdo("오답", false),
+						new OptionCdo("정답", true))));
 	}
 }
