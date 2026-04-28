@@ -35,10 +35,13 @@ class TripLogicTest {
 
 		ArgumentCaptor<Trip> tripCaptor = ArgumentCaptor.forClass(Trip.class);
 		verify(tripStore).saveTrip(tripCaptor.capture());
-		assertThat(tripCaptor.getValue().getId()).isEqualTo("TRIP-0001");
-		assertThat(tripCaptor.getValue().getQuiz()).isEqualTo("TRIP-0001");
-		assertThat(tripCaptor.getValue().getQuiz().getCorrectOptionId()).isNotBlank();
-		assertThat(tripCaptor.getValue().getQuiz().getOptions()).hasSize(2);
+
+		Trip savedTrip = tripCaptor.getValue();
+		assertThat(savedTrip.getId()).isEqualTo("TRIP-0001");
+		assertThat(savedTrip.getQuiz().getCorrectOptionId()).isEqualTo("OPT-2");
+		assertThat(savedTrip.getQuiz().getOptions())
+			.extracting(option -> option.getId() + ":" + option.getText())
+			.containsExactly("OPT-1:오답", "OPT-2:정답");
 	}
 
 	@Test
@@ -51,8 +54,9 @@ class TripLogicTest {
 	}
 
 	@Test
-	void registerTrip_shouldRejectWhenSortOrderIsDuplicated() {
+	void registerTrip_shouldRejectWhenMultipleCorrectOptionsExist() {
 		TripCdo tripCdo = createValidTripCdo();
+		tripCdo.getQuiz().getOptions().get(0).setCorrect(true);
 
 		assertThatThrownBy(() -> tripLogic.registerTrip(tripCdo))
 			.isInstanceOf(InvalidTripRegisterException.class);
@@ -64,6 +68,34 @@ class TripLogicTest {
 		tripCdo.setSecondMap("second-map.png");
 		tripCdo.setNextButtonText("next");
 		tripCdo.setPreviousButtonText(null);
+
+		assertThatThrownBy(() -> tripLogic.registerTrip(tripCdo))
+			.isInstanceOf(InvalidTripRegisterException.class);
+	}
+
+	@Test
+	void registerTrip_shouldAllowWhenNavigationFieldsAreFullyProvided() {
+		TripCdo tripCdo = createValidTripCdo();
+		TripDetailRdo tripDetailRdo = new TripDetailRdo();
+		when(idGenerator.nextDomainId("TRIP")).thenReturn("TRIP-0002");
+		when(tripMapper.toTripDetailRdo(any(Trip.class))).thenReturn(tripDetailRdo);
+		tripCdo.setSecondMap("second-map.png");
+		tripCdo.setNextButtonText("다음");
+		tripCdo.setPreviousButtonText("이전");
+
+		tripLogic.registerTrip(tripCdo);
+
+		ArgumentCaptor<Trip> tripCaptor = ArgumentCaptor.forClass(Trip.class);
+		verify(tripStore).saveTrip(tripCaptor.capture());
+		assertThat(tripCaptor.getValue().getSecondMap()).isEqualTo("second-map.png");
+		assertThat(tripCaptor.getValue().getNextButtonText()).isEqualTo("다음");
+		assertThat(tripCaptor.getValue().getPreviousButtonText()).isEqualTo("이전");
+	}
+
+	@Test
+	void registerTrip_shouldRejectWhenQuizOptionsAreEmpty() {
+		TripCdo tripCdo = createValidTripCdo();
+		tripCdo.getQuiz().setOptions(List.of());
 
 		assertThatThrownBy(() -> tripLogic.registerTrip(tripCdo))
 			.isInstanceOf(InvalidTripRegisterException.class);

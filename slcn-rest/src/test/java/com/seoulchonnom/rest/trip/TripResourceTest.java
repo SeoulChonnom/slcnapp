@@ -10,6 +10,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import com.seoulchonnom.aggregate.trip.logic.TripLogic;
+import com.seoulchonnom.spec.trip.facade.sdo.QuizRdo;
+import com.seoulchonnom.spec.trip.facade.sdo.QuizResultRdo;
 import com.seoulchonnom.spec.trip.facade.sdo.TripCdo;
 import com.seoulchonnom.spec.trip.facade.sdo.TripDetailRdo;
 import com.seoulchonnom.spec.trip.facade.sdo.TripListRdo;
@@ -54,5 +56,33 @@ class TripResourceTest {
 
 		assertEquals(HttpStatus.OK, response.getStatusCode());
 		assertEquals(tripDetailRdo, response.getBody());
+	}
+
+	@Test
+	void getTripQuiz_shouldDelegateToTripLogic() {
+		TripLogic tripLogic = mock(TripLogic.class);
+		TripResource tripResource = new TripResource(tripLogic);
+		QuizRdo quizRdo = new QuizRdo();
+		when(tripLogic.getTripQuiz("TRIP-1")).thenReturn(quizRdo);
+
+		ResponseEntity<QuizRdo> response = tripResource.getTripQuiz("TRIP-1");
+
+		assertEquals(HttpStatus.OK, response.getStatusCode());
+		assertEquals(quizRdo, response.getBody());
+		verify(tripLogic).getTripQuiz("TRIP-1");
+	}
+
+	@Test
+	void checkTripQuizAnswer_shouldDelegateToTripLogic() {
+		TripLogic tripLogic = mock(TripLogic.class);
+		TripResource tripResource = new TripResource(tripLogic);
+		QuizResultRdo quizResultRdo = new QuizResultRdo();
+		when(tripLogic.checkTripQuizAnswer("TRIP-1", "OPT-2")).thenReturn(quizResultRdo);
+
+		ResponseEntity<QuizResultRdo> response = tripResource.checkTripQuizAnswer("TRIP-1", "OPT-2");
+
+		assertEquals(HttpStatus.OK, response.getStatusCode());
+		assertEquals(quizResultRdo, response.getBody());
+		verify(tripLogic).checkTripQuizAnswer("TRIP-1", "OPT-2");
 	}
 }
