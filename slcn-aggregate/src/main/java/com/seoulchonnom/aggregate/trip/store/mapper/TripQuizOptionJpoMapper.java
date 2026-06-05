@@ -14,7 +14,6 @@ import com.seoulchonnom.spec.trip.entity.vo.Option;
 
 @Mapper(componentModel = SPRING, builder = @Builder(disableBuilder = true))
 public interface TripQuizOptionJpoMapper {
-	@Mapping(target = "tripId", source = "quiz.trip.id")
 	Option toDomain(TripQuizOptionJpo tripQuizOptionJpo);
 
 	@Mapping(target = "quiz", ignore = true)
