@@ -1,0 +1,20 @@
+dependencies {
+    // Spring types used in spec contracts and generated mappers
+    implementation 'org.springframework:spring-context'
+    api 'org.springframework:spring-web'
+    api 'jakarta.validation:jakarta.validation-api'
+    compileOnly 'jakarta.servlet:jakarta.servlet-api'
+
+    // Contract annotations
+    implementation 'com.fasterxml.jackson.core:jackson-annotations'
+    api 'com.fasterxml.jackson.core:jackson-databind'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+    api "io.swagger.core.v3:swagger-annotations-jakarta:${rootProject.ext.swaggerAnnotationsVersion}"
+
+    // Mapper interfaces and generated implementations
+    implementation 'org.mapstruct:mapstruct:1.5.3.Final'
+    annotationProcessor 'org.mapstruct:mapstruct-processor:1.5.3.Final'
+    annotationProcessor 'org.projectlombok:lombok-mapstruct-binding:0.2.0'
+
+    testImplementation 'com.fasterxml.jackson.core:jackson-databind'
+}
