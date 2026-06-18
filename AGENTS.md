@@ -9,6 +9,7 @@
 - `slcn-aggregate`: business logic, stores, JPA/Mongo persistence models
 - `slcn-spec`: shared contracts, domain models, facade DTOs, mappers
 - `docs/`: architecture and module rules; 프로젝트 전체 아키텍처는 `docs/architecture.md`를 먼저 참고하고, 코드 배치와 레이어 규칙은 `docs/module.md`를 기준으로 판단
+- `docs/learning/`: previous conversation learnings and recurring implementation cautions; 변경 전 관련 학습 문서가 있는지 확인
 
 Tests live beside each module under `src/test/java`. SQL and architecture notes live under `docs/`.
 If documentation and implementation differ, verify the current code before changing behavior.
