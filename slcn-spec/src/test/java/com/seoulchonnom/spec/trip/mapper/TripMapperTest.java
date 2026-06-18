@@ -10,6 +10,8 @@ import org.mapstruct.factory.Mappers;
 import com.seoulchonnom.spec.trip.entity.Trip;
 import com.seoulchonnom.spec.trip.entity.vo.Option;
 import com.seoulchonnom.spec.trip.entity.vo.Quiz;
+import com.seoulchonnom.spec.trip.facade.sdo.QuizRdo;
+import com.seoulchonnom.spec.trip.facade.sdo.QuizResultRdo;
 import com.seoulchonnom.spec.trip.facade.sdo.TripDetailRdo;
 import com.seoulchonnom.spec.trip.facade.sdo.TripListRdo;
 
@@ -35,7 +37,7 @@ class TripMapperTest {
 	}
 
 	@Test
-	void toTripDetailRdo_shouldMapQuizAndCorrectOption() {
+	void toTripDetailRdo_shouldMapTripFields() {
 		Trip trip = Trip.builder()
 			.date("2026-03-31")
 			.type("ayo")
@@ -47,16 +49,15 @@ class TripMapperTest {
 			.previousButtonText("prev")
 			.driveUrl("https://drive.example")
 			.quiz(Quiz.builder()
-				.tripId("trip-1")
 				.title("Quiz Title")
-				.correctOptionId("option-2")
+				.correctOptionId("OPT-2")
 				.answerTitle("Answer Title")
 				.answerText("Answer Text")
 				.errorTitle("Error Title")
 				.errorText("Error Text")
-				.quizOptions(List.of(
-					Option.builder().id("option-1").tripId("trip-1").text("wrong").sortOrder(2).build(),
-					Option.builder().id("option-2").tripId("trip-1").text("right").sortOrder(1).build()))
+				.options(List.of(
+					Option.builder().id("OPT-1").text("wrong").build(),
+					Option.builder().id("OPT-2").text("right").build()))
 				.build())
 			.build();
 		trip.setId("trip-1");
@@ -64,5 +65,57 @@ class TripMapperTest {
 		TripDetailRdo tripDetailRdo = tripMapper.toTripDetailRdo(trip);
 
 		assertThat(tripDetailRdo.getDriveUrl()).isEqualTo("https://drive.example");
+		assertThat(tripDetailRdo.getPreviousButtonText()).isEqualTo("prev");
+	}
+
+	@Test
+	void toQuizRdo_shouldPreserveOptionOrder() {
+		Quiz quiz = Quiz.builder()
+			.title("Quiz Title")
+			.options(List.of(
+				Option.builder().id("OPT-1").text("first").build(),
+				Option.builder().id("OPT-2").text("second").build()))
+			.build();
+
+		QuizRdo quizRdo = tripMapper.toQuizRdo(quiz);
+
+		assertThat(quizRdo.getTitle()).isEqualTo("Quiz Title");
+		assertThat(quizRdo.getOptions())
+			.extracting(option -> option.getId() + ":" + option.getText())
+			.containsExactly("OPT-1:first", "OPT-2:second");
+	}
+
+	@Test
+	void toQuizDetailRdo_shouldReturnAnswerPayloadForCorrectOption() {
+		Quiz quiz = Quiz.builder()
+			.correctOptionId("OPT-2")
+			.answerTitle("정답")
+			.answerText("정답 설명")
+			.errorTitle("오답")
+			.errorText("오답 설명")
+			.build();
+
+		QuizResultRdo quizResultRdo = tripMapper.toQuizDetailRdo(quiz, "OPT-2");
+
+		assertThat(quizResultRdo.isCorrect()).isTrue();
+		assertThat(quizResultRdo.getTitle()).isEqualTo("정답");
+		assertThat(quizResultRdo.getText()).isEqualTo("정답 설명");
+	}
+
+	@Test
+	void toQuizDetailRdo_shouldReturnErrorPayloadForWrongOption() {
+		Quiz quiz = Quiz.builder()
+			.correctOptionId("OPT-2")
+			.answerTitle("정답")
+			.answerText("정답 설명")
+			.errorTitle("오답")
+			.errorText("오답 설명")
+			.build();
+
+		QuizResultRdo quizResultRdo = tripMapper.toQuizDetailRdo(quiz, "OPT-1");
+
+		assertThat(quizResultRdo.isCorrect()).isFalse();
+		assertThat(quizResultRdo.getTitle()).isEqualTo("오답");
+		assertThat(quizResultRdo.getText()).isEqualTo("오답 설명");
 	}
 }

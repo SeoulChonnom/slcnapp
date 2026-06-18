@@ -1,8 +1,6 @@
 package com.seoulchonnom.aggregate.trip.logic;
 
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -72,16 +70,6 @@ public class TripLogic {
 			.count();
 		if (correctOptionCount != 1L) {
 			throw new InvalidTripRegisterException();
-		}
-
-		Set<Integer> sortOrderSet = new HashSet<>();
-		for (OptionCdo option : tripCdo.getQuiz().getOptions()) {
-			if (option.getSortOrder() == null) {
-				throw new InvalidTripRegisterException();
-			}
-			if (!sortOrderSet.add(option.getSortOrder())) {
-				throw new InvalidTripRegisterException();
-			}
 		}
 
 		boolean hasSecondMap = StringUtils.hasText(tripCdo.getSecondMap());

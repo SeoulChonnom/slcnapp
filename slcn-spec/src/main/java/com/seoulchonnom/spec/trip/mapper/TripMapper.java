@@ -2,7 +2,6 @@ package com.seoulchonnom.spec.trip.mapper;
 
 import static org.mapstruct.MappingConstants.ComponentModel.*;
 
-import java.util.Comparator;
 import java.util.List;
 
 import org.mapstruct.Mapper;
@@ -30,7 +29,6 @@ public interface TripMapper {
 
 	default List<OptionRdo> toOptionRdoList(List<Option> options) {
 		return options.stream()
-			.sorted(Comparator.comparingInt(Option::getSortOrder))
 			.map(this::toOptionRdo)
 			.toList();
 	}

@@ -10,5 +10,4 @@ import lombok.Setter;
 public class OptionRdo {
 	private String id;
 	private String text;
-	private int sortOrder;
 }

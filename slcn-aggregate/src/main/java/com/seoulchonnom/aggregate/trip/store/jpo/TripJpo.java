@@ -1,12 +1,12 @@
 package com.seoulchonnom.aggregate.trip.store.jpo;
 
 import com.seoulchonnom.aggregate.common.entity.DomainEntityJpo;
+import com.seoulchonnom.aggregate.trip.store.jpo.converter.QuizConverter;
+import com.seoulchonnom.spec.trip.entity.vo.Quiz;
 
-import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
@@ -37,6 +37,7 @@ public class TripJpo extends DomainEntityJpo {
 	@Column(nullable = false)
 	private String driveUrl;
 
-	@OneToOne(mappedBy = "trip", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
-	private TripQuizJpo quiz;
+	@Convert(converter = QuizConverter.class)
+	@Column(columnDefinition = "TEXT")
+	private Quiz quiz;
 }
