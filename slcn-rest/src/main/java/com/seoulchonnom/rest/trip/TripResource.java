@@ -36,20 +36,20 @@ public class TripResource implements TripFacade {
 	}
 
 	@Override
-	@GetMapping("/{id}")
-	public ResponseEntity<TripDetailRdo> getTripById(@PathVariable String id) {
-		return new ResponseEntity<>(tripLogic.getTripById(id), HttpStatus.OK);
+	@GetMapping("/{tripId}")
+	public ResponseEntity<TripDetailRdo> getTripById(@PathVariable("tripId") String tripId) {
+		return new ResponseEntity<>(tripLogic.getTripById(tripId), HttpStatus.OK);
 	}
 
 	@Override
 	@GetMapping("/quiz/{tripId}")
-	public ResponseEntity<QuizRdo> getTripQuiz(@PathVariable String tripId) {
+	public ResponseEntity<QuizRdo> getTripQuiz(@PathVariable("tripId") String tripId) {
 		return new ResponseEntity<>(tripLogic.getTripQuiz(tripId), HttpStatus.OK);
 	}
 
 	@Override
 	@GetMapping("/quiz/check")
-	public ResponseEntity<QuizResultRdo> checkTripQuizAnswer(@RequestParam String tripId, @RequestParam String optionId) {
+	public ResponseEntity<QuizResultRdo> checkTripQuizAnswer(@RequestParam("tripId") String tripId, @RequestParam("optionId") String optionId) {
 		return new ResponseEntity<>(tripLogic.checkTripQuizAnswer(tripId, optionId), HttpStatus.OK);
 	}
 
