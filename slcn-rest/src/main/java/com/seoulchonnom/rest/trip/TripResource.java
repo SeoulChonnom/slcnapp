@@ -49,7 +49,7 @@ public class TripResource implements TripFacade {
 
 	@Override
 	@GetMapping("/quiz/check")
-	public ResponseEntity<QuizResultRdo> checkTripQuizAnswer(@RequestParam String tripId, @RequestParam String optionId) {
+	public ResponseEntity<QuizResultRdo> checkTripQuizAnswer(@RequestParam("tripId") String tripId, @RequestParam("optionId") String optionId) {
 		return new ResponseEntity<>(tripLogic.checkTripQuizAnswer(tripId, optionId), HttpStatus.OK);
 	}
 

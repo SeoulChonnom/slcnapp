@@ -36,6 +36,16 @@ class TripMapperTest {
 
 	@Test
 	void toTripDetailRdo_shouldMapQuizAndCorrectOption() {
+		Option option1 = new Option();
+		option1.setId("option-1");
+		option1.setText("wrong");
+		option1.setSortOrder(2);
+
+		Option option2 = new Option();
+		option2.setId("option-2");
+		option2.setText("right");
+		option2.setSortOrder(1);
+
 		Trip trip = Trip.builder()
 			.date("2026-03-31")
 			.type("ayo")
@@ -47,16 +57,13 @@ class TripMapperTest {
 			.previousButtonText("prev")
 			.driveUrl("https://drive.example")
 			.quiz(Quiz.builder()
-				.tripId("trip-1")
 				.title("Quiz Title")
 				.correctOptionId("option-2")
 				.answerTitle("Answer Title")
 				.answerText("Answer Text")
 				.errorTitle("Error Title")
 				.errorText("Error Text")
-				.quizOptions(List.of(
-					Option.builder().id("option-1").tripId("trip-1").text("wrong").sortOrder(2).build(),
-					Option.builder().id("option-2").tripId("trip-1").text("right").sortOrder(1).build()))
+				.options(List.of(option1, option2))
 				.build())
 			.build();
 		trip.setId("trip-1");

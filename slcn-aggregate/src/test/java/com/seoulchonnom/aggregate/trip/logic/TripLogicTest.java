@@ -36,7 +36,6 @@ class TripLogicTest {
 		ArgumentCaptor<Trip> tripCaptor = ArgumentCaptor.forClass(Trip.class);
 		verify(tripStore).saveTrip(tripCaptor.capture());
 		assertThat(tripCaptor.getValue().getId()).isEqualTo("TRIP-0001");
-		assertThat(tripCaptor.getValue().getQuiz().getTripId()).isEqualTo("TRIP-0001");
 		assertThat(tripCaptor.getValue().getQuiz().getCorrectOptionId()).isNotBlank();
 		assertThat(tripCaptor.getValue().getQuiz().getOptions()).hasSize(2);
 	}
