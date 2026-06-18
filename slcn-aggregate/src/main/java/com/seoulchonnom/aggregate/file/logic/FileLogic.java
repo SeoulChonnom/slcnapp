@@ -13,6 +13,7 @@ import org.springframework.web.multipart.MultipartFile;
 import com.seoulchonnom.aggregate.file.exception.FilePathInvalidException;
 import com.seoulchonnom.aggregate.file.exception.FileUploadException;
 import com.seoulchonnom.aggregate.file.util.FileUtils;
+import com.seoulchonnom.spec.file.entity.vo.FileReference;
 import com.seoulchonnom.spec.file.facade.sdo.ImageFileRdo;
 
 import lombok.RequiredArgsConstructor;
@@ -26,19 +27,19 @@ public class FileLogic {
 	@Value("${upload.path}")
 	private String directory;
 
-	public String uploadFile(MultipartFile file, String path) {
+	public FileReference uploadFile(MultipartFile file, String type) {
 		try {
-			return fileUtils.saveImages(file, path);
+			return fileUtils.saveImages(file, type);
 		} catch (IOException e) {
 			throw new FileUploadException();
 		}
 	}
 
-	public ImageFileRdo getImageFile(String path) {
-		fileUtils.isValidFilePath(path);
+	public ImageFileRdo getImageFile(String type, String filename) {
+		fileUtils.isValidFileRef(type, filename);
 
 		try {
-			Path filePath = Paths.get(directory + path);
+			Path filePath = Paths.get(directory).resolve(type).resolve(filename).normalize();
 			return ImageFileRdo.builder()
 				.image(Files.readAllBytes(filePath))
 				.mimeType(Files.probeContentType(filePath))

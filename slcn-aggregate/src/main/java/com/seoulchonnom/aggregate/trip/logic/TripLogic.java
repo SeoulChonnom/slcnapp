@@ -10,6 +10,8 @@ import com.seoulchonnom.aggregate.common.generator.store.entity.SequenceName;
 import com.seoulchonnom.aggregate.trip.exception.InvalidTripRegisterException;
 import com.seoulchonnom.aggregate.trip.store.TripStore;
 import com.seoulchonnom.spec.common.generator.IdGenerator;
+import com.seoulchonnom.spec.file.entity.vo.FileType;
+import com.seoulchonnom.spec.file.facade.sdo.FileRefSdo;
 import com.seoulchonnom.spec.trip.entity.Trip;
 import com.seoulchonnom.spec.trip.entity.vo.Quiz;
 import com.seoulchonnom.spec.trip.facade.sdo.OptionCdo;
@@ -72,7 +74,9 @@ public class TripLogic {
 			throw new InvalidTripRegisterException();
 		}
 
-		boolean hasSecondMap = StringUtils.hasText(tripCdo.getSecondMap());
+		validateFileTypes(tripCdo);
+
+		boolean hasSecondMap = tripCdo.getSecondMap() != null;
 		boolean hasNextButtonText = StringUtils.hasText(tripCdo.getNextButtonText());
 		boolean hasPreviousButtonText = StringUtils.hasText(tripCdo.getPreviousButtonText());
 
@@ -82,5 +86,17 @@ public class TripLogic {
 		if (!(allNavigationFieldsPresent || allNavigationFieldsAbsent)) {
 			throw new InvalidTripRegisterException();
 		}
+	}
+
+	private void validateFileTypes(TripCdo tripCdo) {
+		if (!isType(tripCdo.getLogo(), FileType.LOGO) ||
+			!isType(tripCdo.getFirstMap(), FileType.MAP) ||
+			(tripCdo.getSecondMap() != null && !isType(tripCdo.getSecondMap(), FileType.MAP))) {
+			throw new InvalidTripRegisterException();
+		}
+	}
+
+	private boolean isType(FileRefSdo fileRefSdo, FileType type) {
+		return fileRefSdo != null && type.equals(fileRefSdo.getType());
 	}
 }

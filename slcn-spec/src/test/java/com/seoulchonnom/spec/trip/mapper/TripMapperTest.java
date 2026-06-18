@@ -7,6 +7,8 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
 
+import com.seoulchonnom.spec.file.entity.vo.FileReference;
+import com.seoulchonnom.spec.file.entity.vo.FileType;
 import com.seoulchonnom.spec.trip.entity.Trip;
 import com.seoulchonnom.spec.trip.entity.vo.Option;
 import com.seoulchonnom.spec.trip.entity.vo.Quiz;
@@ -24,7 +26,7 @@ class TripMapperTest {
 			.date("2026-03-31")
 			.type("ryu")
 			.name("Trip Name")
-			.logo("logo.png")
+			.logo(new FileReference(FileType.LOGO, "72d768d4-2b05-48f9-bee8-fee3b52e909f.png"))
 			.quiz(Quiz.builder().title("Quiz Title").build())
 			.build();
 		trip.setId("trip-1");
@@ -34,6 +36,8 @@ class TripMapperTest {
 		assertThat(tripListRdo.getId()).isEqualTo("trip-1");
 		assertThat(tripListRdo.getType()).isEqualTo("ryu");
 		assertThat(tripListRdo.getName()).isEqualTo("Trip Name");
+		assertThat(tripListRdo.getLogo().getType()).isEqualTo(FileType.LOGO);
+		assertThat(tripListRdo.getLogo().getFilename()).isEqualTo("72d768d4-2b05-48f9-bee8-fee3b52e909f.png");
 	}
 
 	@Test
@@ -42,9 +46,9 @@ class TripMapperTest {
 			.date("2026-03-31")
 			.type("ayo")
 			.name("Trip Name")
-			.logo("logo.png")
-			.firstMap("first")
-			.secondMap("second")
+			.logo(new FileReference(FileType.LOGO, "72d768d4-2b05-48f9-bee8-fee3b52e909f.png"))
+			.firstMap(new FileReference(FileType.MAP, "11111111-2222-4333-8888-aaaaaaaaaaaa.png"))
+			.secondMap(new FileReference(FileType.MAP, "22222222-3333-4444-9999-bbbbbbbbbbbb.png"))
 			.nextButtonText("next")
 			.previousButtonText("prev")
 			.driveUrl("https://drive.example")
@@ -66,6 +70,12 @@ class TripMapperTest {
 
 		assertThat(tripDetailRdo.getDriveUrl()).isEqualTo("https://drive.example");
 		assertThat(tripDetailRdo.getPreviousButtonText()).isEqualTo("prev");
+		assertThat(tripDetailRdo.getLogo().getType()).isEqualTo(FileType.LOGO);
+		assertThat(tripDetailRdo.getLogo().getFilename()).isEqualTo("72d768d4-2b05-48f9-bee8-fee3b52e909f.png");
+		assertThat(tripDetailRdo.getFirstMap().getType()).isEqualTo(FileType.MAP);
+		assertThat(tripDetailRdo.getFirstMap().getFilename()).isEqualTo("11111111-2222-4333-8888-aaaaaaaaaaaa.png");
+		assertThat(tripDetailRdo.getSecondMap().getType()).isEqualTo(FileType.MAP);
+		assertThat(tripDetailRdo.getSecondMap().getFilename()).isEqualTo("22222222-3333-4444-9999-bbbbbbbbbbbb.png");
 	}
 
 	@Test

@@ -1,6 +1,7 @@
 package com.seoulchonnom.spec.trip.entity;
 
 import com.seoulchonnom.spec.common.entity.DomainEntity;
+import com.seoulchonnom.spec.file.entity.vo.FileReference;
 import com.seoulchonnom.spec.trip.entity.vo.Quiz;
 import com.seoulchonnom.spec.trip.facade.sdo.TripCdo;
 
@@ -19,9 +20,9 @@ public class Trip extends DomainEntity {
 	private String date;
 	private String type;
 	private String name;
-	private String logo;
-	private String firstMap;
-	private String secondMap;
+	private FileReference logo;
+	private FileReference firstMap;
+	private FileReference secondMap;
 	private String nextButtonText;
 	private String previousButtonText;
 	private String driveUrl;
@@ -32,9 +33,11 @@ public class Trip extends DomainEntity {
 		this.date = tripCdo.getDate();
 		this.type = tripCdo.getType();
 		this.name = tripCdo.getName();
-		this.logo = tripCdo.getLogo();
-		this.firstMap = tripCdo.getFirstMap();
-		this.secondMap = tripCdo.getSecondMap();
+		this.logo = new FileReference(tripCdo.getLogo().getType(), tripCdo.getLogo().getFilename());
+		this.firstMap = new FileReference(tripCdo.getFirstMap().getType(), tripCdo.getFirstMap().getFilename());
+		this.secondMap = tripCdo.getSecondMap() == null
+			? null
+			: new FileReference(tripCdo.getSecondMap().getType(), tripCdo.getSecondMap().getFilename());
 		this.nextButtonText = tripCdo.getNextButtonText();
 		this.previousButtonText = tripCdo.getPreviousButtonText();
 		this.driveUrl = tripCdo.getDriveUrl();

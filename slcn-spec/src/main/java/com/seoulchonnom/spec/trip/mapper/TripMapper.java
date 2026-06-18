@@ -7,6 +7,8 @@ import java.util.List;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
+import com.seoulchonnom.spec.file.entity.vo.FileReference;
+import com.seoulchonnom.spec.file.facade.sdo.FileRefSdo;
 import com.seoulchonnom.spec.trip.entity.Trip;
 import com.seoulchonnom.spec.trip.entity.vo.Option;
 import com.seoulchonnom.spec.trip.entity.vo.Quiz;
@@ -31,6 +33,10 @@ public interface TripMapper {
 		return options.stream()
 			.map(this::toOptionRdo)
 			.toList();
+	}
+
+	default FileRefSdo map(FileReference fileReference) {
+		return FileRefSdo.from(fileReference);
 	}
 
 	default QuizResultRdo toQuizDetailRdo(Quiz quiz, String optionId) {

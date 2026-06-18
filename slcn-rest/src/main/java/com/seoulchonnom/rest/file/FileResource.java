@@ -12,6 +12,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.seoulchonnom.aggregate.file.logic.FileLogic;
 import com.seoulchonnom.spec.file.facade.FileFacade;
+import com.seoulchonnom.spec.file.facade.sdo.FileRefSdo;
 import com.seoulchonnom.spec.file.facade.sdo.ImageFileRdo;
 
 import lombok.RequiredArgsConstructor;
@@ -25,14 +26,14 @@ FileResource implements FileFacade {
 
 	@Override
 	@PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-	public ResponseEntity<String> uploadFile(@RequestParam("file") MultipartFile file, @RequestParam("path") String path) {
-		return new ResponseEntity<>(fileLogic.uploadFile(file, path), HttpStatus.OK);
+	public ResponseEntity<FileRefSdo> uploadFile(@RequestParam("file") MultipartFile file, @RequestParam("type") String type) {
+		return new ResponseEntity<>(FileRefSdo.from(fileLogic.uploadFile(file, type)), HttpStatus.OK);
 	}
 
 	@Override
 	@GetMapping
-	public ResponseEntity<byte[]> getFile(@RequestParam("path") String path) {
-		ImageFileRdo imageFileRdo = fileLogic.getImageFile(path);
+	public ResponseEntity<byte[]> getFile(@RequestParam("type") String type, @RequestParam("filename") String filename) {
+		ImageFileRdo imageFileRdo = fileLogic.getImageFile(type, filename);
 		MediaType mediaType = imageFileRdo.getMimeType() == null
 			? MediaType.APPLICATION_OCTET_STREAM
 			: MediaType.parseMediaType(imageFileRdo.getMimeType());

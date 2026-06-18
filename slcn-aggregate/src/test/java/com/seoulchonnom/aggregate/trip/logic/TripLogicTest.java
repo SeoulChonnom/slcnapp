@@ -11,6 +11,8 @@ import org.mockito.ArgumentCaptor;
 import com.seoulchonnom.aggregate.trip.exception.InvalidTripRegisterException;
 import com.seoulchonnom.aggregate.trip.store.TripStore;
 import com.seoulchonnom.spec.common.generator.IdGenerator;
+import com.seoulchonnom.spec.file.entity.vo.FileType;
+import com.seoulchonnom.spec.file.facade.sdo.FileRefSdo;
 import com.seoulchonnom.spec.trip.entity.Trip;
 import com.seoulchonnom.spec.trip.facade.sdo.OptionCdo;
 import com.seoulchonnom.spec.trip.facade.sdo.QuizCdo;
@@ -38,6 +40,8 @@ class TripLogicTest {
 
 		Trip savedTrip = tripCaptor.getValue();
 		assertThat(savedTrip.getId()).isEqualTo("TRIP-0001");
+		assertThat(savedTrip.getLogo().toPath()).isEqualTo("logo/72d768d4-2b05-48f9-bee8-fee3b52e909f.png");
+		assertThat(savedTrip.getFirstMap().toPath()).isEqualTo("map/11111111-2222-4333-8888-aaaaaaaaaaaa.png");
 		assertThat(savedTrip.getQuiz().getCorrectOptionId()).isEqualTo("OPT-2");
 		assertThat(savedTrip.getQuiz().getOptions())
 			.extracting(option -> option.getId() + ":" + option.getText())
@@ -65,9 +69,18 @@ class TripLogicTest {
 	@Test
 	void registerTrip_shouldRejectWhenNavigationFieldsArePartial() {
 		TripCdo tripCdo = createValidTripCdo();
-		tripCdo.setSecondMap("second-map.png");
+		tripCdo.setSecondMap(new FileRefSdo(FileType.MAP, "22222222-3333-4444-9999-bbbbbbbbbbbb.png"));
 		tripCdo.setNextButtonText("next");
 		tripCdo.setPreviousButtonText(null);
+
+		assertThatThrownBy(() -> tripLogic.registerTrip(tripCdo))
+			.isInstanceOf(InvalidTripRegisterException.class);
+	}
+
+	@Test
+	void registerTrip_shouldRejectWhenFileTypeDoesNotMatchTripField() {
+		TripCdo tripCdo = createValidTripCdo();
+		tripCdo.setLogo(new FileRefSdo(FileType.MAP, "72d768d4-2b05-48f9-bee8-fee3b52e909f.png"));
 
 		assertThatThrownBy(() -> tripLogic.registerTrip(tripCdo))
 			.isInstanceOf(InvalidTripRegisterException.class);
@@ -79,7 +92,7 @@ class TripLogicTest {
 		TripDetailRdo tripDetailRdo = new TripDetailRdo();
 		when(idGenerator.nextDomainId("TRIP")).thenReturn("TRIP-0002");
 		when(tripMapper.toTripDetailRdo(any(Trip.class))).thenReturn(tripDetailRdo);
-		tripCdo.setSecondMap("second-map.png");
+		tripCdo.setSecondMap(new FileRefSdo(FileType.MAP, "22222222-3333-4444-9999-bbbbbbbbbbbb.png"));
 		tripCdo.setNextButtonText("다음");
 		tripCdo.setPreviousButtonText("이전");
 
@@ -87,7 +100,7 @@ class TripLogicTest {
 
 		ArgumentCaptor<Trip> tripCaptor = ArgumentCaptor.forClass(Trip.class);
 		verify(tripStore).saveTrip(tripCaptor.capture());
-		assertThat(tripCaptor.getValue().getSecondMap()).isEqualTo("second-map.png");
+		assertThat(tripCaptor.getValue().getSecondMap().toPath()).isEqualTo("map/22222222-3333-4444-9999-bbbbbbbbbbbb.png");
 		assertThat(tripCaptor.getValue().getNextButtonText()).isEqualTo("다음");
 		assertThat(tripCaptor.getValue().getPreviousButtonText()).isEqualTo("이전");
 	}
@@ -106,8 +119,8 @@ class TripLogicTest {
 			"2026-04-16",
 			"ryu",
 			"봄 나들이",
-			"/logo.png",
-			"/first-map.png",
+			new FileRefSdo(FileType.LOGO, "72d768d4-2b05-48f9-bee8-fee3b52e909f.png"),
+			new FileRefSdo(FileType.MAP, "11111111-2222-4333-8888-aaaaaaaaaaaa.png"),
 			null,
 			null,
 			null,
