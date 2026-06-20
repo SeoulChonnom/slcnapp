@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.*;
 import org.junit.jupiter.api.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.seoulchonnom.spec.file.entity.vo.FileReference;
 import com.seoulchonnom.spec.file.entity.vo.FileType;
 
 class FileRefSdoTest {
@@ -27,5 +28,12 @@ class FileRefSdoTest {
 
 		assertThat(fileRefSdo.getType()).isEqualTo(FileType.MAP);
 		assertThat(fileRefSdo.getFilename()).isEqualTo("11111111-2222-4333-8888-aaaaaaaaaaaa.png");
+	}
+
+	@Test
+	void fileReferenceFromPath_shouldRejectInvalidPathShape() {
+		assertThatThrownBy(() -> FileReference.fromPath("logo"))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("Invalid file reference path: logo");
 	}
 }

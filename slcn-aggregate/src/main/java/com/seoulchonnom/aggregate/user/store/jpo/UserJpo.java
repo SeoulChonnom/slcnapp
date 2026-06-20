@@ -5,6 +5,7 @@ import java.util.List;
 import com.seoulchonnom.aggregate.common.entity.DomainEntityJpo;
 
 import jakarta.persistence.CollectionTable;
+import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -22,7 +23,9 @@ import lombok.Setter;
 @AllArgsConstructor
 @NoArgsConstructor
 public class UserJpo extends DomainEntityJpo {
+	@Column(nullable = false, unique = true)
 	private String username;
+
 	private String name;
 	private String password;
 

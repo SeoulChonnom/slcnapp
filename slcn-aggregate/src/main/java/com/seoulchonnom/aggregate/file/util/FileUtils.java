@@ -2,12 +2,19 @@ package com.seoulchonnom.aggregate.file.util;
 
 import static com.seoulchonnom.spec.file.constant.FileConstant.*;
 
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.UUID;
+
+import javax.imageio.ImageIO;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.seoulchonnom.aggregate.file.exception.FileExtException;
@@ -31,9 +38,7 @@ public class FileUtils {
 			throw new FileSizeException();
 		}
 
-		if (!isImage(multipartFile.getOriginalFilename())) {
-			throw new FileExtException();
-		}
+		validateImageFile(multipartFile);
 
 		String filename = createSaveFileName(multipartFile.getOriginalFilename());
 		String saveFileName = directory + type + '/' + filename;
@@ -63,12 +68,50 @@ public class FileUtils {
 	}
 
 	private String extractExt(String originalFilename) {
+		if (!StringUtils.hasText(originalFilename)) {
+			throw new FileExtException();
+		}
+
 		int pos = originalFilename.lastIndexOf(".");
-		return originalFilename.substring(pos + 1);
+		if (pos < 0 || pos == originalFilename.length() - 1) {
+			throw new FileExtException();
+		}
+		return originalFilename.substring(pos + 1).toLowerCase(Locale.ROOT);
 	}
 
-	private boolean isImage(String originalFilename) {
+	private void validateImageFile(MultipartFile multipartFile) throws IOException {
+		String ext = extractExt(multipartFile.getOriginalFilename());
+		if (!ext.matches(EXT_REGEX_STRING)) {
+			throw new FileExtException();
+		}
 
-		return extractExt(originalFilename).matches(EXT_REGEX_STRING);
+		String contentType = multipartFile.getContentType();
+		if (!StringUtils.hasText(contentType) || !contentType.toLowerCase(Locale.ROOT).startsWith("image/")) {
+			throw new FileExtException();
+		}
+
+		if ("svg".equals(ext)) {
+			validateSvg(multipartFile);
+			return;
+		}
+
+		try (InputStream inputStream = multipartFile.getInputStream()) {
+			BufferedImage image = ImageIO.read(inputStream);
+			if (image == null) {
+				throw new FileExtException();
+			}
+		}
+	}
+
+	private void validateSvg(MultipartFile multipartFile) throws IOException {
+		byte[] header;
+		try (InputStream inputStream = multipartFile.getInputStream()) {
+			header = inputStream.readNBytes(1024);
+		}
+
+		String content = new String(header, StandardCharsets.UTF_8).toLowerCase(Locale.ROOT);
+		if (!content.contains("<svg")) {
+			throw new FileExtException();
+		}
 	}
 }

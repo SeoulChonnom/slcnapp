@@ -67,6 +67,12 @@ class ScheduleLogicTest {
 	}
 
 	@Test
+	void getSchedulesForRange_shouldRejectRangeLongerThanOneMonth() {
+		assertThatThrownBy(() -> scheduleLogic.getSchedulesForRange("2026-04-01T00:00:00+09:00", "2026-05-02T00:00:00+09:00"))
+			.isInstanceOf(InvalidScheduleDateException.class);
+	}
+
+	@Test
 	void registerSchedule_shouldRejectBlankTitle() {
 		ScheduleCdo scheduleCdo = new ScheduleCdo();
 		scheduleCdo.setCalendarId("cal1");

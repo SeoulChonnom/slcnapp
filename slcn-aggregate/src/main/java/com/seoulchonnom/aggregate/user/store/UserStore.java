@@ -38,6 +38,10 @@ public class UserStore {
 		userLoginRepository.save(userLoginDocMapper.toDoc(UserLogin.newUser(userId)));
 	}
 
+	public boolean existsByUsername(String username) {
+		return userRepository.existsByUsername(username);
+	}
+
 	public User findUserById(String id) {
 		UserJpo userJpo = userRepository.findUserJpoById(id).orElseThrow(InvalidUserException::new);
 		return userJpoMapper.toDomain(userJpo);

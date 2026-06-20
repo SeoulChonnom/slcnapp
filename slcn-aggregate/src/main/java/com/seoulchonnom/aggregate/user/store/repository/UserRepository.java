@@ -15,4 +15,6 @@ public interface UserRepository extends JpaRepository<UserJpo, String> {
 
 	@EntityGraph(attributePaths = "authorityList")
 	Optional<UserJpo> findUserJpoByUsername(String username);
+
+	boolean existsByUsername(String username);
 }

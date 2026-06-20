@@ -40,10 +40,14 @@ public class UserAuthLogic {
 	@Value("${login.fail.limit.count:5}")
 	private int loginFailLimitCount;
 
+	@Value("${login.limit.clear.time:300}")
+	private long loginLimitClearTimeSeconds;
+
 	public TokenSessionVo issueLoginToken(UserLoginCdo userLoginCdo) {
 		UserDetail userDetail = userAuthStore.getUserDetail(userLoginCdo.getUsername());
 		UserLogin userLogin = userAuthStore.getUserLogin(userDetail.getUser().getId());
 
+		clearExpiredLoginBlock(userLogin);
 		if (userLogin.isLoginBlocked(loginFailLimitCount)) {
 			recordLoginFailure(userLogin);
 			throw new UserLoginFailCountOverException();
@@ -95,6 +99,13 @@ public class UserAuthLogic {
 		userLogin.markLoginFailure();
 		userAuthStore.saveUserLogin(userLogin);
 		userAuthStore.saveUserLoginHistory(UserLoginHistory.create(userLogin.getUserId(), false));
+	}
+
+	private void clearExpiredLoginBlock(UserLogin userLogin) {
+		long clearTimeMillis = Duration.ofSeconds(loginLimitClearTimeSeconds).toMillis();
+		if (userLogin.isLoginBlockExpired(loginFailLimitCount, clearTimeMillis)) {
+			userLogin.clearLoginFailure();
+		}
 	}
 
 	private void recordLoginSuccess(UserLogin userLogin) {

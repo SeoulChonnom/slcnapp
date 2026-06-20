@@ -43,10 +43,11 @@ class UserAuthLogicTest {
 
 	@BeforeEach
 	void setUp() {
-		userAuthLogic = new UserAuthLogic(userAuthStore, refreshSessionStore, jwtTokenProvider, refreshTokenHasher,
-			passwordGenerator);
-		ReflectionTestUtils.setField(userAuthLogic, "loginFailLimitCount", 5);
-	}
+			userAuthLogic = new UserAuthLogic(userAuthStore, refreshSessionStore, jwtTokenProvider, refreshTokenHasher,
+				passwordGenerator);
+			ReflectionTestUtils.setField(userAuthLogic, "loginFailLimitCount", 5);
+			ReflectionTestUtils.setField(userAuthLogic, "loginLimitClearTimeSeconds", 300L);
+		}
 
 	@Test
 	void issueLoginToken_shouldResetFailCountAndStoreSuccessHistory() {
@@ -124,6 +125,32 @@ class UserAuthLogicTest {
 		assertThat(userLoginCaptor.getValue().getLoginFailCount()).isEqualTo(6);
 		assertThat(historyCaptor.getValue().isLoginSuccess()).isFalse();
 		verify(passwordGenerator, never()).matches(any(), any());
+	}
+
+	@Test
+	void issueLoginToken_shouldClearExpiredLoginBlockBeforePasswordValidation() {
+		User user = user("USER-0001", "tester", "encoded-password");
+		UserLogin userLogin = new UserLogin("USER-0001", 0L, 5, System.currentTimeMillis() - Duration.ofMinutes(6).toMillis());
+		UserLoginCdo userLoginCdo = UserLoginCdo.builder().username("tester").password("Password1!").build();
+		UserDetail userDetail = new UserDetail(user);
+		TokenRdo tokenRdo = TokenRdo.builder()
+			.userId("USER-0001")
+			.accessToken("access")
+			.refreshToken("refresh")
+			.build();
+		when(userAuthStore.getUserDetail("tester")).thenReturn(userDetail);
+		when(userAuthStore.getUserLogin("USER-0001")).thenReturn(userLogin);
+		when(passwordGenerator.matches("Password1!", "encoded-password")).thenReturn(true);
+		when(jwtTokenProvider.createToken(userDetail, "USER-0001")).thenReturn(tokenRdo);
+		when(jwtTokenProvider.getRefreshTokenTtl()).thenReturn(Duration.ofDays(14));
+		when(refreshTokenHasher.hash("refresh")).thenReturn("hashed-refresh");
+
+		userAuthLogic.issueLoginToken(userLoginCdo);
+
+		ArgumentCaptor<UserLogin> userLoginCaptor = ArgumentCaptor.forClass(UserLogin.class);
+		verify(userAuthStore).saveUserLogin(userLoginCaptor.capture());
+		assertThat(userLoginCaptor.getValue().getLoginFailCount()).isZero();
+		assertThat(userLoginCaptor.getValue().getLastLoginFailTime()).isZero();
 	}
 
 	@Test

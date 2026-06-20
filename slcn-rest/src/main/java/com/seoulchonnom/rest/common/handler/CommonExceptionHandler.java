@@ -63,6 +63,13 @@ public class CommonExceptionHandler {
 			HttpStatus.METHOD_NOT_ALLOWED);
 	}
 
+	@ExceptionHandler(IllegalArgumentException.class)
+	public ResponseEntity<ErrorResponse> illegalArgumentException(IllegalArgumentException e) {
+		return new ResponseEntity<>(
+			ErrorResponse.from(false, "입력이 올바르지 않습니다."),
+			HttpStatus.BAD_REQUEST);
+	}
+
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ErrorResponse> exception(Exception e) {
 		log.error("Unhandled exception", e);

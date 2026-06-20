@@ -16,6 +16,9 @@ public class FileReference {
 			return null;
 		}
 		String[] parts = path.split("/", 2);
+		if (parts.length != 2 || parts[0].isBlank() || parts[1].isBlank()) {
+			throw new IllegalArgumentException("Invalid file reference path: " + path);
+		}
 		return new FileReference(FileType.from(parts[0]), parts[1]);
 	}
 

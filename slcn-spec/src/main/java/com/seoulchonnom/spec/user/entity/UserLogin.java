@@ -24,6 +24,17 @@ public class UserLogin {
 		return this.loginFailCount >= loginFailLimitCount;
 	}
 
+	public boolean isLoginBlockExpired(int loginFailLimitCount, long clearTimeMillis) {
+		return isLoginBlocked(loginFailLimitCount)
+			&& this.lastLoginFailTime > 0
+			&& System.currentTimeMillis() - this.lastLoginFailTime >= clearTimeMillis;
+	}
+
+	public void clearLoginFailure() {
+		this.loginFailCount = 0;
+		this.lastLoginFailTime = 0L;
+	}
+
 	public void markLoginFailure() {
 		this.loginFailCount = this.loginFailCount + 1;
 		this.lastLoginFailTime = System.currentTimeMillis();

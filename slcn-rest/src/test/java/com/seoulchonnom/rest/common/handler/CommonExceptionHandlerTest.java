@@ -53,4 +53,15 @@ class CommonExceptionHandlerTest {
 		assertNotNull(response.getBody());
 		assertEquals(ErrorCode.INTERNAL_SERVER_ERROR.getMessage(), response.getBody().getMessage());
 	}
+
+	@Test
+	void mapsIllegalArgumentExceptionToBadRequest() {
+		CommonExceptionHandler handler = new CommonExceptionHandler();
+
+		ResponseEntity<ErrorResponse> response = handler.illegalArgumentException(new IllegalArgumentException("bad"));
+
+		assertEquals(400, response.getStatusCode().value());
+		assertNotNull(response.getBody());
+		assertEquals("입력이 올바르지 않습니다.", response.getBody().getMessage());
+	}
 }

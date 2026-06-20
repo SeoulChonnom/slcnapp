@@ -42,10 +42,9 @@ public class TripLogic {
 
 	@Transactional
 	public TripDetailRdo registerTrip(TripCdo tripCdo) {
-		String nextTripId = idGenerator.nextDomainId(SequenceName.TRIP.toString());
-
 		validateTrip(tripCdo);
 
+		String nextTripId = idGenerator.nextDomainId(SequenceName.TRIP.toString());
 		Trip trip = new Trip(tripCdo, nextTripId);
 		tripStore.saveTrip(trip);
 		return tripMapper.toTripDetailRdo(trip);

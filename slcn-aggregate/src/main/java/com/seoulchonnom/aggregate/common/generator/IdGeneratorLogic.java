@@ -24,14 +24,19 @@ public class IdGeneratorLogic implements IdGenerator {
 	}
 
 	private String nextId(IdSequence idSequence) {
-		int now = Integer.parseInt(idSequence.getLastId(), 16);
+		long now;
+		try {
+			now = Long.parseLong(idSequence.getLastId(), 16);
+		} catch (NumberFormatException | NullPointerException e) {
+			throw new BadRequestException("ID FORMAT INVALID");
+		}
 
-		StringBuilder nextId = new StringBuilder(Integer.toHexString(now + 1));
-		idSequence.setLastId(nextId.toString());
+		StringBuilder nextId = new StringBuilder(Long.toHexString(now + 1));
 
 		while(nextId.length() < 4 ) {
 			nextId.insert(0, "0");
 		}
+		idSequence.setLastId(nextId.toString());
 		return idSequence.getName() + '-' + nextId;
 	}
 }

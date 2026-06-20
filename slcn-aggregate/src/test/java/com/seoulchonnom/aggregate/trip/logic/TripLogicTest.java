@@ -55,6 +55,7 @@ class TripLogicTest {
 
 		assertThatThrownBy(() -> tripLogic.registerTrip(tripCdo))
 			.isInstanceOf(InvalidTripRegisterException.class);
+		verify(idGenerator, never()).nextDomainId(anyString());
 	}
 
 	@Test

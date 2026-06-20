@@ -75,6 +75,10 @@ public class ScheduleLogic {
 			throw new InvalidScheduleDateException();
 		}
 
+		if (endDateTime.isAfter(startDateTime.plusMonths(1))) {
+			throw new InvalidScheduleDateException();
+		}
+
 		List<Schedule> scheduleList = scheduleStore.findAllByDateRange(startDateTime, endDateTime);
 
 		return scheduleList.stream()
