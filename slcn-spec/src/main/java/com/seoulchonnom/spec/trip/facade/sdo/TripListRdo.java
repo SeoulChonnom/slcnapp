@@ -1,6 +1,6 @@
 package com.seoulchonnom.spec.trip.facade.sdo;
 
-import com.seoulchonnom.spec.file.facade.sdo.FileRefSdo;
+import com.seoulchonnom.spec.file.facade.sdo.FileReferenceSdo;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -16,5 +16,5 @@ public class TripListRdo {
 	private String date;
 	private String type;
 	private String name;
-	private FileRefSdo logo;
+	private FileReferenceSdo logo;
 }

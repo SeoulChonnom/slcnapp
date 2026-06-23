@@ -15,7 +15,7 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class FileRefSdo {
+public class FileReferenceSdo {
 	@NotNull(message = "파일 타입은 필수값 입니다.")
 	private FileType type;
 
@@ -25,10 +25,10 @@ public class FileRefSdo {
 		message = "파일명 형식이 올바르지 않습니다.")
 	private String filename;
 
-	public static FileRefSdo from(FileReference fileReference) {
+	public static FileReferenceSdo from(FileReference fileReference) {
 		if (fileReference == null) {
 			return null;
 		}
-		return new FileRefSdo(fileReference.getType(), fileReference.getFilename());
+		return new FileReferenceSdo(fileReference.getType(), fileReference.getFilename());
 	}
 }

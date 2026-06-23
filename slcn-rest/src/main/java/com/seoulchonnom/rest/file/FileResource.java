@@ -12,7 +12,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.seoulchonnom.aggregate.file.logic.FileLogic;
 import com.seoulchonnom.spec.file.facade.FileFacade;
-import com.seoulchonnom.spec.file.facade.sdo.FileRefSdo;
+import com.seoulchonnom.spec.file.facade.sdo.FileReferenceSdo;
 import com.seoulchonnom.spec.file.facade.sdo.ImageFileRdo;
 
 import lombok.RequiredArgsConstructor;
@@ -26,8 +26,8 @@ FileResource implements FileFacade {
 
 	@Override
 	@PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-	public ResponseEntity<FileRefSdo> uploadFile(@RequestParam("file") MultipartFile file, @RequestParam("type") String type) {
-		return new ResponseEntity<>(FileRefSdo.from(fileLogic.uploadFile(file, type)), HttpStatus.OK);
+	public ResponseEntity<FileReferenceSdo> uploadFile(@RequestParam("file") MultipartFile file, @RequestParam("type") String type) {
+		return new ResponseEntity<>(FileReferenceSdo.from(fileLogic.uploadFile(file, type)), HttpStatus.OK);
 	}
 
 	@Override

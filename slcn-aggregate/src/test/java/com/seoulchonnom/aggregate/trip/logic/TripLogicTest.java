@@ -12,7 +12,7 @@ import com.seoulchonnom.aggregate.trip.exception.InvalidTripRegisterException;
 import com.seoulchonnom.aggregate.trip.store.TripStore;
 import com.seoulchonnom.spec.common.generator.IdGenerator;
 import com.seoulchonnom.spec.file.entity.vo.FileType;
-import com.seoulchonnom.spec.file.facade.sdo.FileRefSdo;
+import com.seoulchonnom.spec.file.facade.sdo.FileReferenceSdo;
 import com.seoulchonnom.spec.trip.entity.Trip;
 import com.seoulchonnom.spec.trip.facade.sdo.OptionCdo;
 import com.seoulchonnom.spec.trip.facade.sdo.QuizCdo;
@@ -70,7 +70,7 @@ class TripLogicTest {
 	@Test
 	void registerTrip_shouldRejectWhenNavigationFieldsArePartial() {
 		TripCdo tripCdo = createValidTripCdo();
-		tripCdo.setSecondMap(new FileRefSdo(FileType.MAP, "22222222-3333-4444-9999-bbbbbbbbbbbb.png"));
+		tripCdo.setSecondMap(new FileReferenceSdo(FileType.MAP, "22222222-3333-4444-9999-bbbbbbbbbbbb.png"));
 		tripCdo.setNextButtonText("next");
 		tripCdo.setPreviousButtonText(null);
 
@@ -81,7 +81,7 @@ class TripLogicTest {
 	@Test
 	void registerTrip_shouldRejectWhenFileTypeDoesNotMatchTripField() {
 		TripCdo tripCdo = createValidTripCdo();
-		tripCdo.setLogo(new FileRefSdo(FileType.MAP, "72d768d4-2b05-48f9-bee8-fee3b52e909f.png"));
+		tripCdo.setLogo(new FileReferenceSdo(FileType.MAP, "72d768d4-2b05-48f9-bee8-fee3b52e909f.png"));
 
 		assertThatThrownBy(() -> tripLogic.registerTrip(tripCdo))
 			.isInstanceOf(InvalidTripRegisterException.class);
@@ -93,7 +93,7 @@ class TripLogicTest {
 		TripDetailRdo tripDetailRdo = new TripDetailRdo();
 		when(idGenerator.nextDomainId("TRIP")).thenReturn("TRIP-0002");
 		when(tripMapper.toTripDetailRdo(any(Trip.class))).thenReturn(tripDetailRdo);
-		tripCdo.setSecondMap(new FileRefSdo(FileType.MAP, "22222222-3333-4444-9999-bbbbbbbbbbbb.png"));
+		tripCdo.setSecondMap(new FileReferenceSdo(FileType.MAP, "22222222-3333-4444-9999-bbbbbbbbbbbb.png"));
 		tripCdo.setNextButtonText("다음");
 		tripCdo.setPreviousButtonText("이전");
 
@@ -120,8 +120,8 @@ class TripLogicTest {
 			"2026-04-16",
 			"ryu",
 			"봄 나들이",
-			new FileRefSdo(FileType.LOGO, "72d768d4-2b05-48f9-bee8-fee3b52e909f.png"),
-			new FileRefSdo(FileType.MAP, "11111111-2222-4333-8888-aaaaaaaaaaaa.png"),
+			new FileReferenceSdo(FileType.LOGO, "72d768d4-2b05-48f9-bee8-fee3b52e909f.png"),
+			new FileReferenceSdo(FileType.MAP, "11111111-2222-4333-8888-aaaaaaaaaaaa.png"),
 			null,
 			null,
 			null,

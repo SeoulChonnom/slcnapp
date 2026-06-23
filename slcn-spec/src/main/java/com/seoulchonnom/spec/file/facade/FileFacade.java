@@ -4,7 +4,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.seoulchonnom.spec.file.facade.sdo.FileRefSdo;
+import com.seoulchonnom.spec.file.facade.sdo.FileReferenceSdo;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -15,7 +15,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 public interface FileFacade {
 	@Operation(summary = "파일 업로드 API", description = "파일을 업로드합니다.")
 	@ApiResponse(responseCode = "200", description = "파일 업로드 성공")
-	ResponseEntity<FileRefSdo> uploadFile(
+	ResponseEntity<FileReferenceSdo> uploadFile(
 		@RequestParam("file") MultipartFile file,
 		@RequestParam("type") String type);
 

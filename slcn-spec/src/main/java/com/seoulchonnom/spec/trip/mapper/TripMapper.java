@@ -8,7 +8,7 @@ import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
 import com.seoulchonnom.spec.file.entity.vo.FileReference;
-import com.seoulchonnom.spec.file.facade.sdo.FileRefSdo;
+import com.seoulchonnom.spec.file.facade.sdo.FileReferenceSdo;
 import com.seoulchonnom.spec.trip.entity.Trip;
 import com.seoulchonnom.spec.trip.entity.vo.Option;
 import com.seoulchonnom.spec.trip.entity.vo.Quiz;
@@ -35,8 +35,8 @@ public interface TripMapper {
 			.toList();
 	}
 
-	default FileRefSdo map(FileReference fileReference) {
-		return FileRefSdo.from(fileReference);
+	default FileReferenceSdo map(FileReference fileReference) {
+		return FileReferenceSdo.from(fileReference);
 	}
 
 	default QuizResultRdo toQuizDetailRdo(Quiz quiz, String optionId) {

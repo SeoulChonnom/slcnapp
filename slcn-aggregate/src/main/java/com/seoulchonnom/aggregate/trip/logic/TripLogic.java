@@ -11,7 +11,7 @@ import com.seoulchonnom.aggregate.trip.exception.InvalidTripRegisterException;
 import com.seoulchonnom.aggregate.trip.store.TripStore;
 import com.seoulchonnom.spec.common.generator.IdGenerator;
 import com.seoulchonnom.spec.file.entity.vo.FileType;
-import com.seoulchonnom.spec.file.facade.sdo.FileRefSdo;
+import com.seoulchonnom.spec.file.facade.sdo.FileReferenceSdo;
 import com.seoulchonnom.spec.trip.entity.Trip;
 import com.seoulchonnom.spec.trip.entity.vo.Quiz;
 import com.seoulchonnom.spec.trip.facade.sdo.OptionCdo;
@@ -95,7 +95,7 @@ public class TripLogic {
 		}
 	}
 
-	private boolean isType(FileRefSdo fileRefSdo, FileType type) {
-		return fileRefSdo != null && type.equals(fileRefSdo.getType());
+	private boolean isType(FileReferenceSdo fileReferenceSdo, FileType type) {
+		return fileReferenceSdo != null && type.equals(fileReferenceSdo.getType());
 	}
 }
