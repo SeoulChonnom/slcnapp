@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.mapstruct.factory.Mappers;
 import org.mockito.ArgumentCaptor;
 
 import com.seoulchonnom.aggregate.calendar.store.CalendarStore;
@@ -23,7 +24,7 @@ import com.seoulchonnom.spec.schedule.mapper.ScheduleMapper;
 class ScheduleLogicTest {
 	private final CalendarStore calendarStore = mock(CalendarStore.class);
 	private final ScheduleStore scheduleStore = mock(ScheduleStore.class);
-	private final ScheduleMapper scheduleMapper = mock(ScheduleMapper.class);
+	private final ScheduleMapper scheduleMapper = spy(Mappers.getMapper(ScheduleMapper.class));
 	private final ScheduleLogic scheduleLogic = new ScheduleLogic(calendarStore, scheduleStore, scheduleMapper);
 
 	@Test
@@ -37,7 +38,7 @@ class ScheduleLogicTest {
 		when(scheduleStore.findAllByDateRange(
 			LocalDateTime.of(2026, 4, 1, 0, 0),
 			LocalDateTime.of(2026, 4, 8, 0, 0))).thenReturn(List.of(schedule));
-		when(scheduleMapper.toScheduleRdo(schedule)).thenReturn(scheduleRdo);
+		doReturn(scheduleRdo).when(scheduleMapper).toScheduleRdo(schedule);
 
 		List<ScheduleRdo> result = scheduleLogic.getSchedules(searchSdo);
 
@@ -124,7 +125,7 @@ class ScheduleLogicTest {
 		scheduleCdo.setLocation("Seoul");
 		when(calendarStore.existsVisibleById("cal1")).thenReturn(true);
 		ScheduleRdo scheduleRdo = new ScheduleRdo();
-		when(scheduleMapper.toScheduleRdo(any(Schedule.class))).thenReturn(scheduleRdo);
+		doReturn(scheduleRdo).when(scheduleMapper).toScheduleRdo(any(Schedule.class));
 
 		scheduleLogic.registerSchedule(scheduleCdo);
 

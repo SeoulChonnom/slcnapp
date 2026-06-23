@@ -4,18 +4,21 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import org.junit.jupiter.api.Test;
+import org.mapstruct.factory.Mappers;
 
 import com.seoulchonnom.aggregate.common.exception.BadRequestException;
 import com.seoulchonnom.aggregate.common.generator.PasswordGenerator;
 import com.seoulchonnom.aggregate.user.store.UserStore;
 import com.seoulchonnom.spec.common.generator.IdGenerator;
 import com.seoulchonnom.spec.user.facade.sdo.UserCdo;
+import com.seoulchonnom.spec.user.mapper.UserMapper;
 
 class UserLogicTest {
 	private final PasswordGenerator passwordGenerator = mock(PasswordGenerator.class);
 	private final IdGenerator idGenerator = mock(IdGenerator.class);
 	private final UserStore userStore = mock(UserStore.class);
-	private final UserLogic userLogic = new UserLogic(passwordGenerator, idGenerator, userStore);
+	private final UserMapper userMapper = Mappers.getMapper(UserMapper.class);
+	private final UserLogic userLogic = new UserLogic(passwordGenerator, idGenerator, userStore, userMapper);
 
 	@Test
 	void registerUser_shouldCreateInitialUserLoginDocument() {

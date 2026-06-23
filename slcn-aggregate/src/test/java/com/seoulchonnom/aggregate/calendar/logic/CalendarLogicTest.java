@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.mapstruct.factory.Mappers;
 import org.mockito.ArgumentCaptor;
 
 import com.seoulchonnom.aggregate.calendar.store.CalendarStore;
@@ -20,7 +21,7 @@ import com.seoulchonnom.spec.common.generator.IdGenerator;
 class CalendarLogicTest {
 	private final CalendarStore calendarStore = mock(CalendarStore.class);
 	private final IdGenerator idGenerator = mock(IdGenerator.class);
-	private final CalendarMapper calendarMapper = mock(CalendarMapper.class);
+	private final CalendarMapper calendarMapper = spy(Mappers.getMapper(CalendarMapper.class));
 	private final CalendarLogic calendarLogic = new CalendarLogic(calendarStore, idGenerator, calendarMapper);
 
 	@Test
@@ -28,7 +29,7 @@ class CalendarLogicTest {
 		Calendar calendar = Calendar.builder().name("아영").visible(true).sortOrder(1).build();
 		CalendarRdo calendarRdo = new CalendarRdo();
 		when(calendarStore.findAllVisible()).thenReturn(List.of(calendar));
-		when(calendarMapper.toCalendarRdo(calendar)).thenReturn(calendarRdo);
+		doReturn(calendarRdo).when(calendarMapper).toCalendarRdo(calendar);
 
 		List<CalendarRdo> result = calendarLogic.getCalendars();
 
@@ -40,7 +41,7 @@ class CalendarLogicTest {
 		CalendarCdo calendarCdo = new CalendarCdo("아영", "#FE9FC8", "#FE9FC8", "#111111", true, true, true, true, 1);
 		CalendarRdo calendarRdo = new CalendarRdo();
 		when(idGenerator.nextDomainId("CALENDAR")).thenReturn("CALENDAR-0001");
-		when(calendarMapper.toCalendarRdo(any(Calendar.class))).thenReturn(calendarRdo);
+		doReturn(calendarRdo).when(calendarMapper).toCalendarRdo(any(Calendar.class));
 
 		calendarLogic.registerCalendar(calendarCdo);
 

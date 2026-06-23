@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.mapstruct.factory.Mappers;
 import org.mockito.ArgumentCaptor;
 
 import com.seoulchonnom.aggregate.trip.exception.InvalidTripRegisterException;
@@ -23,7 +24,7 @@ import com.seoulchonnom.spec.trip.mapper.TripMapper;
 class TripLogicTest {
 	private final TripStore tripStore = mock(TripStore.class);
 	private final IdGenerator idGenerator = mock(IdGenerator.class);
-	private final TripMapper tripMapper = mock(TripMapper.class);
+	private final TripMapper tripMapper = spy(Mappers.getMapper(TripMapper.class));
 	private final TripLogic tripLogic = new TripLogic(tripStore, idGenerator, tripMapper);
 
 	@Test
@@ -31,7 +32,7 @@ class TripLogicTest {
 		TripCdo tripCdo = createValidTripCdo();
 		TripDetailRdo tripDetailRdo = new TripDetailRdo();
 		when(idGenerator.nextDomainId("TRIP")).thenReturn("TRIP-0001");
-		when(tripMapper.toTripDetailRdo(any(Trip.class))).thenReturn(tripDetailRdo);
+		doReturn(tripDetailRdo).when(tripMapper).toTripDetailRdo(any(Trip.class));
 
 		tripLogic.registerTrip(tripCdo);
 
@@ -92,7 +93,7 @@ class TripLogicTest {
 		TripCdo tripCdo = createValidTripCdo();
 		TripDetailRdo tripDetailRdo = new TripDetailRdo();
 		when(idGenerator.nextDomainId("TRIP")).thenReturn("TRIP-0002");
-		when(tripMapper.toTripDetailRdo(any(Trip.class))).thenReturn(tripDetailRdo);
+		doReturn(tripDetailRdo).when(tripMapper).toTripDetailRdo(any(Trip.class));
 		tripCdo.setSecondMap(new FileReferenceSdo(FileType.MAP, "22222222-3333-4444-9999-bbbbbbbbbbbb.png"));
 		tripCdo.setNextButtonText("다음");
 		tripCdo.setPreviousButtonText("이전");

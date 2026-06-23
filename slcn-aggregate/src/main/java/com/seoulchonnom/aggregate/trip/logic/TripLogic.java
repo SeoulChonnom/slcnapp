@@ -45,7 +45,7 @@ public class TripLogic {
 		validateTrip(tripCdo);
 
 		String nextTripId = idGenerator.nextDomainId(SequenceName.TRIP.toString());
-		Trip trip = new Trip(tripCdo, nextTripId);
+		Trip trip = tripMapper.toTrip(tripCdo, nextTripId);
 		tripStore.saveTrip(trip);
 		return tripMapper.toTripDetailRdo(trip);
 	}
