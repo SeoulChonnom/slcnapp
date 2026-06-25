@@ -24,7 +24,7 @@ public class ScheduleConstant {
 	public static final String INVALID_DATE_ERROR_MESSAGE = "올바르지 않은 날짜입니다.";
 	public static final String SCHEDULE_NOT_FOND_ERROR_MESSAGE = "올바르지 않은 스케쥴 정보입니다.";
 
-	public static LocalDateTime parseScheduleDateTime(String dateTime) {
+	public static LocalDateTime parseMutationDateTime(String dateTime) {
 		return OffsetDateTime.parse(dateTime, ISO_DATE_TIME_FORMATTER)
 			.atZoneSameInstant(SCHEDULE_ZONE_ID)
 			.toLocalDateTime();
@@ -39,7 +39,7 @@ public class ScheduleConstant {
 			return parseScheduleDate(value).atStartOfDay();
 		}
 
-		return parseScheduleDateTime(value);
+		return parseMutationDateTime(value);
 	}
 
 	public static String formatScheduleDateTime(LocalDateTime dateTime, boolean isAllDay) {

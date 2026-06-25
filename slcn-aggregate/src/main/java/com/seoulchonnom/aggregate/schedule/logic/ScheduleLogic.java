@@ -91,7 +91,7 @@ public class ScheduleLogic {
 		validateScheduleMutation(scheduleCdo.getCalendarId(), scheduleCdo.getTitle(), scheduleCdo.isAllDay(),
 			scheduleCdo.getStart(), scheduleCdo.getEnd());
 
-		Schedule schedule = new Schedule(scheduleCdo);
+		Schedule schedule = scheduleMapper.toSchedule(scheduleCdo);
 
 		scheduleStore.save(schedule);
 		return scheduleMapper.toScheduleRdo(schedule);
@@ -103,7 +103,7 @@ public class ScheduleLogic {
 			scheduleUdo.getStart(), scheduleUdo.getEnd());
 
 		Schedule schedule = scheduleStore.findById(scheduleUdo.getId());
-		schedule.updateSchedule(scheduleUdo);
+		scheduleMapper.updateSchedule(scheduleUdo, schedule);
 
 		scheduleStore.save(schedule);
 		return scheduleMapper.toScheduleRdo(schedule);
@@ -132,7 +132,7 @@ public class ScheduleLogic {
 
 	private LocalDateTime parseSearchDateTime(String date) {
 		try {
-			return parseScheduleDateTime(date);
+			return parseMutationDateTime(date);
 		} catch (DateTimeParseException e) {
 			throw new InvalidScheduleDateException();
 		}
@@ -140,7 +140,7 @@ public class ScheduleLogic {
 
 	private LocalDateTime parseMutationRequestDateTime(String date, boolean isAllDay) {
 		try {
-			return com.seoulchonnom.spec.schedule.constant.ScheduleConstant.parseMutationDateTime(date, isAllDay);
+			return parseMutationDateTime(date, isAllDay);
 		} catch (DateTimeParseException e) {
 			throw new InvalidScheduleRegisterRequestException();
 		}
@@ -162,7 +162,7 @@ public class ScheduleLogic {
 		LocalDateTime startDateTime = parseMutationRequestDateTime(start, allDay);
 		LocalDateTime endDateTime = parseMutationRequestDateTime(end, allDay);
 
-		if (!startDateTime.isBefore(endDateTime)) {
+		if (startDateTime.isAfter(endDateTime)) {
 			throw new BadRequestException("start는 end보다 빨라야 합니다.");
 		}
 	}

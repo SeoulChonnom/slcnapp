@@ -13,6 +13,7 @@ import com.seoulchonnom.spec.common.generator.IdGenerator;
 import com.seoulchonnom.spec.user.entity.User;
 import com.seoulchonnom.spec.user.facade.sdo.TokenRdo;
 import com.seoulchonnom.spec.user.facade.sdo.UserCdo;
+import com.seoulchonnom.spec.user.mapper.UserMapper;
 
 import lombok.RequiredArgsConstructor;
 
@@ -23,6 +24,7 @@ public class UserLogic {
 	private final PasswordGenerator passwordGenerator;
 	private final IdGenerator idGenerator;
 	private final UserStore userStore;
+	private final UserMapper userMapper;
 
 	private final String LOGIN_ERROR_CODE = "ERROR";
 
@@ -37,7 +39,7 @@ public class UserLogic {
 		}
 
 		String userId = idGenerator.nextDomainId(SequenceName.USER.toString());
-		User user = new User(userCdo, userId, passwordGenerator.encode(userCdo.getPassword()));
+		User user = userMapper.toUser(userCdo, userId, passwordGenerator.encode(userCdo.getPassword()));
 
 		userStore.save(user);
 		userStore.initializeUserLogin(userId);

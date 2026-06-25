@@ -40,7 +40,7 @@ public class CalendarLogic {
 			calendarCdo.getTextColor(), calendarCdo.getSortOrder());
 
 		String nextCalendarId = idGenerator.nextDomainId(SequenceName.CALENDAR.toString());
-		Calendar calendar = new Calendar(calendarCdo, nextCalendarId);
+		Calendar calendar = calendarMapper.toCalendar(calendarCdo, nextCalendarId);
 		calendarStore.save(calendar);
 		return calendarMapper.toCalendarRdo(calendar);
 	}
@@ -55,7 +55,7 @@ public class CalendarLogic {
 			calendarUdo.getTextColor(), calendarUdo.getSortOrder());
 
 		Calendar calendar = calendarStore.findById(calendarUdo.getId());
-		calendar.updateCalendar(calendarUdo);
+		calendarMapper.updateCalendar(calendarUdo, calendar);
 		calendarStore.save(calendar);
 		return calendarMapper.toCalendarRdo(calendar);
 	}
