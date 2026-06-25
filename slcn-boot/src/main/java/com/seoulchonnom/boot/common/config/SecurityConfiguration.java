@@ -32,9 +32,9 @@ public class SecurityConfiguration {
 				.sessionManagement(management -> management.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.authorizeHttpRequests((authorizeRequests) -> authorizeRequests
 					.requestMatchers("/swagger-ui/**", "/v3/**", "/error").permitAll()
-						.requestMatchers("/user/login", "/user/token", "/user/logout").permitAll()
+					.requestMatchers("/users/login", "/users/token", "/users/logout").permitAll()
 						.requestMatchers(CorsUtils::isPreFlightRequest).permitAll()
-						.requestMatchers("/user/register").hasAuthority("ADMIN")
+					.requestMatchers("/users/register").hasAuthority("ADMIN")
 						.anyRequest().hasAuthority("USER"))
 				.exceptionHandling(handling -> handling.authenticationEntryPoint(commonAuthenticationEntryPoint))
 				.exceptionHandling(handling -> handling.accessDeniedHandler(commonAccessDeniedHandler))
