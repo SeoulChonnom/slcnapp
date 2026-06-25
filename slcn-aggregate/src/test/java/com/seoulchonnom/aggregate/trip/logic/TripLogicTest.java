@@ -34,6 +34,7 @@ class TripLogicTest {
 		TripCdo tripCdo = createValidTripCdo();
 		TripDetailRdo tripDetailRdo = new TripDetailRdo();
 		stubValidFileAssets();
+		stubQuizMapper();
 		when(idGenerator.nextDomainId("TRIP")).thenReturn("TRIP-0001");
 		when(tripMapper.toTripDetailRdo(any(Trip.class), any(FileAssetRdo.class), any(FileAssetRdo.class), any()))
 			.thenReturn(tripDetailRdo);
@@ -99,6 +100,7 @@ class TripLogicTest {
 		TripCdo tripCdo = createValidTripCdo();
 		TripDetailRdo tripDetailRdo = new TripDetailRdo();
 		stubValidFileAssets();
+		stubQuizMapper();
 		when(idGenerator.nextDomainId("TRIP")).thenReturn("TRIP-0002");
 		when(tripMapper.toTripDetailRdo(any(Trip.class), any(FileAssetRdo.class), any(FileAssetRdo.class), any(FileAssetRdo.class)))
 			.thenReturn(tripDetailRdo);
@@ -150,6 +152,10 @@ class TripLogicTest {
 		when(fileAssetStore.findById("logo-file-1")).thenReturn(fileAsset("logo-file-1", FileType.LOGO));
 		when(fileAssetStore.findById("map-file-1")).thenReturn(fileAsset("map-file-1", FileType.MAP));
 		when(fileAssetStore.findById("map-file-2")).thenReturn(fileAsset("map-file-2", FileType.MAP));
+	}
+
+	private void stubQuizMapper() {
+		when(tripMapper.toQuiz(any(QuizCdo.class))).thenCallRealMethod();
 	}
 
 	private FileAsset fileAsset(String fileId, FileType fileType) {

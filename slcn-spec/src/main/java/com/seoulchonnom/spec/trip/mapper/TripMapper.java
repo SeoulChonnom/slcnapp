@@ -3,6 +3,7 @@ package com.seoulchonnom.spec.trip.mapper;
 import static org.mapstruct.MappingConstants.ComponentModel.*;
 
 import java.util.List;
+import java.util.stream.IntStream;
 
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -11,7 +12,9 @@ import com.seoulchonnom.spec.file.facade.sdo.FileAssetRdo;
 import com.seoulchonnom.spec.trip.entity.Trip;
 import com.seoulchonnom.spec.trip.entity.vo.Option;
 import com.seoulchonnom.spec.trip.entity.vo.Quiz;
+import com.seoulchonnom.spec.trip.facade.sdo.OptionCdo;
 import com.seoulchonnom.spec.trip.facade.sdo.OptionRdo;
+import com.seoulchonnom.spec.trip.facade.sdo.QuizCdo;
 import com.seoulchonnom.spec.trip.facade.sdo.QuizRdo;
 import com.seoulchonnom.spec.trip.facade.sdo.QuizResultRdo;
 import com.seoulchonnom.spec.trip.facade.sdo.TripDetailRdo;
@@ -47,6 +50,33 @@ public interface TripMapper {
 		return options.stream()
 			.map(this::toOptionRdo)
 			.toList();
+	}
+
+	default Quiz toQuiz(QuizCdo quizCdo) {
+		List<OptionCdo> optionCdos = quizCdo.getOptions();
+		List<Option> options = IntStream.range(0, optionCdos.size())
+			.mapToObj(index -> toOption(optionCdos.get(index), index + 1))
+			.toList();
+
+		int correctOptionIndex = IntStream.range(0, optionCdos.size())
+			.filter(index -> optionCdos.get(index).isCorrect())
+			.findFirst()
+			.orElse(-1);
+		String correctOptionId = correctOptionIndex >= 0 ? options.get(correctOptionIndex).getId() : null;
+
+		return new Quiz(
+			quizCdo.getTitle(),
+			correctOptionId,
+			quizCdo.getAnswerTitle(),
+			quizCdo.getAnswerText(),
+			quizCdo.getErrorTitle(),
+			quizCdo.getErrorText(),
+			options
+		);
+	}
+
+	private Option toOption(OptionCdo optionCdo, int index) {
+		return new Option("OPT-" + index, optionCdo.getText());
 	}
 
 	default QuizResultRdo toQuizDetailRdo(Quiz quiz, String optionId) {

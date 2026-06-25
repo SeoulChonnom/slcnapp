@@ -59,7 +59,7 @@ public class TripLogic {
 			tripCdo.getNextButtonText(),
 			tripCdo.getPreviousButtonText(),
 			tripCdo.getDriveUrl(),
-			new Quiz(tripCdo.getQuiz())
+			tripMapper.toQuiz(tripCdo.getQuiz())
 		);
 		tripStore.saveTrip(trip);
 		return toTripDetailRdo(trip);
