@@ -24,7 +24,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/trip")
+@RequestMapping("/trips")
 @RequiredArgsConstructor
 public class TripResource implements TripFacade {
 	private final TripLogic tripLogic;

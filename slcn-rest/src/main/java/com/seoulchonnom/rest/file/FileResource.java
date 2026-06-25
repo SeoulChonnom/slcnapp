@@ -21,10 +21,9 @@ import com.seoulchonnom.spec.file.facade.sdo.ImageFileRdo;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping
+@RequestMapping("assets")
 @RequiredArgsConstructor
-public class
-FileResource implements FileFacade {
+public class FileResource implements FileFacade {
 	private final FileLogic fileLogic;
 
 	@Override

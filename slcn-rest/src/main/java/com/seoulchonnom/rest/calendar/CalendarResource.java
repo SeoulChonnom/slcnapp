@@ -23,7 +23,7 @@ import com.seoulchonnom.spec.calendar.facade.sdo.CalendarUdo;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/calendar")
+@RequestMapping("/calendars")
 @RequiredArgsConstructor
 public class CalendarResource implements CalendarFacade {
 	private final CalendarLogic calendarLogic;
