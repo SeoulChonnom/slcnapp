@@ -3,6 +3,7 @@ package com.seoulchonnom.spec.common.exception;
 import static com.seoulchonnom.spec.calendar.constant.CalendarConstant.*;
 import static com.seoulchonnom.spec.file.constant.FileConstant.*;
 import static com.seoulchonnom.spec.schedule.constant.ScheduleConstant.*;
+import static com.seoulchonnom.spec.travel.constant.TravelConstant.*;
 import static com.seoulchonnom.spec.trip.constant.TripConstant.*;
 import static com.seoulchonnom.spec.user.constant.UserConstant.*;
 
@@ -32,13 +33,18 @@ public enum ErrorCode {
 	SCHEDULE_NOT_FOUND(HttpStatus.BAD_REQUEST, SCHEDULE_NOT_FOND_ERROR_MESSAGE),
 	CALENDAR_NOT_FOUND(HttpStatus.BAD_REQUEST, CALENDAR_NOT_FOUND_ERROR_MESSAGE),
 	TRIP_NOT_FOUND(HttpStatus.BAD_REQUEST, TRIP_NOT_FOUND_ERROR_MESSAGE),
+	TRAVEL_NOT_FOUND(HttpStatus.BAD_REQUEST, TRAVEL_NOT_FOUND_ERROR_MESSAGE),
+	TRAVEL_DAY_NOT_FOUND(HttpStatus.BAD_REQUEST, TRAVEL_DAY_NOT_FOUND_ERROR_MESSAGE),
+	TRAVEL_PLACE_NOT_FOUND(HttpStatus.BAD_REQUEST, TRAVEL_PLACE_NOT_FOUND_ERROR_MESSAGE),
+	TRAVEL_PERIOD_CONFLICT(HttpStatus.CONFLICT, TRAVEL_PERIOD_CONFLICT_ERROR_MESSAGE),
 
 	INVALID_TRIP_REGISTER(HttpStatus.BAD_REQUEST, INVALID_TRIP_REGISTER_ERROR_MESSAGE),
 
 	FILE_UPLOAD_FAILED(HttpStatus.BAD_REQUEST, FILE_UPLOAD_ERROR_MESSAGE),
 	FILE_SIZE_EXCEEDED(HttpStatus.BAD_REQUEST, FILE_SIZE_ERROR_MESSAGE),
 	FILE_EXT_INVALID(HttpStatus.BAD_REQUEST, FILE_EXT_ERROR_MESSAGE),
-	FILE_PATH_INVALID(HttpStatus.BAD_REQUEST, FILE_PATH_INVALID_ERROR_MESSAGE);
+	FILE_PATH_INVALID(HttpStatus.BAD_REQUEST, FILE_PATH_INVALID_ERROR_MESSAGE),
+	FILE_ASSET_NOT_FOUND(HttpStatus.BAD_REQUEST, "해당 파일 정보가 없습니다.");
 
 	private final HttpStatus httpStatus;
 	private final String message;

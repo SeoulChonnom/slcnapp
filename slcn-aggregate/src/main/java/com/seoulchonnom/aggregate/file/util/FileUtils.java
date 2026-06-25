@@ -6,6 +6,9 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.UUID;
@@ -20,6 +23,7 @@ import org.springframework.web.multipart.MultipartFile;
 import com.seoulchonnom.aggregate.file.exception.FileExtException;
 import com.seoulchonnom.aggregate.file.exception.FilePathInvalidException;
 import com.seoulchonnom.aggregate.file.exception.FileSizeException;
+import com.seoulchonnom.spec.file.entity.FileAsset;
 import com.seoulchonnom.spec.file.entity.vo.FileReference;
 import com.seoulchonnom.spec.file.entity.vo.FileType;
 
@@ -29,7 +33,10 @@ public class FileUtils {
 	private String directory;
 
 	public FileReference saveImages(MultipartFile multipartFile, String type) throws IOException {
+		return saveImageAsset(multipartFile, type).toFileReference();
+	}
 
+	public FileAsset saveImageAsset(MultipartFile multipartFile, String type) throws IOException {
 		if (type == null || type.isEmpty() || !type.matches(AVAILABLE_PATH)) {
 			throw new FilePathInvalidException();
 		}
@@ -41,11 +48,19 @@ public class FileUtils {
 		validateImageFile(multipartFile);
 
 		String filename = createSaveFileName(multipartFile.getOriginalFilename());
-		String saveFileName = directory + type + '/' + filename;
+		Path saveDirectory = Paths.get(directory).resolve(type).normalize();
+		Files.createDirectories(saveDirectory);
+		String saveFileName = saveDirectory.resolve(filename).toString();
 
 		multipartFile.transferTo(new File(saveFileName));
 
-		return new FileReference(FileType.from(type), filename);
+		return new FileAsset(
+			FileType.from(type),
+			multipartFile.getOriginalFilename(),
+			filename,
+			multipartFile.getContentType(),
+			multipartFile.getSize()
+		);
 	}
 
 	public void isValidFilePath(String path) {

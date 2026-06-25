@@ -10,7 +10,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum FileType {
 	LOGO("logo"),
-	MAP("map");
+	MAP("map"),
+	TRAVEL("travel");
 
 	private final String value;
 

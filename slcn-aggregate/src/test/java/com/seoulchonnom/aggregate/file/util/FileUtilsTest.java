@@ -42,6 +42,19 @@ class FileUtilsTest {
 	}
 
 	@Test
+	void saveImageAsset_shouldCreateTravelDirectoryAndReturnFileAsset() throws Exception {
+		MockMultipartFile file = new MockMultipartFile("file", "travel.PNG", "image/png", PNG_BYTES);
+
+		var fileAsset = fileUtils.saveImageAsset(file, "travel");
+
+		assertThat(fileAsset.getType()).isEqualTo(FileType.TRAVEL);
+		assertThat(fileAsset.getOriginalFilename()).isEqualTo("travel.PNG");
+		assertThat(fileAsset.getStoredFilename()).endsWith(".png");
+		assertThat(fileAsset.getPath()).isEqualTo("travel/" + fileAsset.getStoredFilename());
+		assertThat(Files.exists(tempDir.resolve(fileAsset.getPath()))).isTrue();
+	}
+
+	@Test
 	void saveImages_shouldRejectFileWhenContentTypeIsNotImage() {
 		MockMultipartFile file = new MockMultipartFile("file", "image.png", "text/plain", PNG_BYTES);
 
