@@ -7,8 +7,7 @@ import java.util.List;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
-import com.seoulchonnom.spec.file.entity.vo.FileReference;
-import com.seoulchonnom.spec.file.facade.sdo.FileRefSdo;
+import com.seoulchonnom.spec.file.facade.sdo.FileAssetRdo;
 import com.seoulchonnom.spec.trip.entity.Trip;
 import com.seoulchonnom.spec.trip.entity.vo.Option;
 import com.seoulchonnom.spec.trip.entity.vo.Quiz;
@@ -20,9 +19,24 @@ import com.seoulchonnom.spec.trip.facade.sdo.TripListRdo;
 
 @Mapper(componentModel = SPRING)
 public interface TripMapper {
-	TripListRdo toTripListRdo(Trip trip);
+	@Mapping(target = "id", source = "trip.id")
+	@Mapping(target = "date", source = "trip.date")
+	@Mapping(target = "type", source = "trip.type")
+	@Mapping(target = "name", source = "trip.name")
+	@Mapping(target = "logo", source = "logo")
+	TripListRdo toTripListRdo(Trip trip, FileAssetRdo logo);
 
-	TripDetailRdo toTripDetailRdo(Trip trip);
+	@Mapping(target = "id", source = "trip.id")
+	@Mapping(target = "date", source = "trip.date")
+	@Mapping(target = "type", source = "trip.type")
+	@Mapping(target = "name", source = "trip.name")
+	@Mapping(target = "logo", source = "logo")
+	@Mapping(target = "firstMap", source = "firstMap")
+	@Mapping(target = "secondMap", source = "secondMap")
+	@Mapping(target = "nextButtonText", source = "trip.nextButtonText")
+	@Mapping(target = "previousButtonText", source = "trip.previousButtonText")
+	@Mapping(target = "driveUrl", source = "trip.driveUrl")
+	TripDetailRdo toTripDetailRdo(Trip trip, FileAssetRdo logo, FileAssetRdo firstMap, FileAssetRdo secondMap);
 
 	OptionRdo toOptionRdo(Option option);
 
@@ -33,10 +47,6 @@ public interface TripMapper {
 		return options.stream()
 			.map(this::toOptionRdo)
 			.toList();
-	}
-
-	default FileRefSdo map(FileReference fileReference) {
-		return FileRefSdo.from(fileReference);
 	}
 
 	default QuizResultRdo toQuizDetailRdo(Quiz quiz, String optionId) {

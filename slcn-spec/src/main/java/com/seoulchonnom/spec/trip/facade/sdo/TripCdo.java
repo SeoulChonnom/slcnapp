@@ -1,7 +1,5 @@
 package com.seoulchonnom.spec.trip.facade.sdo;
 
-import com.seoulchonnom.spec.file.facade.sdo.FileRefSdo;
-
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -24,15 +22,12 @@ public class TripCdo {
 	private String type;
 	@NotBlank(message = "나들이 이름은 필수값 입니다.")
 	private String name;
-	@NotNull(message = "나들이 로고 파일은 필수값 입니다.")
-	@Valid
-	private FileRefSdo logo;
+	@NotBlank(message = "나들이 로고 파일 ID는 필수값 입니다.")
+	private String logoFileId;
 
-	@NotNull(message = "나들이 지도 파일은 필수값 입니다.")
-	@Valid
-	private FileRefSdo firstMap;
-	@Valid
-	private FileRefSdo secondMap;
+	@NotBlank(message = "나들이 지도 파일 ID는 필수값 입니다.")
+	private String firstMapFileId;
+	private String secondMapFileId;
 
 	private String nextButtonText;
 	private String previousButtonText;

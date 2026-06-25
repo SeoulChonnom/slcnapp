@@ -1,9 +1,7 @@
 package com.seoulchonnom.spec.trip.entity;
 
 import com.seoulchonnom.spec.common.entity.DomainEntity;
-import com.seoulchonnom.spec.file.entity.vo.FileReference;
 import com.seoulchonnom.spec.trip.entity.vo.Quiz;
-import com.seoulchonnom.spec.trip.facade.sdo.TripCdo;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -20,27 +18,26 @@ public class Trip extends DomainEntity {
 	private String date;
 	private String type;
 	private String name;
-	private FileReference logo;
-	private FileReference firstMap;
-	private FileReference secondMap;
+	private String logoFileId;
+	private String firstMapFileId;
+	private String secondMapFileId;
 	private String nextButtonText;
 	private String previousButtonText;
 	private String driveUrl;
 	private Quiz quiz;
 
-	public Trip(TripCdo tripCdo, String id) {
+	public Trip(String id, String date, String type, String name, String logoFileId, String firstMapFileId,
+		String secondMapFileId, String nextButtonText, String previousButtonText, String driveUrl, Quiz quiz) {
 		super(id);
-		this.date = tripCdo.getDate();
-		this.type = tripCdo.getType();
-		this.name = tripCdo.getName();
-		this.logo = new FileReference(tripCdo.getLogo().getType(), tripCdo.getLogo().getFilename());
-		this.firstMap = new FileReference(tripCdo.getFirstMap().getType(), tripCdo.getFirstMap().getFilename());
-		this.secondMap = tripCdo.getSecondMap() == null
-			? null
-			: new FileReference(tripCdo.getSecondMap().getType(), tripCdo.getSecondMap().getFilename());
-		this.nextButtonText = tripCdo.getNextButtonText();
-		this.previousButtonText = tripCdo.getPreviousButtonText();
-		this.driveUrl = tripCdo.getDriveUrl();
-		this.quiz = new Quiz(tripCdo.getQuiz());
+		this.date = date;
+		this.type = type;
+		this.name = name;
+		this.logoFileId = logoFileId;
+		this.firstMapFileId = firstMapFileId;
+		this.secondMapFileId = secondMapFileId;
+		this.nextButtonText = nextButtonText;
+		this.previousButtonText = previousButtonText;
+		this.driveUrl = driveUrl;
+		this.quiz = quiz;
 	}
 }

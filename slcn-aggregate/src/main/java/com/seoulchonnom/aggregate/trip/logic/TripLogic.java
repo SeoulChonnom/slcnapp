@@ -7,11 +7,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import com.seoulchonnom.aggregate.common.generator.store.entity.SequenceName;
+import com.seoulchonnom.aggregate.file.store.FileAssetStore;
 import com.seoulchonnom.aggregate.trip.exception.InvalidTripRegisterException;
 import com.seoulchonnom.aggregate.trip.store.TripStore;
 import com.seoulchonnom.spec.common.generator.IdGenerator;
+import com.seoulchonnom.spec.file.entity.FileAsset;
 import com.seoulchonnom.spec.file.entity.vo.FileType;
-import com.seoulchonnom.spec.file.facade.sdo.FileRefSdo;
+import com.seoulchonnom.spec.file.facade.sdo.FileAssetRdo;
 import com.seoulchonnom.spec.trip.entity.Trip;
 import com.seoulchonnom.spec.trip.entity.vo.Quiz;
 import com.seoulchonnom.spec.trip.facade.sdo.OptionCdo;
@@ -31,13 +33,14 @@ public class TripLogic {
 	private final TripStore tripStore;
 	private final IdGenerator idGenerator;
 	private final TripMapper tripMapper;
+	private final FileAssetStore fileAssetStore;
 
 	public List<TripListRdo> getAllTripList() {
-		return tripStore.findAllByOrderByDateDesc().stream().map(tripMapper::toTripListRdo).toList();
+		return tripStore.findAllByOrderByDateDesc().stream().map(this::toTripListRdo).toList();
 	}
 
 	public TripDetailRdo getTripById(String tripId) {
-		return tripMapper.toTripDetailRdo(tripStore.findById(tripId));
+		return toTripDetailRdo(tripStore.findById(tripId));
 	}
 
 	@Transactional
@@ -45,9 +48,21 @@ public class TripLogic {
 		validateTrip(tripCdo);
 
 		String nextTripId = idGenerator.nextDomainId(SequenceName.TRIP.toString());
-		Trip trip = new Trip(tripCdo, nextTripId);
+		Trip trip = new Trip(
+			nextTripId,
+			tripCdo.getDate(),
+			tripCdo.getType(),
+			tripCdo.getName(),
+			tripCdo.getLogoFileId().trim(),
+			tripCdo.getFirstMapFileId().trim(),
+			trimToNull(tripCdo.getSecondMapFileId()),
+			tripCdo.getNextButtonText(),
+			tripCdo.getPreviousButtonText(),
+			tripCdo.getDriveUrl(),
+			new Quiz(tripCdo.getQuiz())
+		);
 		tripStore.saveTrip(trip);
-		return tripMapper.toTripDetailRdo(trip);
+		return toTripDetailRdo(trip);
 	}
 
 	public QuizRdo getTripQuiz(String tripId) {
@@ -75,7 +90,7 @@ public class TripLogic {
 
 		validateFileTypes(tripCdo);
 
-		boolean hasSecondMap = tripCdo.getSecondMap() != null;
+		boolean hasSecondMap = StringUtils.hasText(tripCdo.getSecondMapFileId());
 		boolean hasNextButtonText = StringUtils.hasText(tripCdo.getNextButtonText());
 		boolean hasPreviousButtonText = StringUtils.hasText(tripCdo.getPreviousButtonText());
 
@@ -88,14 +103,49 @@ public class TripLogic {
 	}
 
 	private void validateFileTypes(TripCdo tripCdo) {
-		if (!isType(tripCdo.getLogo(), FileType.LOGO) ||
-			!isType(tripCdo.getFirstMap(), FileType.MAP) ||
-			(tripCdo.getSecondMap() != null && !isType(tripCdo.getSecondMap(), FileType.MAP))) {
+		if (!isType(tripCdo.getLogoFileId(), FileType.LOGO) ||
+			!isType(tripCdo.getFirstMapFileId(), FileType.MAP) ||
+			(StringUtils.hasText(tripCdo.getSecondMapFileId()) && !isType(tripCdo.getSecondMapFileId(), FileType.MAP))) {
 			throw new InvalidTripRegisterException();
 		}
 	}
 
-	private boolean isType(FileRefSdo fileRefSdo, FileType type) {
-		return fileRefSdo != null && type.equals(fileRefSdo.getType());
+	private boolean isType(String fileId, FileType type) {
+		if (!StringUtils.hasText(fileId)) {
+			return false;
+		}
+		return type.equals(fileAssetStore.findById(fileId.trim()).getType());
+	}
+
+	private TripListRdo toTripListRdo(Trip trip) {
+		return tripMapper.toTripListRdo(trip, toFileAssetRdo(trip.getLogoFileId()));
+	}
+
+	private TripDetailRdo toTripDetailRdo(Trip trip) {
+		return tripMapper.toTripDetailRdo(
+			trip,
+			toFileAssetRdo(trip.getLogoFileId()),
+			toFileAssetRdo(trip.getFirstMapFileId()),
+			toOptionalFileAssetRdo(trip.getSecondMapFileId())
+		);
+	}
+
+	private FileAssetRdo toFileAssetRdo(String fileId) {
+		FileAsset fileAsset = fileAssetStore.findById(fileId);
+		return FileAssetRdo.from(fileAsset);
+	}
+
+	private FileAssetRdo toOptionalFileAssetRdo(String fileId) {
+		if (!StringUtils.hasText(fileId)) {
+			return null;
+		}
+		return toFileAssetRdo(fileId);
+	}
+
+	private String trimToNull(String value) {
+		if (!StringUtils.hasText(value)) {
+			return null;
+		}
+		return value.trim();
 	}
 }

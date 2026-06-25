@@ -1,8 +1,9 @@
 # Domain Entity Must Not Depend On API DTO
 
 ## Context
-During the file reference API change, `Trip` temporarily depended on `FileRefSdo`.
+During the file reference API change, `Trip` temporarily depended on a facade file DTO.
 That made a domain entity depend on a facade/API DTO.
+The current file policy uses `FileAsset.id` as the domain reference and returns `FileAssetRdo` only at API boundaries.
 
 ## Rule
 Do not use `*Cdo`, `*Udo`, `*Rdo`, or `*Sdo` classes inside domain entities or value objects.
@@ -12,10 +13,10 @@ DTOs belong at API/application boundaries. Domain entities and value objects sho
 When an API DTO and a domain concept carry similar data, create an explicit domain value object and map at the boundary.
 
 Example:
-- API DTO: `FileRefSdo`
-- Domain VO: `FileReference`
+- API DTO: `FileAssetRdo`
+- Domain field: `logoFileId`, `firstMapFileId`, `photoFileId`
 - Domain enum: `FileType`
-- Persistence mapper: converts `FileReference` to the storage shape, such as `logo/{filename}`
+- Persistence mapper: stores the file id in explicit columns, such as `logo_file_id`
 
 ## Mapping Responsibility
 - `Resource` receives request parameters and DTOs.

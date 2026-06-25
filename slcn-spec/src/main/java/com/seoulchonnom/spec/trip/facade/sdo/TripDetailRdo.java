@@ -1,6 +1,6 @@
 package com.seoulchonnom.spec.trip.facade.sdo;
 
-import com.seoulchonnom.spec.file.facade.sdo.FileRefSdo;
+import com.seoulchonnom.spec.file.facade.sdo.FileAssetRdo;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -14,9 +14,9 @@ public class TripDetailRdo {
 	private String date;
 	private String type;
 	private String name;
-	private FileRefSdo logo;
-	private FileRefSdo firstMap;
-	private FileRefSdo secondMap;
+	private FileAssetRdo logo;
+	private FileAssetRdo firstMap;
+	private FileAssetRdo secondMap;
 	private String nextButtonText;
 	private String previousButtonText;
 	private String driveUrl;

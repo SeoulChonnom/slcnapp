@@ -8,8 +8,6 @@ import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
 
 import com.seoulchonnom.aggregate.trip.store.jpo.TripJpo;
-import com.seoulchonnom.spec.file.entity.vo.FileReference;
-import com.seoulchonnom.spec.file.entity.vo.FileType;
 import com.seoulchonnom.spec.trip.entity.Trip;
 import com.seoulchonnom.spec.trip.entity.vo.Option;
 import com.seoulchonnom.spec.trip.entity.vo.Quiz;
@@ -27,9 +25,9 @@ class TripJpoMapperTest {
 		tripJpo.setDate("2026-03-31");
 		tripJpo.setType("ryu");
 		tripJpo.setName("Trip Name");
-		tripJpo.setLogo("logo/72d768d4-2b05-48f9-bee8-fee3b52e909f.png");
-		tripJpo.setFirstMap("map/11111111-2222-4333-8888-aaaaaaaaaaaa.png");
-		tripJpo.setSecondMap("map/22222222-3333-4444-9999-bbbbbbbbbbbb.png");
+		tripJpo.setLogoFileId("logo-file-1");
+		tripJpo.setFirstMapFileId("map-file-1");
+		tripJpo.setSecondMapFileId("map-file-2");
 		tripJpo.setNextButtonText("next");
 		tripJpo.setPreviousButtonText("prev");
 		tripJpo.setDriveUrl("https://drive.example");
@@ -53,8 +51,9 @@ class TripJpoMapperTest {
 		assertThat(trip.getModifiedTime()).isEqualTo(200L);
 		assertThat(trip.getDate()).isEqualTo("2026-03-31");
 		assertThat(trip.getDriveUrl()).isEqualTo("https://drive.example");
-		assertThat(trip.getLogo().getType()).isEqualTo(FileType.LOGO);
-		assertThat(trip.getLogo().getFilename()).isEqualTo("72d768d4-2b05-48f9-bee8-fee3b52e909f.png");
+		assertThat(trip.getLogoFileId()).isEqualTo("logo-file-1");
+		assertThat(trip.getFirstMapFileId()).isEqualTo("map-file-1");
+		assertThat(trip.getSecondMapFileId()).isEqualTo("map-file-2");
 		assertThat(trip.getQuiz().getCorrectOptionId()).isEqualTo("OPT-2");
 		assertThat(trip.getQuiz().getOptions()).extracting("id").containsExactly("OPT-1", "OPT-2");
 	}
@@ -65,8 +64,8 @@ class TripJpoMapperTest {
 			.date("2026-03-31")
 			.type("ayo")
 			.name("Trip Name")
-			.logo(new FileReference(FileType.LOGO, "72d768d4-2b05-48f9-bee8-fee3b52e909f.png"))
-			.firstMap(new FileReference(FileType.MAP, "11111111-2222-4333-8888-aaaaaaaaaaaa.png"))
+			.logoFileId("logo-file-1")
+			.firstMapFileId("map-file-1")
 			.driveUrl("https://drive.example")
 			.quiz(Quiz.builder()
 				.title("Quiz Title")
@@ -85,8 +84,8 @@ class TripJpoMapperTest {
 		TripJpo tripJpo = tripJpoMapper.toJpo(trip);
 
 		assertThat(tripJpo.getId()).isEqualTo("TRIP-9");
-		assertThat(tripJpo.getLogo()).isEqualTo("logo/72d768d4-2b05-48f9-bee8-fee3b52e909f.png");
-		assertThat(tripJpo.getFirstMap()).isEqualTo("map/11111111-2222-4333-8888-aaaaaaaaaaaa.png");
+		assertThat(tripJpo.getLogoFileId()).isEqualTo("logo-file-1");
+		assertThat(tripJpo.getFirstMapFileId()).isEqualTo("map-file-1");
 		assertThat(tripJpo.getQuiz()).isNotNull();
 		assertThat(tripJpo.getQuiz().getCorrectOptionId()).isEqualTo("OPT-2");
 		assertThat(tripJpo.getQuiz().getOptions()).extracting("text").containsExactly("wrong", "right");

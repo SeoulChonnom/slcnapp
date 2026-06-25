@@ -27,11 +27,12 @@ public class TripJpo extends DomainEntityJpo {
 	private String type;
 	@Column(nullable = false)
 	private String name;
-	@Column(nullable = false)
-	private String logo;
-	@Column(nullable = false)
-	private String firstMap;
-	private String secondMap;
+	@Column(name = "logo_file_id", nullable = false)
+	private String logoFileId;
+	@Column(name = "first_map_file_id", nullable = false)
+	private String firstMapFileId;
+	@Column(name = "second_map_file_id")
+	private String secondMapFileId;
 	private String nextButtonText;
 	private String previousButtonText;
 	@Column(nullable = false)
