@@ -3,6 +3,8 @@ package com.seoulchonnom.spec.travel.facade.sdo;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.seoulchonnom.spec.filebox.facade.sdo.FileBoxItemRdo;
+
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -17,13 +19,12 @@ public class TravelDetailRdo {
 	private String region;
 	private String startDate;
 	private String endDate;
-	private String coverPhotoId;
+	private FileBoxItemRdo cover;
 	private String oneLineReview;
 	private int nights;
 	private int days;
 	private List<TravelDayRdo> travelDays = new ArrayList<>();
-	private List<TravelPlaceRdo> places = new ArrayList<>();
-	private List<TravelPhotoRdo> photos = new ArrayList<>();
-	private List<TravelTagRdo> tags = new ArrayList<>();
+	private List<String> tags = new ArrayList<>();
 	private TravelReviewRdo review;
+	private List<FileBoxItemRdo> files = new ArrayList<>();
 }

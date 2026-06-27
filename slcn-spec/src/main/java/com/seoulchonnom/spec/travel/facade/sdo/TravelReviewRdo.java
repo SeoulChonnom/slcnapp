@@ -8,9 +8,6 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 public class TravelReviewRdo {
-	private String id;
-	private String travelId;
-	private String content;
 	private String oneLineSummary;
 	private String goodPoint;
 	private String badPoint;

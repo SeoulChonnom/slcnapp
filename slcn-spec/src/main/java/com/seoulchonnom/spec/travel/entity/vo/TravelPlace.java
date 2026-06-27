@@ -1,22 +1,24 @@
-package com.seoulchonnom.spec.travel.facade.sdo;
+package com.seoulchonnom.spec.travel.entity.vo;
 
-import com.seoulchonnom.spec.travel.entity.vo.TravelPlaceCategory;
+import com.seoulchonnom.spec.common.entity.vo.JsonSerializable;
 
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-@Getter
-@Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class TravelPlaceUdo {
+@Builder
+@Getter
+@Setter
+public class TravelPlace implements JsonSerializable {
 	private String placeKey;
 	private String name;
 	private TravelPlaceCategory category;
 	private String address;
 	private String memo;
 	private String description;
-	private Integer sortOrder;
+	private int sortOrder;
 }

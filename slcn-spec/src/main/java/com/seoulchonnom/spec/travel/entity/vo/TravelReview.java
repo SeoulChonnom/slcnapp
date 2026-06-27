@@ -1,15 +1,19 @@
-package com.seoulchonnom.spec.travel.facade.sdo;
+package com.seoulchonnom.spec.travel.entity.vo;
+
+import com.seoulchonnom.spec.common.entity.vo.JsonSerializable;
 
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-@Getter
-@Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class TravelReviewUdo {
+@Builder
+@Getter
+@Setter
+public class TravelReview implements JsonSerializable {
 	private String oneLineSummary;
 	private String goodPoint;
 	private String badPoint;
