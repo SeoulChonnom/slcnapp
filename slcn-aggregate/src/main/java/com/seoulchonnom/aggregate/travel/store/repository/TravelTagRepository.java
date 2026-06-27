@@ -8,8 +8,4 @@ import com.seoulchonnom.aggregate.travel.store.jpo.TravelTagJpo;
 
 public interface TravelTagRepository extends JpaRepository<TravelTagJpo, String> {
 	List<TravelTagJpo> findAllByTravelIdOrderBySortOrderAscRegisteredTimeAsc(String travelId);
-
-	boolean existsByTravelIdAndName(String travelId, String name);
-
-	int countByTravelId(String travelId);
 }

@@ -16,29 +16,24 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import com.seoulchonnom.aggregate.common.exception.BadRequestException;
+import com.seoulchonnom.aggregate.common.generator.store.entity.SequenceName;
 import com.seoulchonnom.aggregate.travel.exception.TravelPeriodConflictException;
 import com.seoulchonnom.aggregate.travel.store.TravelStore;
+import com.seoulchonnom.spec.common.generator.IdGenerator;
 import com.seoulchonnom.spec.travel.entity.Travel;
 import com.seoulchonnom.spec.travel.entity.TravelDay;
 import com.seoulchonnom.spec.travel.entity.TravelPhoto;
 import com.seoulchonnom.spec.travel.entity.TravelPlace;
-import com.seoulchonnom.spec.travel.entity.vo.TravelPlaceCategory;
 import com.seoulchonnom.spec.travel.entity.TravelReview;
 import com.seoulchonnom.spec.travel.entity.TravelTag;
+import com.seoulchonnom.spec.travel.entity.vo.TravelPlaceCategory;
 import com.seoulchonnom.spec.travel.facade.sdo.TravelCdo;
-import com.seoulchonnom.spec.travel.facade.sdo.TravelDayRdo;
 import com.seoulchonnom.spec.travel.facade.sdo.TravelDayUdo;
 import com.seoulchonnom.spec.travel.facade.sdo.TravelDetailRdo;
 import com.seoulchonnom.spec.travel.facade.sdo.TravelPhotoCdo;
-import com.seoulchonnom.spec.travel.facade.sdo.TravelPhotoRdo;
-import com.seoulchonnom.spec.travel.facade.sdo.TravelPlaceCdo;
-import com.seoulchonnom.spec.travel.facade.sdo.TravelPlaceRdo;
 import com.seoulchonnom.spec.travel.facade.sdo.TravelPlaceUdo;
 import com.seoulchonnom.spec.travel.facade.sdo.TravelRdo;
-import com.seoulchonnom.spec.travel.facade.sdo.TravelReviewRdo;
 import com.seoulchonnom.spec.travel.facade.sdo.TravelReviewUdo;
-import com.seoulchonnom.spec.travel.facade.sdo.TravelTagCdo;
-import com.seoulchonnom.spec.travel.facade.sdo.TravelTagRdo;
 import com.seoulchonnom.spec.travel.facade.sdo.TravelUdo;
 import com.seoulchonnom.spec.travel.mapper.TravelMapper;
 
@@ -51,6 +46,7 @@ public class TravelLogic {
 	private static final int MAX_TAG_COUNT = 10;
 
 	private final TravelStore travelStore;
+	private final IdGenerator idGenerator;
 	private final TravelMapper travelMapper;
 
 	public List<TravelRdo> getTravels() {
@@ -70,8 +66,11 @@ public class TravelLogic {
 		LocalDate endDate = parseDate(travelCdo.getEndDate(), "endDate");
 		validateTravel(travelCdo.getTitle(), travelCdo.getRegion(), travelCdo.getCoverPhotoId(), startDate, endDate);
 
-		Travel travel = travelStore.save(new Travel(travelCdo.getTitle().trim(), travelCdo.getRegion().trim(),
-			startDate, endDate, travelCdo.getCoverPhotoId().trim()));
+		String nextTravelId = idGenerator.nextDomainId(SequenceName.TRAVEL.toString());
+		Travel travel = new Travel(travelCdo.getTitle().trim(), travelCdo.getRegion().trim(), startDate, endDate,
+			travelCdo.getCoverPhotoId().trim());
+		travel.setId(nextTravelId);
+		travel = travelStore.save(travel);
 		travelStore.saveDays(createDays(travel.getId(), startDate, endDate, Map.of()));
 		syncTravelDetails(travel.getId(), travelCdo.getTravelDays(), travelCdo.getPhotos(), travelCdo.getReview());
 		saveTags(travel.getId(), travelCdo.getTags());
@@ -128,161 +127,6 @@ public class TravelLogic {
 		travelStore.deleteTravel(travel);
 	}
 
-	@Transactional
-	public TravelDayRdo modifyDay(String travelId, String travelDayId, TravelDayUdo udo) {
-		travelStore.findById(travelId);
-		TravelDay travelDay = findOwnedDay(travelId, travelDayId);
-		if (!StringUtils.hasText(udo.getCoverPhotoId())) {
-			throw new BadRequestException("coverPhotoId는 필수입니다.");
-		}
-
-		travelDay.update(trimToNull(udo.getTitle()), trimToNull(udo.getMemo()), udo.getCoverPhotoId().trim(),
-			udo.getSortOrder() == null ? travelDay.getSortOrder() : udo.getSortOrder());
-		return travelMapper.toTravelDayRdo(travelStore.save(travelDay));
-	}
-
-	@Transactional
-	public TravelPlaceRdo registerPlace(String travelId, String travelDayId, TravelPlaceCdo cdo) {
-		travelStore.findById(travelId);
-		TravelDay travelDay = findOwnedDay(travelId, travelDayId);
-		validatePlace(cdo.getName(), cdo.getCategory());
-
-		int sortOrder = cdo.getSortOrder() == null ? travelStore.nextPlaceSortOrder(travelDay.getId()) : cdo.getSortOrder();
-		TravelPlace travelPlace = new TravelPlace(travelId, travelDay.getId(), cdo.getName().trim(), cdo.getCategory(),
-			descriptionOf(cdo.getDescription(), cdo.getMemo()), trimToNull(cdo.getCoverPhotoId()), sortOrder);
-		TravelPlace savedPlace = travelStore.save(travelPlace);
-		if (cdo.getPhotoFileIds() != null) {
-			for (String photoFileId : cdo.getPhotoFileIds()) {
-				registerPhoto(travelId, new TravelPhotoCdo(travelDay.getId(), savedPlace.getId(), photoFileId, null, null));
-			}
-		}
-		return travelMapper.toTravelPlaceRdo(savedPlace);
-	}
-
-	@Transactional
-	public TravelPlaceRdo modifyPlace(String travelId, String travelDayId, String placeId, TravelPlaceUdo udo) {
-		travelStore.findById(travelId);
-		findOwnedDay(travelId, travelDayId);
-		TravelPlace travelPlace = findOwnedPlace(travelId, placeId);
-		if (!travelPlace.getTravelDayId().equals(travelDayId)) {
-			throw new BadRequestException("장소가 여행 일자에 속하지 않습니다.");
-		}
-		validatePlace(udo.getName(), udo.getCategory());
-
-		travelPlace.update(udo.getName().trim(), udo.getCategory(), descriptionOf(udo.getDescription(), udo.getMemo()),
-			trimToNull(udo.getCoverPhotoId()), udo.getSortOrder() == null ? travelPlace.getSortOrder() : udo.getSortOrder());
-		return travelMapper.toTravelPlaceRdo(travelStore.save(travelPlace));
-	}
-
-	@Transactional
-	public void deletePlace(String travelId, String travelDayId, String placeId) {
-		travelStore.findById(travelId);
-		findOwnedDay(travelId, travelDayId);
-		TravelPlace travelPlace = findOwnedPlace(travelId, placeId);
-		if (!travelPlace.getTravelDayId().equals(travelDayId)) {
-			throw new BadRequestException("장소가 여행 일자에 속하지 않습니다.");
-		}
-		travelStore.deletePlace(travelPlace);
-	}
-
-	@Transactional
-	public TravelPhotoRdo registerPhoto(String travelId, TravelPhotoCdo cdo) {
-		travelStore.findById(travelId);
-		validatePhotoRequest(cdo);
-		TravelDay travelDay = null;
-		TravelPlace travelPlace = null;
-		if (StringUtils.hasText(cdo.getTravelPlaceId())) {
-			travelPlace = findOwnedPlace(travelId, cdo.getTravelPlaceId());
-			if (StringUtils.hasText(cdo.getTravelDayId()) && !travelPlace.getTravelDayId().equals(cdo.getTravelDayId())) {
-				throw new BadRequestException("travelPlaceId가 travelDayId에 속하지 않습니다.");
-			}
-			travelDay = findOwnedDay(travelId, travelPlace.getTravelDayId());
-		} else if (StringUtils.hasText(cdo.getTravelDayId())) {
-			travelDay = findOwnedDay(travelId, cdo.getTravelDayId());
-		}
-
-		String travelPlaceId = travelPlace == null ? null : travelPlace.getId();
-		String travelDayId = travelDay == null ? null : travelDay.getId();
-		if (travelStore.existsPhotoByTarget(travelId, travelDayId, travelPlaceId, cdo.getPhotoFileId().trim())) {
-			throw new BadRequestException("이미 연결된 사진입니다.");
-		}
-
-		int sortOrder = cdo.getSortOrder() == null ? nextPhotoSortOrder(travelId, travelDayId, travelPlaceId)
-			: cdo.getSortOrder();
-		TravelPhoto travelPhoto = new TravelPhoto(travelId, travelDayId, travelPlaceId, cdo.getPhotoFileId().trim(),
-			cdo.getCaption(), sortOrder);
-		return travelMapper.toTravelPhotoRdo(travelStore.save(travelPhoto));
-	}
-
-	public List<TravelPhotoRdo> getPhotos(String travelId) {
-		travelStore.findById(travelId);
-		return travelStore.findPhotosByTravelId(travelId).stream().map(travelMapper::toTravelPhotoRdo).toList();
-	}
-
-	public List<TravelPhotoRdo> getDayPhotos(String travelId, String travelDayId) {
-		travelStore.findById(travelId);
-		findOwnedDay(travelId, travelDayId);
-		return travelStore.findPhotosByTravelIdAndDayId(travelId, travelDayId)
-			.stream()
-			.map(travelMapper::toTravelPhotoRdo)
-			.toList();
-	}
-
-	public List<TravelPhotoRdo> getPlacePhotos(String travelId, String placeId) {
-		travelStore.findById(travelId);
-		findOwnedPlace(travelId, placeId);
-		return travelStore.findPhotosByTravelIdAndPlaceId(travelId, placeId)
-			.stream()
-			.map(travelMapper::toTravelPhotoRdo)
-			.toList();
-	}
-
-	@Transactional
-	public void deletePhoto(String travelId, String photoId) {
-		travelStore.findById(travelId);
-		TravelPhoto travelPhoto = travelStore.findPhotosByTravelId(travelId).stream()
-			.filter(photo -> photo.getId().equals(photoId))
-			.findFirst()
-			.orElseThrow(() -> new BadRequestException("여행에 속한 사진이 아닙니다."));
-		travelStore.deletePhoto(travelPhoto.getId());
-	}
-
-	@Transactional
-	public TravelTagRdo registerTag(String travelId, TravelTagCdo cdo) {
-		travelStore.findById(travelId);
-		String name = normalizeTag(cdo.getName());
-
-		if (travelStore.existsTag(travelId, name)) {
-			throw new BadRequestException("이미 등록된 태그입니다.");
-		}
-		if (travelStore.countTags(travelId) >= MAX_TAG_COUNT) {
-			throw new BadRequestException("태그는 최대 10개까지 등록할 수 있습니다.");
-		}
-
-		return travelMapper.toTravelTagRdo(travelStore.save(new TravelTag(travelId, name,
-			travelStore.nextTagSortOrder(travelId))));
-	}
-
-	@Transactional
-	public void deleteTag(String travelId, String tagId) {
-		travelStore.findById(travelId);
-		boolean owned = travelStore.findTagsByTravelId(travelId).stream().anyMatch(tag -> tag.getId().equals(tagId));
-		if (!owned) {
-			throw new BadRequestException("여행에 속한 태그가 아닙니다.");
-		}
-		travelStore.deleteTag(tagId);
-	}
-
-	@Transactional
-	public TravelReviewRdo putReview(String travelId, TravelReviewUdo udo) {
-		travelStore.findById(travelId);
-		TravelReview review = travelStore.findReviewByTravelId(travelId)
-			.orElseGet(() -> new TravelReview(travelId, null, null, null, null, null));
-		review.update(trimToNull(udo.getOneLineSummary()), trimToNull(udo.getGoodPoint()), trimToNull(udo.getBadPoint()),
-			trimToNull(udo.getRevisitPlace()), trimToNull(udo.getFinalReview()));
-		return travelMapper.toTravelReviewRdo(travelStore.save(review));
-	}
-
 	private TravelDetailRdo toDetailRdo(Travel travel) {
 		List<TravelDay> days = travelStore.findDaysByTravelId(travel.getId());
 		List<TravelPlace> places = travelStore.findPlacesByTravelId(travel.getId());
@@ -290,28 +134,6 @@ public class TravelLogic {
 		List<TravelTag> tags = travelStore.findTagsByTravelId(travel.getId());
 		TravelReview review = travelStore.findReviewByTravelId(travel.getId()).orElse(null);
 		return travelMapper.toTravelDetailRdo(travel, days, places, photos, tags, review);
-	}
-
-	private TravelDay findOwnedDay(String travelId, String travelDayId) {
-		if (!StringUtils.hasText(travelDayId)) {
-			throw new BadRequestException("travelDayId는 필수입니다.");
-		}
-		TravelDay travelDay = travelStore.findDayById(travelDayId);
-		if (!travelDay.getTravelId().equals(travelId)) {
-			throw new BadRequestException("여행에 속한 일자가 아닙니다.");
-		}
-		return travelDay;
-	}
-
-	private TravelPlace findOwnedPlace(String travelId, String placeId) {
-		if (!StringUtils.hasText(placeId)) {
-			throw new BadRequestException("placeId는 필수입니다.");
-		}
-		TravelPlace travelPlace = travelStore.findPlaceById(placeId);
-		if (!travelPlace.getTravelId().equals(travelId)) {
-			throw new BadRequestException("여행에 속한 장소가 아닙니다.");
-		}
-		return travelPlace;
 	}
 
 	private void validateTravel(String title, String region, String coverPhotoId, LocalDate startDate, LocalDate endDate) {
@@ -398,7 +220,7 @@ public class TravelLogic {
 			}
 		}
 		if (reviewPayload != null) {
-			putReview(travelId, reviewPayload);
+			saveReview(travelId, reviewPayload);
 		}
 	}
 
@@ -494,15 +316,17 @@ public class TravelLogic {
 			|| StringUtils.hasText(dayPayload.getCoverPhotoId());
 	}
 
-	private int nextPhotoSortOrder(String travelId, String travelDayId, String travelPlaceId) {
-		if (travelDayId == null && travelPlaceId == null) {
-			return travelStore.nextPhotoSortOrderForTravel(travelId);
-		}
-		return travelStore.nextPhotoSortOrder(travelDayId, travelPlaceId);
-	}
-
 	private String trimToNull(String value) {
 		return StringUtils.hasText(value) ? value.trim() : null;
+	}
+
+	private void saveReview(String travelId, TravelReviewUdo udo) {
+		TravelReview review = travelStore.findReviewByTravelId(travelId)
+			.orElseGet(() -> new TravelReview(travelId, null, null, null, null, null));
+		review.update(trimToNull(udo.getOneLineSummary()), trimToNull(udo.getGoodPoint()),
+			trimToNull(udo.getBadPoint()),
+			trimToNull(udo.getRevisitPlace()), trimToNull(udo.getFinalReview()));
+		travelStore.save(review);
 	}
 
 	private String descriptionOf(String description, String memo) {

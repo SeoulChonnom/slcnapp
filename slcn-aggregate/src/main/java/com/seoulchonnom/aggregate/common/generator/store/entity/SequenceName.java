@@ -16,5 +16,10 @@ public enum SequenceName {
 		public String toString() {
 			return "CALENDAR";
 		}
+	}, TRAVEL {
+		@Override
+		public String toString() {
+			return "TRAVEL";
+		}
 	}
 }

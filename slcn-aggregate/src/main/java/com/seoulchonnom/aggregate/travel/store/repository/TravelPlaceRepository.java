@@ -13,6 +13,4 @@ public interface TravelPlaceRepository extends JpaRepository<TravelPlaceJpo, Str
 	List<TravelPlaceJpo> findAllByTravelDayIdIn(Collection<String> travelDayIds);
 
 	boolean existsByTravelDayIdIn(Collection<String> travelDayIds);
-
-	int countByTravelDayId(String travelDayId);
 }

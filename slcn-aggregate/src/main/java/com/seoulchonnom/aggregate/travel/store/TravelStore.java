@@ -7,9 +7,7 @@ import java.util.Optional;
 
 import org.springframework.stereotype.Repository;
 
-import com.seoulchonnom.aggregate.travel.exception.TravelDayNotFoundException;
 import com.seoulchonnom.aggregate.travel.exception.TravelNotFoundException;
-import com.seoulchonnom.aggregate.travel.exception.TravelPlaceNotFoundException;
 import com.seoulchonnom.aggregate.travel.store.mapper.TravelJpoMapper;
 import com.seoulchonnom.aggregate.travel.store.repository.TravelDayRepository;
 import com.seoulchonnom.aggregate.travel.store.repository.TravelPhotoRepository;
@@ -76,16 +74,6 @@ public class TravelStore {
 		return travelJpoMapper.toDomain(travelRepository.findById(travelId).orElseThrow(TravelNotFoundException::new));
 	}
 
-	public TravelDay findDayById(String travelDayId) {
-		return travelJpoMapper.toDomain(
-			travelDayRepository.findById(travelDayId).orElseThrow(TravelDayNotFoundException::new));
-	}
-
-	public TravelPlace findPlaceById(String placeId) {
-		return travelJpoMapper.toDomain(
-			travelPlaceRepository.findById(placeId).orElseThrow(TravelPlaceNotFoundException::new));
-	}
-
 	public Optional<TravelReview> findReviewByTravelId(String travelId) {
 		return travelReviewRepository.findByTravelId(travelId).map(travelJpoMapper::toDomain);
 	}
@@ -118,21 +106,6 @@ public class TravelStore {
 			.toList();
 	}
 
-	public List<TravelPhoto> findPhotosByTravelIdAndDayId(String travelId, String travelDayId) {
-		return travelPhotoRepository.findAllByTravelIdAndTravelDayIdOrderByTravelPlaceIdAscSortOrderAsc(travelId,
-				travelDayId)
-			.stream()
-			.map(travelJpoMapper::toDomain)
-			.toList();
-	}
-
-	public List<TravelPhoto> findPhotosByTravelIdAndPlaceId(String travelId, String travelPlaceId) {
-		return travelPhotoRepository.findAllByTravelIdAndTravelPlaceIdOrderBySortOrderAsc(travelId, travelPlaceId)
-			.stream()
-			.map(travelJpoMapper::toDomain)
-			.toList();
-	}
-
 	public List<TravelTag> findTagsByTravelId(String travelId) {
 		return travelTagRepository.findAllByTravelIdOrderBySortOrderAscRegisteredTimeAsc(travelId)
 			.stream()
@@ -146,49 +119,6 @@ public class TravelStore {
 
 	public boolean existsPhotoByDayIds(Collection<String> travelDayIds) {
 		return !travelDayIds.isEmpty() && travelPhotoRepository.existsByTravelDayIdIn(travelDayIds);
-	}
-
-	public boolean existsPhotoByTarget(String travelId, String travelDayId, String travelPlaceId, String photoFileId) {
-		if (travelDayId == null && travelPlaceId == null) {
-			return travelPhotoRepository.existsByTravelIdAndTravelDayIdIsNullAndTravelPlaceIdIsNullAndPhotoFileId(
-				travelId, photoFileId);
-		}
-		if (travelPlaceId == null) {
-			return travelPhotoRepository.existsByTravelIdAndTravelDayIdAndTravelPlaceIdIsNullAndPhotoFileId(travelId,
-				travelDayId, photoFileId);
-		}
-		return travelPhotoRepository.existsByTravelIdAndTravelDayIdAndTravelPlaceIdAndPhotoFileId(travelId, travelDayId,
-			travelPlaceId, photoFileId);
-	}
-
-	public boolean existsTag(String travelId, String name) {
-		return travelTagRepository.existsByTravelIdAndName(travelId, name);
-	}
-
-	public int countTags(String travelId) {
-		return travelTagRepository.countByTravelId(travelId);
-	}
-
-	public int nextPlaceSortOrder(String travelDayId) {
-		return travelPlaceRepository.countByTravelDayId(travelDayId) + 1;
-	}
-
-	public int nextPhotoSortOrder(String travelDayId, String travelPlaceId) {
-		if (travelDayId == null && travelPlaceId == null) {
-			throw new IllegalArgumentException("travelId가 없는 여행 전체 사진 정렬은 nextPhotoSortOrderForTravel을 사용하세요.");
-		}
-		if (travelPlaceId == null) {
-			return travelPhotoRepository.countByTravelDayIdAndTravelPlaceIdIsNull(travelDayId) + 1;
-		}
-		return travelPhotoRepository.countByTravelDayIdAndTravelPlaceId(travelDayId, travelPlaceId) + 1;
-	}
-
-	public int nextPhotoSortOrderForTravel(String travelId) {
-		return travelPhotoRepository.countByTravelIdAndTravelDayIdIsNullAndTravelPlaceIdIsNull(travelId) + 1;
-	}
-
-	public int nextTagSortOrder(String travelId) {
-		return travelTagRepository.countByTravelId(travelId) + 1;
 	}
 
 	public void deleteTravel(Travel travel) {
@@ -229,28 +159,8 @@ public class TravelStore {
 			travelPhotoRepository.findAllByTravelIdAndTravelDayIdIsNullAndTravelPlaceIdIsNull(travelId));
 	}
 
-	public void deletePhotosByPlaceIds(Collection<String> travelPlaceIds) {
-		if (travelPlaceIds.isEmpty()) {
-			return;
-		}
-		travelPhotoRepository.deleteAll(travelPhotoRepository.findAllByTravelPlaceIdIn(travelPlaceIds));
-	}
-
 	public void deleteTagsByTravelId(String travelId) {
 		travelTagRepository.deleteAll(travelTagRepository.findAllByTravelIdOrderBySortOrderAscRegisteredTimeAsc(travelId));
 		travelTagRepository.flush();
-	}
-
-	public void deletePlace(TravelPlace travelPlace) {
-		deletePhotosByPlaceIds(List.of(travelPlace.getId()));
-		travelPlaceRepository.delete(travelJpoMapper.toJpo(travelPlace));
-	}
-
-	public void deletePhoto(String photoId) {
-		travelPhotoRepository.deleteById(photoId);
-	}
-
-	public void deleteTag(String tagId) {
-		travelTagRepository.deleteById(tagId);
 	}
 }
