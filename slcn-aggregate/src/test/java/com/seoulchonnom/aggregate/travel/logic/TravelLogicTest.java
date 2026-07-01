@@ -6,27 +6,35 @@ import static org.mockito.Mockito.*;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import com.seoulchonnom.aggregate.common.exception.BadRequestException;
+import com.seoulchonnom.aggregate.file.store.FileAssetStore;
+import com.seoulchonnom.aggregate.filebox.store.FileBoxStore;
 import com.seoulchonnom.aggregate.travel.exception.TravelPeriodConflictException;
 import com.seoulchonnom.aggregate.travel.store.TravelStore;
 import com.seoulchonnom.spec.common.generator.IdGenerator;
+import com.seoulchonnom.spec.file.entity.FileAsset;
+import com.seoulchonnom.spec.file.entity.vo.FileType;
+import com.seoulchonnom.spec.filebox.entity.FileBox;
+import com.seoulchonnom.spec.filebox.entity.vo.FileBoxItem;
+import com.seoulchonnom.spec.filebox.entity.vo.FileBoxItemRole;
+import com.seoulchonnom.spec.filebox.entity.vo.FileBoxOwnerType;
+import com.seoulchonnom.spec.filebox.entity.vo.FileBoxTargetType;
+import com.seoulchonnom.spec.filebox.facade.sdo.FileBoxItemCdo;
+import com.seoulchonnom.spec.filebox.facade.sdo.FileBoxItemUdo;
+import com.seoulchonnom.spec.filebox.mapper.FileBoxMapper;
 import com.seoulchonnom.spec.travel.entity.Travel;
-import com.seoulchonnom.spec.travel.entity.TravelDay;
-import com.seoulchonnom.spec.travel.entity.TravelPhoto;
-import com.seoulchonnom.spec.travel.entity.TravelPlace;
-import com.seoulchonnom.spec.travel.entity.TravelReview;
-import com.seoulchonnom.spec.travel.entity.TravelTag;
+import com.seoulchonnom.spec.travel.entity.vo.TravelDay;
+import com.seoulchonnom.spec.travel.entity.vo.TravelPlace;
 import com.seoulchonnom.spec.travel.entity.vo.TravelPlaceCategory;
 import com.seoulchonnom.spec.travel.facade.sdo.TravelCdo;
 import com.seoulchonnom.spec.travel.facade.sdo.TravelDayUdo;
 import com.seoulchonnom.spec.travel.facade.sdo.TravelDetailRdo;
-import com.seoulchonnom.spec.travel.facade.sdo.TravelPhotoCdo;
 import com.seoulchonnom.spec.travel.facade.sdo.TravelPlaceUdo;
-import com.seoulchonnom.spec.travel.facade.sdo.TravelReviewUdo;
 import com.seoulchonnom.spec.travel.facade.sdo.TravelUdo;
 import com.seoulchonnom.spec.travel.mapper.TravelMapper;
 
@@ -34,280 +42,166 @@ class TravelLogicTest {
 	private final TravelStore travelStore = mock(TravelStore.class);
 	private final IdGenerator idGenerator = mock(IdGenerator.class);
 	private final TravelMapper travelMapper = mock(TravelMapper.class);
-	private final TravelLogic travelLogic = new TravelLogic(travelStore, idGenerator, travelMapper);
+	private final FileBoxStore fileBoxStore = mock(FileBoxStore.class);
+	private final FileAssetStore fileAssetStore = mock(FileAssetStore.class);
+	private final FileBoxMapper fileBoxMapper = new FileBoxMapper();
+	private final TravelLogic travelLogic = new TravelLogic(travelStore, idGenerator, travelMapper, fileBoxStore,
+		fileAssetStore, fileBoxMapper);
 
 	@Test
-	void registerTravel_shouldGenerateTravelIdAndCreateDaysForOvernightTrip() {
-		TravelCdo cdo = new TravelCdo("서울", "서울", "2026-06-01", "2026-06-02", "cover-1", List.of("맛집"));
+	void registerTravel_shouldStoreRootWithDaysAndSyncFileBox() {
+		TravelCdo cdo = new TravelCdo("서울", "서울", "2026-06-01", "2026-06-02", List.of("맛집"));
+		cdo.setFiles(List.of(new FileBoxItemCdo("travel-cover", FileBoxTargetType.TRAVEL, null,
+			FileBoxItemRole.COVER, null, 1)));
 		when(idGenerator.nextDomainId("TRAVEL")).thenReturn("TRAVEL-0001");
 		when(travelStore.save(any(Travel.class))).thenAnswer(invocation -> invocation.getArgument(0));
-		when(travelStore.findById(anyString())).thenAnswer(invocation ->
-			Travel.builder().title("서울").startDate(LocalDate.of(2026, 6, 1)).endDate(LocalDate.of(2026, 6, 2)).build());
-		when(travelMapper.toTravelDetailRdo(any(), anyList(), anyList(), anyList(), anyList(), any()))
-			.thenReturn(new TravelDetailRdo());
+		stubTravelFile("travel-cover");
+		stubDetailRdo("TRAVEL-0001", cdo.getFiles().stream().map(fileBoxMapper::toFileBoxItem).toList());
 
 		travelLogic.registerTravel(cdo);
 
 		ArgumentCaptor<Travel> travelCaptor = ArgumentCaptor.forClass(Travel.class);
-		verify(travelStore, atLeastOnce()).save(travelCaptor.capture());
-		assertThat(travelCaptor.getAllValues().get(0).getId()).isEqualTo("TRAVEL-0001");
-		ArgumentCaptor<List<TravelDay>> daysCaptor = ArgumentCaptor.forClass(List.class);
-		verify(travelStore).saveDays(daysCaptor.capture());
-		assertThat(daysCaptor.getValue()).hasSize(2);
-		assertThat(daysCaptor.getValue()).extracting(TravelDay::getDayNumber).containsExactly(1, 2);
-		verify(travelStore).deleteTagsByTravelId(anyString());
-		verify(travelStore).save(any(TravelTag.class));
+		verify(travelStore).save(travelCaptor.capture());
+		Travel savedTravel = travelCaptor.getValue();
+		assertThat(savedTravel.getId()).isEqualTo("TRAVEL-0001");
+		assertThat(savedTravel.getDays()).extracting(TravelDay::getDayNumber).containsExactly(1, 2);
+		assertThat(savedTravel.getTags()).containsExactly("맛집");
+		verify(fileBoxStore).syncItems(eq(FileBoxOwnerType.TRAVEL), eq("TRAVEL-0001"), argThat(items ->
+			items.size() == 1 && FileBoxItemRole.COVER == items.get(0).getRole()));
 	}
 
 	@Test
-	void registerTravel_shouldRejectSameDayTrip() {
-		TravelCdo cdo = new TravelCdo("서울", "서울", "2026-06-01", "2026-06-01", "cover-1", null);
-
-		assertThatThrownBy(() -> travelLogic.registerTravel(cdo))
-			.isInstanceOf(BadRequestException.class)
-			.hasMessage("1박 이상 여행만 등록할 수 있습니다.");
-	}
-
-	@Test
-	void registerTravel_shouldRejectBlankRegion() {
-		TravelCdo cdo = new TravelCdo("서울", " ", "2026-06-01", "2026-06-02", "cover-1", null);
-
-		assertThatThrownBy(() -> travelLogic.registerTravel(cdo))
-			.isInstanceOf(BadRequestException.class)
-			.hasMessage("region은 필수입니다.");
-	}
-
-	@Test
-	void registerTravel_shouldTrimRegion() {
-		TravelCdo cdo = new TravelCdo("서울", "  서울  ", "2026-06-01", "2026-06-02", "cover-1", null);
-		when(idGenerator.nextDomainId("TRAVEL")).thenReturn("TRAVEL-0001");
-		when(travelStore.save(any(Travel.class))).thenAnswer(invocation -> invocation.getArgument(0));
-		when(travelStore.findById(anyString())).thenAnswer(invocation ->
-			Travel.builder().title("서울").region("서울").startDate(LocalDate.of(2026, 6, 1))
-				.endDate(LocalDate.of(2026, 6, 2)).build());
-		when(travelMapper.toTravelDetailRdo(any(), anyList(), anyList(), anyList(), anyList(), any()))
-			.thenReturn(new TravelDetailRdo());
-
-		travelLogic.registerTravel(cdo);
-
-		ArgumentCaptor<Travel> travelCaptor = ArgumentCaptor.forClass(Travel.class);
-		verify(travelStore, atLeastOnce()).save(travelCaptor.capture());
-		assertThat(travelCaptor.getAllValues().get(0).getRegion()).isEqualTo("서울");
-	}
-
-	@Test
-	void registerTravel_shouldSyncNestedDaysPlacesPhotosAndReview() {
-		TravelCdo cdo = new TravelCdo("강릉", "강릉", "2026-06-01", "2026-06-02", "cover-1", List.of("바다"));
-		TravelDayUdo dayUdo = new TravelDayUdo("1일차", "바다 산책", "day-cover", 1);
-		dayUdo.setPhotos(List.of(new TravelPhotoCdo(null, null, "day-file", "날짜 사진", 1)));
-		TravelPlaceUdo placeUdo = new TravelPlaceUdo();
-		placeUdo.setName("안목해변");
-		placeUdo.setCategory(TravelPlaceCategory.TOURIST_SPOT);
-		placeUdo.setDescription("해변");
-		placeUdo.setCoverPhotoId("place-cover");
-		placeUdo.setPhotos(List.of(new TravelPhotoCdo(null, null, "place-file", "장소 사진", 1)));
-		dayUdo.setPlaces(List.of(placeUdo));
+	void registerTravel_shouldApplyDayAndPlacePayloads() {
+		String placeKey = UUID.randomUUID().toString();
+		TravelCdo cdo = new TravelCdo("강릉", "강릉", "2026-06-01", "2026-06-02", List.of("바다"));
+		TravelDayUdo dayUdo = new TravelDayUdo("1일차", "바다 산책", 1);
+		dayUdo.setDate("2026-06-01");
+		dayUdo.setPlaces(List.of(new TravelPlaceUdo(placeKey, "안목해변", TravelPlaceCategory.TOURIST_SPOT,
+			"강릉", "메모", null, 1)));
 		cdo.setTravelDays(List.of(dayUdo));
-		cdo.setPhotos(List.of(new TravelPhotoCdo(null, null, "travel-file", "전체 사진", 1)));
-		cdo.setReview(new TravelReviewUdo(null, "한줄", "좋음", "아쉬움", "안목해변", "좋았다"));
-		TravelDay day1 = day("day-1", "TRAVEL-0001", "2026-06-01", 1);
-		TravelDay day2 = day("day-2", "TRAVEL-0001", "2026-06-02", 2);
+		cdo.setFiles(List.of(
+			new FileBoxItemCdo("travel-cover", FileBoxTargetType.TRAVEL, null, FileBoxItemRole.COVER, null, 1),
+			new FileBoxItemCdo("place-cover", FileBoxTargetType.TRAVEL_PLACE, placeKey, FileBoxItemRole.COVER, null,
+				1)));
 		when(idGenerator.nextDomainId("TRAVEL")).thenReturn("TRAVEL-0001");
-		when(travelStore.save(any(Travel.class))).thenAnswer(invocation -> {
-			Travel travel = invocation.getArgument(0);
-			return travel;
-		});
-		when(travelStore.findById("TRAVEL-0001")).thenReturn(travel("TRAVEL-0001", "강릉", "2026-06-01", "2026-06-02"));
-		when(travelStore.findDaysByTravelId("TRAVEL-0001")).thenReturn(List.of(day1, day2));
-		when(travelStore.save(any(TravelDay.class))).thenAnswer(invocation -> invocation.getArgument(0));
-		when(travelStore.save(any(TravelPlace.class))).thenAnswer(invocation -> invocation.getArgument(0));
-		when(travelStore.save(any(TravelPhoto.class))).thenAnswer(invocation -> invocation.getArgument(0));
-		when(travelStore.save(any(TravelTag.class))).thenAnswer(invocation -> invocation.getArgument(0));
-		when(travelStore.save(any(TravelReview.class))).thenAnswer(invocation -> invocation.getArgument(0));
-		when(travelStore.findReviewByTravelId("TRAVEL-0001")).thenReturn(Optional.empty());
-		when(travelMapper.toTravelDetailRdo(any(), anyList(), anyList(), anyList(), anyList(), any()))
-			.thenReturn(new TravelDetailRdo());
+		when(travelStore.save(any(Travel.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		stubTravelFile("travel-cover");
+		stubTravelFile("place-cover");
+		stubDetailRdo("TRAVEL-0001", cdo.getFiles().stream().map(fileBoxMapper::toFileBoxItem).toList());
 
 		travelLogic.registerTravel(cdo);
 
-		verify(travelStore).deletePhotosByTravelId("TRAVEL-0001");
-		verify(travelStore).deletePlacesByDayIds(List.of("day-1", "day-2"));
-		verify(travelStore, times(3)).save(any(TravelPhoto.class));
-		verify(travelStore).save(any(TravelPlace.class));
-		verify(travelStore).save(any(TravelReview.class));
+		ArgumentCaptor<Travel> travelCaptor = ArgumentCaptor.forClass(Travel.class);
+		verify(travelStore).save(travelCaptor.capture());
+		TravelDay firstDay = travelCaptor.getValue().getDays().get(0);
+		assertThat(firstDay.getTitle()).isEqualTo("1일차");
+		assertThat(firstDay.getPlaces()).extracting(TravelPlace::getPlaceKey).containsExactly(placeKey);
 	}
 
 	@Test
-	void getTravel_shouldBulkLoadChildrenByTravelId() {
-		Travel travel = travel("travel-1", "서울", "2026-06-01", "2026-06-02");
-		when(travelStore.findById("travel-1")).thenReturn(travel);
-		when(travelStore.findReviewByTravelId("travel-1")).thenReturn(Optional.empty());
-		TravelDetailRdo detailRdo = new TravelDetailRdo();
-		when(travelMapper.toTravelDetailRdo(any(), anyList(), anyList(), anyList(), anyList(), any()))
-			.thenReturn(detailRdo);
+	void registerTravel_shouldRejectWithoutRootCover() {
+		TravelCdo cdo = new TravelCdo("서울", "서울", "2026-06-01", "2026-06-02", null);
+		cdo.setFiles(List.of());
+		when(idGenerator.nextDomainId("TRAVEL")).thenReturn("TRAVEL-0001");
 
-		TravelDetailRdo result = travelLogic.getTravel("travel-1");
-
-		assertThat(result).isSameAs(detailRdo);
-		verify(travelStore).findDaysByTravelId("travel-1");
-		verify(travelStore).findPlacesByTravelId("travel-1");
-		verify(travelStore).findPhotosByTravelId("travel-1");
-		verify(travelStore).findTagsByTravelId("travel-1");
-		verify(travelStore).findReviewByTravelId("travel-1");
-	}
-
-	@Test
-	void modifyTravel_shouldIncreasePeriodAndAppendMissingDays() {
-		Travel travel = travel("travel-1", "서울", "2026-06-01", "2026-06-02");
-		TravelDay day1 = day("day-1", "travel-1", "2026-06-01", 1);
-		TravelDay day2 = day("day-2", "travel-1", "2026-06-02", 2);
-		when(travelStore.findById("travel-1")).thenReturn(travel);
-		when(travelStore.findDaysByTravelId("travel-1")).thenReturn(List.of(day1, day2));
-		when(travelStore.findReviewByTravelId("travel-1")).thenReturn(Optional.empty());
-		when(travelMapper.toTravelDetailRdo(any(), anyList(), anyList(), anyList(), anyList(), any()))
-			.thenReturn(new TravelDetailRdo());
-
-		travelLogic.modifyTravel("travel-1", new TravelUdo("서울", "서울", "2026-06-01", "2026-06-03",
-			"cover-1", null, null));
-
-		ArgumentCaptor<List<TravelDay>> daysCaptor = ArgumentCaptor.forClass(List.class);
-		verify(travelStore).saveDays(daysCaptor.capture());
-		assertThat(daysCaptor.getValue()).hasSize(3);
-		assertThat(daysCaptor.getValue()).extracting(TravelDay::getDayNumber).containsExactly(1, 2, 3);
-		assertThat(travel.getEndDate()).isEqualTo(LocalDate.of(2026, 6, 3));
-	}
-
-	@Test
-	void modifyTravel_shouldConflictWhenShrinkingWrittenDaysWithoutConfirm() {
-		Travel travel = travel("travel-1", "서울", "2026-06-01", "2026-06-03");
-		TravelDay day1 = day("day-1", "travel-1", "2026-06-01", 1);
-		TravelDay day2 = day("day-2", "travel-1", "2026-06-02", 2);
-		TravelDay day3 = day("day-3", "travel-1", "2026-06-03", 3);
-		when(travelStore.findById("travel-1")).thenReturn(travel);
-		when(travelStore.findDaysByTravelId("travel-1")).thenReturn(List.of(day1, day2, day3));
-		when(travelStore.existsPlaceByDayIds(List.of("day-3"))).thenReturn(true);
-
-		assertThatThrownBy(() -> travelLogic.modifyTravel("travel-1",
-			new TravelUdo("서울", "서울", "2026-06-01", "2026-06-02", "cover-1", null, null)))
-			.isInstanceOf(TravelPeriodConflictException.class)
-			.hasMessageContaining("2026-06-03");
-	}
-
-	@Test
-	void modifyTravel_shouldDeleteShrunkDayContentWhenConfirmed() {
-		Travel travel = travel("travel-1", "서울", "2026-06-01", "2026-06-03");
-		TravelDay day1 = day("day-1", "travel-1", "2026-06-01", 1);
-		TravelDay day2 = day("day-2", "travel-1", "2026-06-02", 2);
-		TravelDay day3 = day("day-3", "travel-1", "2026-06-03", 3);
-		when(travelStore.findById("travel-1")).thenReturn(travel);
-		when(travelStore.findDaysByTravelId("travel-1")).thenReturn(List.of(day1, day2, day3));
-		when(travelStore.findReviewByTravelId("travel-1")).thenReturn(Optional.empty());
-		when(travelMapper.toTravelDetailRdo(any(), anyList(), anyList(), anyList(), anyList(), any()))
-			.thenReturn(new TravelDetailRdo());
-
-		travelLogic.modifyTravel("travel-1", new TravelUdo("서울", "서울", "2026-06-01", "2026-06-02",
-			"cover-1", null, true));
-
-		verify(travelStore).deletePhotosByDayIds(List.of("day-3"));
-		verify(travelStore).deletePlacesByDayIds(List.of("day-3"));
-		verify(travelStore).deleteDays(List.of(day3));
-	}
-
-	@Test
-	void modifyTravel_shouldConflictWhenShrinkingDayWithOwnContentWithoutConfirm() {
-		Travel travel = travel("travel-1", "서울", "2026-06-01", "2026-06-03");
-		TravelDay day1 = day("day-1", "travel-1", "2026-06-01", 1);
-		TravelDay day2 = day("day-2", "travel-1", "2026-06-02", 2);
-		TravelDay day3 = day("day-3", "travel-1", "2026-06-03", 3);
-		day3.setCoverPhotoId("day-cover");
-		when(travelStore.findById("travel-1")).thenReturn(travel);
-		when(travelStore.findDaysByTravelId("travel-1")).thenReturn(List.of(day1, day2, day3));
-
-		assertThatThrownBy(() -> travelLogic.modifyTravel("travel-1",
-			new TravelUdo("서울", "서울", "2026-06-01", "2026-06-02", "cover-1", null, null)))
-			.isInstanceOf(TravelPeriodConflictException.class)
-			.hasMessageContaining("2026-06-03");
-	}
-
-	@Test
-	void modifyTravel_shouldRejectBlankCoverPhotoId() {
-		when(travelStore.findById("travel-1")).thenReturn(travel("travel-1", "서울", "2026-06-01", "2026-06-02"));
-
-		assertThatThrownBy(() -> travelLogic.modifyTravel("travel-1",
-			new TravelUdo("서울", "서울", "2026-06-01", "2026-06-02", " ", null, null)))
+		assertThatThrownBy(() -> travelLogic.registerTravel(cdo))
 			.isInstanceOf(BadRequestException.class)
-			.hasMessage("coverPhotoId는 필수입니다.");
+			.hasMessage("여행 대표 이미지는 1개여야 합니다.");
 	}
 
 	@Test
-	void modifyTravel_shouldRejectBlankRegion() {
-		when(travelStore.findById("travel-1")).thenReturn(travel("travel-1", "서울", "2026-06-01", "2026-06-02"));
-
-		assertThatThrownBy(() -> travelLogic.modifyTravel("travel-1",
-			new TravelUdo("서울", null, "2026-06-01", "2026-06-02", "cover-1", null, null)))
-			.isInstanceOf(BadRequestException.class)
-			.hasMessage("region은 필수입니다.");
-	}
-
-	@Test
-	void modifyTravel_shouldTrimRegion() {
-		Travel travel = travel("travel-1", "서울", "2026-06-01", "2026-06-02");
+	void modifyTravel_shouldRejectPeriodShrinkWhenDeletedDayHasFileWithoutConfirm() {
+		Travel travel = travelWithDays();
+		FileBoxItem deletedDayFile = FileBoxItem.builder()
+			.id("item-1")
+			.fileAssetId("day-file")
+			.targetType(FileBoxTargetType.TRAVEL_DAY)
+			.targetId("2026-06-03")
+			.role(FileBoxItemRole.GALLERY)
+			.sortOrder(1)
+			.build();
 		when(travelStore.findById("travel-1")).thenReturn(travel);
-		when(travelStore.findDaysByTravelId("travel-1")).thenReturn(List.of(
-			day("day-1", "travel-1", "2026-06-01", 1),
-			day("day-2", "travel-1", "2026-06-02", 2)));
-		when(travelStore.findReviewByTravelId("travel-1")).thenReturn(Optional.empty());
-		when(travelMapper.toTravelDetailRdo(any(), anyList(), anyList(), anyList(), anyList(), any()))
-			.thenReturn(new TravelDetailRdo());
+		when(fileBoxStore.findOptionalByOwner(FileBoxOwnerType.TRAVEL, "travel-1"))
+			.thenReturn(Optional.of(fileBox("travel-1", List.of(deletedDayFile))));
+		TravelUdo udo = new TravelUdo("서울", "서울", "2026-06-01", "2026-06-02", null, false);
 
-		travelLogic.modifyTravel("travel-1", new TravelUdo("서울", "  부산  ", "2026-06-01", "2026-06-02",
-			"cover-1", null, null));
-
-		assertThat(travel.getRegion()).isEqualTo("부산");
+		assertThatThrownBy(() -> travelLogic.modifyTravel("travel-1", udo))
+			.isInstanceOf(TravelPeriodConflictException.class);
 	}
 
 	@Test
-	void modifyTravel_withReviewOnly_shouldNotDeleteExistingPlacesOrPhotos() {
-		Travel travel = travel("travel-1", "서울", "2026-06-01", "2026-06-02");
+	void modifyTravel_shouldPreserveExistingItemIdsWhenPayloadReferencesOwnerItem() {
+		Travel travel = travelWithDays();
+		FileBoxItem existingCover = FileBoxItem.builder()
+			.id("item-cover")
+			.fileAssetId("travel-cover")
+			.targetType(FileBoxTargetType.TRAVEL)
+			.role(FileBoxItemRole.COVER)
+			.sortOrder(1)
+			.build();
 		when(travelStore.findById("travel-1")).thenReturn(travel);
-		when(travelStore.findDaysByTravelId("travel-1")).thenReturn(List.of(
-			day("day-1", "travel-1", "2026-06-01", 1),
-			day("day-2", "travel-1", "2026-06-02", 2)));
-		when(travelStore.findReviewByTravelId("travel-1")).thenReturn(Optional.empty());
-		when(travelStore.save(any(TravelReview.class))).thenAnswer(invocation -> invocation.getArgument(0));
-		when(travelMapper.toTravelDetailRdo(any(), anyList(), anyList(), anyList(), anyList(), any()))
-			.thenReturn(new TravelDetailRdo());
-		TravelUdo udo = new TravelUdo("서울", "서울", "2026-06-01", "2026-06-02", "cover-1", null, null);
-		udo.setReview(new TravelReviewUdo(null, "요약", "좋음", "아쉬움", "한강", "좋았음"));
+		when(travelStore.save(any(Travel.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(fileBoxStore.findOptionalByOwner(FileBoxOwnerType.TRAVEL, "travel-1"))
+			.thenReturn(Optional.of(fileBox("travel-1", List.of(existingCover))));
+		when(fileBoxStore.syncItems(eq(FileBoxOwnerType.TRAVEL), eq("travel-1"), anyList()))
+			.thenAnswer(invocation -> fileBox("travel-1", invocation.getArgument(2)));
+		stubTravelFile("travel-cover");
+		stubDetailRdo("travel-1", List.of(existingCover));
+		TravelUdo udo = new TravelUdo("서울", "서울", "2026-06-01", "2026-06-03", null, null);
+		udo.setFiles(List.of(new FileBoxItemUdo("item-cover", "travel-cover", FileBoxTargetType.TRAVEL, null,
+			FileBoxItemRole.COVER, null, 1)));
 
 		travelLogic.modifyTravel("travel-1", udo);
 
-		verify(travelStore, never()).deletePhotosByTravelId(anyString());
-		verify(travelStore, never()).deleteTravelLevelPhotosByTravelId(anyString());
-		verify(travelStore).save(any(TravelReview.class));
+		verify(fileBoxStore).syncItems(eq(FileBoxOwnerType.TRAVEL), eq("travel-1"), argThat(items ->
+			items.size() == 1 && "item-cover".equals(items.get(0).getId())));
 	}
 
-	private Travel travel(String id, String title, String startDate, String endDate) {
+	private Travel travelWithDays() {
 		Travel travel = Travel.builder()
-			.title(title)
+			.title("서울")
 			.region("서울")
-			.startDate(LocalDate.parse(startDate))
-			.endDate(LocalDate.parse(endDate))
-			.coverPhotoId("cover-1")
+			.startDate(LocalDate.of(2026, 6, 1))
+			.endDate(LocalDate.of(2026, 6, 3))
+			.days(List.of(
+				day("2026-06-01", 1),
+				day("2026-06-02", 2),
+				day("2026-06-03", 3)))
 			.build();
-		travel.setId(id);
+		travel.setId("travel-1");
 		return travel;
 	}
 
-	private TravelDay day(String id, String travelId, String date, int dayNumber) {
-		TravelDay travelDay = TravelDay.builder()
-			.travelId(travelId)
+	private TravelDay day(String date, int dayNumber) {
+		return TravelDay.builder()
 			.date(LocalDate.parse(date))
 			.dayNumber(dayNumber)
 			.sortOrder(dayNumber)
+			.places(List.of())
 			.build();
-		travelDay.setId(id);
-		return travelDay;
 	}
 
+	private void stubTravelFile(String fileId) {
+		when(fileAssetStore.findById(fileId)).thenReturn(fileAsset(fileId, FileType.TRAVEL));
+	}
+
+	private void stubDetailRdo(String ownerId, List<FileBoxItem> items) {
+		when(fileBoxStore.findOptionalByOwner(FileBoxOwnerType.TRAVEL, ownerId))
+			.thenReturn(Optional.of(fileBox(ownerId, items)));
+		when(travelMapper.toTravelDetailRdo(any(), anyList())).thenReturn(new TravelDetailRdo());
+	}
+
+	private FileAsset fileAsset(String fileId, FileType fileType) {
+		FileAsset fileAsset = new FileAsset(fileType, fileId + ".png", fileId + "-stored.png", "image/png", 10L);
+		fileAsset.setId(fileId);
+		return fileAsset;
+	}
+
+	private FileBox fileBox(String ownerId, List<FileBoxItem> items) {
+		return FileBox.builder()
+			.ownerType(FileBoxOwnerType.TRAVEL)
+			.ownerId(ownerId)
+			.items(items)
+			.build();
+	}
 }
