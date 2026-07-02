@@ -29,7 +29,7 @@ public class FileLogic {
 	private final FileUtils fileUtils;
 	private final FileAssetStore fileAssetStore;
 
-	@Value("${upload.path}")
+	@Value("${slcn.upload.path}")
 	private String directory;
 
 	public FileAsset uploadFile(MultipartFile file, String type) {
