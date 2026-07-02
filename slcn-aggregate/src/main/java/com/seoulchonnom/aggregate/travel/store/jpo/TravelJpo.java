@@ -22,7 +22,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "travels", schema = "slcn", indexes = {
+@Table(name = "travel", schema = "slcn", indexes = {
 	@Index(name = "idx_travels_hidden_start_date", columnList = "hidden,start_date")
 })
 @Getter
