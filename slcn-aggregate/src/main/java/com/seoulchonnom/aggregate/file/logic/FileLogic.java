@@ -7,7 +7,6 @@ import java.nio.file.Paths;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -22,7 +21,6 @@ import com.seoulchonnom.spec.file.facade.sdo.ImageFileRdo;
 
 import lombok.RequiredArgsConstructor;
 
-@Component
 @Service
 @RequiredArgsConstructor
 public class FileLogic {
