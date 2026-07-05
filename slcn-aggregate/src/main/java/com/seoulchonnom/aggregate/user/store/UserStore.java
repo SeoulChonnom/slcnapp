@@ -30,10 +30,12 @@ public class UserStore {
 	private final UserLoginDocMapper userLoginDocMapper;
 	private final UserLoginHistoryDocMapper userLoginHistoryDocMapper;
 
+	@Transactional
 	public void save(User user) {
 		userRepository.save(userJpoMapper.toJpo(user));
 	}
 
+	@Transactional
 	public void initializeUserLogin(String userId) {
 		userLoginRepository.save(userLoginDocMapper.toDoc(UserLogin.newUser(userId)));
 	}
@@ -58,10 +60,12 @@ public class UserStore {
 		return userLoginDocMapper.toDomain(userLoginDoc);
 	}
 
+	@Transactional
 	public void saveUserLogin(UserLogin userLogin) {
 		userLoginRepository.save(userLoginDocMapper.toDoc(userLogin));
 	}
 
+	@Transactional
 	public void saveUserLoginHistory(UserLoginHistory userLoginHistory) {
 		userLoginHistoryRepository.save(userLoginHistoryDocMapper.toDoc(userLoginHistory));
 	}

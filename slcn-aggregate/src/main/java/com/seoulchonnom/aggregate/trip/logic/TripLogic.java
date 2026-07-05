@@ -12,6 +12,7 @@ import com.seoulchonnom.aggregate.common.generator.store.entity.SequenceName;
 import com.seoulchonnom.aggregate.file.store.FileAssetStore;
 import com.seoulchonnom.aggregate.filebox.store.FileBoxStore;
 import com.seoulchonnom.aggregate.trip.exception.InvalidTripRegisterException;
+import com.seoulchonnom.aggregate.trip.exception.TripNotFoundException;
 import com.seoulchonnom.aggregate.trip.store.TripStore;
 import com.seoulchonnom.spec.common.generator.IdGenerator;
 import com.seoulchonnom.spec.file.entity.FileAsset;
@@ -76,12 +77,19 @@ public class TripLogic {
 	}
 
 	public QuizRdo getTripQuiz(String tripId) {
-		return tripMapper.toQuizRdo(tripStore.findById(tripId).getQuiz());
+		return tripMapper.toQuizRdo(requireQuiz(tripStore.findById(tripId)));
 	}
 
 	public QuizResultRdo checkTripQuizAnswer(String tripId, String optionId) {
-		Quiz quiz = tripStore.findById(tripId).getQuiz();
+		Quiz quiz = requireQuiz(tripStore.findById(tripId));
 		return tripMapper.toQuizDetailRdo(quiz, optionId);
+	}
+
+	private Quiz requireQuiz(Trip trip) {
+		if (trip.getQuiz() == null) {
+			throw new TripNotFoundException();
+		}
+		return trip.getQuiz();
 	}
 
 	private void validateTrip(TripCdo tripCdo, List<FileBoxItem> fileItems) {

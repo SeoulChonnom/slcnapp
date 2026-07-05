@@ -12,6 +12,7 @@ import org.mockito.ArgumentCaptor;
 import com.seoulchonnom.aggregate.file.store.FileAssetStore;
 import com.seoulchonnom.aggregate.filebox.store.FileBoxStore;
 import com.seoulchonnom.aggregate.trip.exception.InvalidTripRegisterException;
+import com.seoulchonnom.aggregate.trip.exception.TripNotFoundException;
 import com.seoulchonnom.aggregate.trip.store.TripStore;
 import com.seoulchonnom.spec.common.generator.IdGenerator;
 import com.seoulchonnom.spec.file.entity.FileAsset;
@@ -84,6 +85,26 @@ class TripLogicTest {
 
 		assertThatThrownBy(() -> tripLogic.registerTrip(tripCdo))
 			.isInstanceOf(InvalidTripRegisterException.class);
+	}
+
+	@Test
+	void getTripQuiz_shouldRejectTripWithoutQuiz() {
+		when(tripStore.findById("TRIP-0001")).thenReturn(tripWithoutQuiz());
+
+		assertThatThrownBy(() -> tripLogic.getTripQuiz("TRIP-0001"))
+			.isInstanceOf(TripNotFoundException.class);
+	}
+
+	@Test
+	void checkTripQuizAnswer_shouldRejectTripWithoutQuiz() {
+		when(tripStore.findById("TRIP-0001")).thenReturn(tripWithoutQuiz());
+
+		assertThatThrownBy(() -> tripLogic.checkTripQuizAnswer("TRIP-0001", "OPT-1"))
+			.isInstanceOf(TripNotFoundException.class);
+	}
+
+	private Trip tripWithoutQuiz() {
+		return new Trip("TRIP-0001", "2026-04-16", "ryu", "봄 나들이", null, null, "https://drive.example", null);
 	}
 
 	private TripCdo createValidTripCdo() {

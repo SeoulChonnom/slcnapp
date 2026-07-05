@@ -7,12 +7,15 @@ import java.util.Optional;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Repository;
 
+import com.seoulchonnom.aggregate.user.exception.InvalidRefreshTokenException;
 import com.seoulchonnom.auth.store.projection.RefreshSession;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Repository
 @RequiredArgsConstructor
+@Slf4j
 public class RefreshSessionStore {
 	private static final String KEY_PREFIX = "auth:refresh:";
 	private static final String USER_ID_FIELD = "userId";
@@ -51,9 +54,18 @@ public class RefreshSessionStore {
 			sessionId,
 			String.valueOf(userId),
 			String.valueOf(refreshTokenHash),
-			Long.parseLong(String.valueOf(issuedAt)),
-			Long.parseLong(String.valueOf(expiresAt))
+			parseEpochMillis(ISSUED_AT_FIELD, issuedAt),
+			parseEpochMillis(EXPIRES_AT_FIELD, expiresAt)
 		));
+	}
+
+	private long parseEpochMillis(String field, Object value) {
+		try {
+			return Long.parseLong(String.valueOf(value));
+		} catch (NumberFormatException e) {
+			log.warn("Invalid refresh session field detected: field={}", field);
+			throw new InvalidRefreshTokenException();
+		}
 	}
 
 	public void delete(String sessionId) {
