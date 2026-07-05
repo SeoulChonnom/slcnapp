@@ -24,10 +24,10 @@ public class UserLogin {
 		return this.loginFailCount >= loginFailLimitCount;
 	}
 
-	public boolean isLoginBlockExpired(int loginFailLimitCount, long clearTimeMillis) {
+	public boolean isLoginBlockExpired(int loginFailLimitCount, long clearTimeMillis, long now) {
 		return isLoginBlocked(loginFailLimitCount)
 			&& this.lastLoginFailTime > 0
-			&& System.currentTimeMillis() - this.lastLoginFailTime >= clearTimeMillis;
+			&& now - this.lastLoginFailTime >= clearTimeMillis;
 	}
 
 	public void clearLoginFailure() {
@@ -35,13 +35,13 @@ public class UserLogin {
 		this.lastLoginFailTime = 0L;
 	}
 
-	public void markLoginFailure() {
+	public void markLoginFailure(long now) {
 		this.loginFailCount = this.loginFailCount + 1;
-		this.lastLoginFailTime = System.currentTimeMillis();
+		this.lastLoginFailTime = now;
 	}
 
-	public void markLoginSuccess() {
+	public void markLoginSuccess(long now) {
 		this.loginFailCount = 0;
-		this.lastLoginTime = System.currentTimeMillis();
+		this.lastLoginTime = now;
 	}
 }
