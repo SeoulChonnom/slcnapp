@@ -2,6 +2,8 @@ package com.seoulchonnom.spec.travel.facade.sdo;
 
 import java.util.List;
 
+import com.seoulchonnom.spec.filebox.facade.sdo.FileBoxItemUdo;
+
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -14,20 +16,18 @@ public class TravelUdo {
 	private String region;
 	private String startDate;
 	private String endDate;
-	private String coverPhotoId;
 	private List<String> tags;
 	private Boolean confirmDeleteDays;
 	private List<TravelDayUdo> travelDays;
-	private List<TravelPhotoCdo> photos;
 	private TravelReviewUdo review;
+	private List<FileBoxItemUdo> files;
 
-	public TravelUdo(String title, String region, String startDate, String endDate, String coverPhotoId,
-		List<String> tags, Boolean confirmDeleteDays) {
+	public TravelUdo(String title, String region, String startDate, String endDate, List<String> tags,
+		Boolean confirmDeleteDays) {
 		this.title = title;
 		this.region = region;
 		this.startDate = startDate;
 		this.endDate = endDate;
-		this.coverPhotoId = coverPhotoId;
 		this.tags = tags;
 		this.confirmDeleteDays = confirmDeleteDays;
 	}

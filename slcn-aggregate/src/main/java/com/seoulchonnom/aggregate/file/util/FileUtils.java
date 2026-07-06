@@ -6,10 +6,10 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -29,7 +29,7 @@ import com.seoulchonnom.spec.file.entity.vo.FileType;
 
 @Component
 public class FileUtils {
-	@Value("${upload.path}")
+	@Value("${slcn.upload.path}")
 	private String directory;
 
 	public FileReference saveImages(MultipartFile multipartFile, String type) throws IOException {

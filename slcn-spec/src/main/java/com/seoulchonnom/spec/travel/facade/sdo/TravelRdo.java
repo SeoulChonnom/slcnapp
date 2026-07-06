@@ -1,5 +1,10 @@
 package com.seoulchonnom.spec.travel.facade.sdo;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import com.seoulchonnom.spec.filebox.facade.sdo.FileBoxItemRdo;
+
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -14,9 +19,9 @@ public class TravelRdo {
 	private String region;
 	private String startDate;
 	private String endDate;
-	private String coverPhotoId;
+	private FileBoxItemRdo cover;
 	private String oneLineReview;
 	private int nights;
 	private int days;
-	private java.util.List<TravelTagRdo> tags = new java.util.ArrayList<>();
+	private List<String> tags = new ArrayList<>();
 }
