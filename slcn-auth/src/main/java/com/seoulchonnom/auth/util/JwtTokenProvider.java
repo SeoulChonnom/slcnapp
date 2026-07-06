@@ -264,8 +264,15 @@ public class JwtTokenProvider {
 		}
 
 		return "sub=" + claims.getSubject()
-			+ ", username=" + getUserName(claims)
+			+ ", username=" + maskValue(getUserName(claims))
 			+ ", jti=" + claims.getId();
+	}
+
+	private String maskValue(String value) {
+		if (!StringUtils.hasText(value)) {
+			return "****";
+		}
+		return value.charAt(0) + "***";
 	}
 
 	private MacAlgorithm resolveMacAlgorithm(String configuredAlgorithm) {

@@ -1,8 +1,12 @@
 package com.seoulchonnom.spec.travel.entity;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 import com.seoulchonnom.spec.common.entity.DomainEntity;
+import com.seoulchonnom.spec.travel.entity.vo.TravelDay;
+import com.seoulchonnom.spec.travel.entity.vo.TravelReview;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -20,26 +24,27 @@ public class Travel extends DomainEntity {
 	private String region;
 	private LocalDate startDate;
 	private LocalDate endDate;
-	private String coverPhotoId;
-	private String oneLineReview;
 	private boolean hidden;
+	@Builder.Default
+	private List<TravelDay> days = new ArrayList<>();
+	@Builder.Default
+	private List<String> tags = new ArrayList<>();
+	private TravelReview review;
 
-	public Travel(String title, String region, LocalDate startDate, LocalDate endDate, String coverPhotoId) {
+	public Travel(String title, String region, LocalDate startDate, LocalDate endDate) {
 		super();
 		this.title = title;
 		this.region = region;
 		this.startDate = startDate;
 		this.endDate = endDate;
-		this.coverPhotoId = coverPhotoId;
 		this.hidden = false;
 	}
 
-	public void update(String title, String region, LocalDate startDate, LocalDate endDate, String coverPhotoId) {
+	public void update(String title, String region, LocalDate startDate, LocalDate endDate) {
 		this.title = title;
 		this.region = region;
 		this.startDate = startDate;
 		this.endDate = endDate;
-		this.coverPhotoId = coverPhotoId;
 		this.modifiedTime = System.currentTimeMillis();
 	}
 

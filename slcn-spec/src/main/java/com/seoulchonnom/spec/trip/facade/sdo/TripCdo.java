@@ -1,5 +1,9 @@
 package com.seoulchonnom.spec.trip.facade.sdo;
 
+import java.util.List;
+
+import com.seoulchonnom.spec.filebox.facade.sdo.FileBoxItemCdo;
+
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -22,12 +26,6 @@ public class TripCdo {
 	private String type;
 	@NotBlank(message = "나들이 이름은 필수값 입니다.")
 	private String name;
-	@NotBlank(message = "나들이 로고 파일 ID는 필수값 입니다.")
-	private String logoFileId;
-
-	@NotBlank(message = "나들이 지도 파일 ID는 필수값 입니다.")
-	private String firstMapFileId;
-	private String secondMapFileId;
 
 	private String nextButtonText;
 	private String previousButtonText;
@@ -38,4 +36,8 @@ public class TripCdo {
 	@NotNull(message = "나들이 퀴즈 데이터는 필수값 입니다.")
 	@Valid
 	private QuizCdo quiz;
+
+	@NotNull(message = "나들이 파일 데이터는 필수값 입니다.")
+	@Valid
+	private List<FileBoxItemCdo> files;
 }

@@ -19,10 +19,12 @@ public class CalendarStore {
 	private final CalendarRepository calendarRepository;
 	private final CalendarJpoMapper calendarJpoMapper;
 
+	@Transactional
 	public void save(Calendar calendar) {
 		calendarRepository.save(calendarJpoMapper.toJpo(calendar));
 	}
 
+	@Transactional
 	public void delete(Calendar calendar) {
 		calendarRepository.delete(calendarJpoMapper.toJpo(calendar));
 	}

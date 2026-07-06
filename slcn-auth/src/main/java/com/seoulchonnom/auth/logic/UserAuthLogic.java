@@ -96,20 +96,20 @@ public class UserAuthLogic {
 	}
 
 	private void recordLoginFailure(UserLogin userLogin) {
-		userLogin.markLoginFailure();
+		userLogin.markLoginFailure(System.currentTimeMillis());
 		userAuthStore.saveUserLogin(userLogin);
 		userAuthStore.saveUserLoginHistory(UserLoginHistory.create(userLogin.getUserId(), false));
 	}
 
 	private void clearExpiredLoginBlock(UserLogin userLogin) {
 		long clearTimeMillis = Duration.ofSeconds(loginLimitClearTimeSeconds).toMillis();
-		if (userLogin.isLoginBlockExpired(loginFailLimitCount, clearTimeMillis)) {
+		if (userLogin.isLoginBlockExpired(loginFailLimitCount, clearTimeMillis, System.currentTimeMillis())) {
 			userLogin.clearLoginFailure();
 		}
 	}
 
 	private void recordLoginSuccess(UserLogin userLogin) {
-		userLogin.markLoginSuccess();
+		userLogin.markLoginSuccess(System.currentTimeMillis());
 		userAuthStore.saveUserLogin(userLogin);
 		userAuthStore.saveUserLoginHistory(UserLoginHistory.create(userLogin.getUserId(), true));
 	}

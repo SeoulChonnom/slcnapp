@@ -14,6 +14,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Transactional
 public class IdGeneratorLogic implements IdGenerator {
+	private static final long MAX_SEQUENCE_VALUE = 0xFFFFL;
+
 	private final IdSequenceRepository idSequenceRepository;
 
 	@Override
@@ -31,12 +33,12 @@ public class IdGeneratorLogic implements IdGenerator {
 			throw new BadRequestException("ID FORMAT INVALID");
 		}
 
-		StringBuilder nextId = new StringBuilder(Long.toHexString(now + 1));
-
-		while(nextId.length() < 4 ) {
-			nextId.insert(0, "0");
+		if (now + 1 > MAX_SEQUENCE_VALUE) {
+			throw new BadRequestException("ID CAPACITY EXCEEDED");
 		}
-		idSequence.setLastId(nextId.toString());
+
+		String nextId = String.format("%04x", now + 1);
+		idSequence.setLastId(nextId);
 		return idSequence.getName() + '-' + nextId;
 	}
 }

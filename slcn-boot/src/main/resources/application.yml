@@ -49,8 +49,10 @@ springdoc:
   swagger-ui:
     enabled: false
 
-upload:
-  path: "${SLCN_UPLOAD_PATH}"
+slcn:
+  domain: "${SLCN_DOMAIN_LIST:http://localhost:9090}"
+  upload:
+    path: "${SLCN_UPLOAD_PATH}"
 
 cookie:
   expire:

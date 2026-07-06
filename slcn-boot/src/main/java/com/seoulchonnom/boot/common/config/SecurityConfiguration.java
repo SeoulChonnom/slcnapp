@@ -36,8 +36,9 @@ public class SecurityConfiguration {
 						.requestMatchers(CorsUtils::isPreFlightRequest).permitAll()
 					.requestMatchers("/users/register").hasAuthority("ADMIN")
 						.anyRequest().hasAuthority("USER"))
-				.exceptionHandling(handling -> handling.authenticationEntryPoint(commonAuthenticationEntryPoint))
-				.exceptionHandling(handling -> handling.accessDeniedHandler(commonAccessDeniedHandler))
+				.exceptionHandling(handling -> handling
+					.authenticationEntryPoint(commonAuthenticationEntryPoint)
+					.accessDeniedHandler(commonAccessDeniedHandler))
 				.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
 		return http.build();

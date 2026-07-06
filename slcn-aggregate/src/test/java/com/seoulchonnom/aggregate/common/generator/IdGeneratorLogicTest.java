@@ -29,6 +29,31 @@ class IdGeneratorLogicTest {
 	}
 
 	@Test
+	void nextDomainId_shouldKeepFourDigitPaddedFormat() {
+		IdSequence idSequence = new IdSequence();
+		idSequence.setName("TRIP");
+		idSequence.setLastId("00ff");
+		when(idSequenceRepository.findByName("TRIP")).thenReturn(Optional.of(idSequence));
+
+		String result = idGeneratorLogic.nextDomainId("TRIP");
+
+		assertThat(result).isEqualTo("TRIP-0100");
+		assertThat(idSequence.getLastId()).isEqualTo("0100");
+	}
+
+	@Test
+	void nextDomainId_shouldRejectWhenSequenceExceedsCapacity() {
+		IdSequence idSequence = new IdSequence();
+		idSequence.setName("TRIP");
+		idSequence.setLastId("ffff");
+		when(idSequenceRepository.findByName("TRIP")).thenReturn(Optional.of(idSequence));
+
+		assertThatThrownBy(() -> idGeneratorLogic.nextDomainId("TRIP"))
+			.isInstanceOf(BadRequestException.class)
+			.hasMessage("ID CAPACITY EXCEEDED");
+	}
+
+	@Test
 	void nextDomainId_shouldRejectInvalidLastId() {
 		IdSequence idSequence = new IdSequence();
 		idSequence.setName("TRIP");

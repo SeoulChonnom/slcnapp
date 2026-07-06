@@ -10,7 +10,6 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class TravelReviewUdo {
-	private String content;
 	private String oneLineSummary;
 	private String goodPoint;
 	private String badPoint;
