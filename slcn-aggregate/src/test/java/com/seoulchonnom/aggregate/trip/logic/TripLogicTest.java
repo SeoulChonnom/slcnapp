@@ -59,6 +59,7 @@ class TripLogicTest {
 		verify(tripStore).saveTrip(tripCaptor.capture());
 		assertThat(tripCaptor.getValue().getId()).isEqualTo("TRIP-0001");
 		assertThat(tripCaptor.getValue().getQuiz().getCorrectOptionId()).isEqualTo("OPT-2");
+		assertThat(tripCaptor.getValue().getQuiz().getOptions()).hasSize(2);
 		verify(fileBoxStore).syncItems(eq(FileBoxOwnerType.TRIP), eq("TRIP-0001"), argThat(items ->
 			items.size() == 2
 				&& items.stream().anyMatch(item -> FileBoxItemRole.LOGO == item.getRole())
