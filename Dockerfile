@@ -22,6 +22,6 @@ WORKDIR /app
 LABEL authors="slcn"
 ENV TZ=Asia/Seoul
 
-COPY --from=builder /app/boot/build/libs/*.jar app.jar
+COPY --from=builder /app/slcn-boot/build/libs/*.jar app.jar
 
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]
