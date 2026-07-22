@@ -48,7 +48,8 @@ server:
 springdoc:
   swagger-ui:
     enabled: false
-
+  api-docs:
+    enabled: false
 slcn:
   domain: "${SLCN_DOMAIN_LIST:http://localhost:9090}"
   upload:
@@ -76,4 +77,6 @@ spring:
 springdoc:
   swagger-ui:
     path: /api-test
+    enabled: true
+  api-docs:
     enabled: true
