@@ -14,6 +14,7 @@ import com.seoulchonnom.auth.util.JwtTokenProvider;
 import com.seoulchonnom.auth.util.JwtTokenProvider.TokenValidationResult;
 import com.seoulchonnom.auth.util.JwtTokenProvider.TokenValidationStatus;
 
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 
 class JwtAuthenticationFilterTest {
@@ -55,6 +56,23 @@ class JwtAuthenticationFilterTest {
 		when(jwtTokenProvider.resolveToken(request)).thenReturn(null);
 		when(jwtTokenProvider.validateAccessToken(null))
 			.thenReturn(TokenValidationResult.invalid(TokenValidationStatus.MISSING, null));
+
+		jwtAuthenticationFilter.doFilterInternal(request, response, chain);
+
+		verify(chain).doFilter(request, response);
+		assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+	}
+
+	@Test
+	void doFilterInternal_revokedCredentialVersion_shouldContinueWithoutAuthentication() throws Exception {
+		MockHttpServletRequest request = requestFor("/users/me");
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		FilterChain chain = mock(FilterChain.class);
+		Claims claims = mock(Claims.class);
+		when(jwtTokenProvider.resolveToken(request)).thenReturn("access-token");
+		when(jwtTokenProvider.validateAccessToken("access-token")).thenReturn(TokenValidationResult.valid(claims));
+		when(jwtTokenProvider.getAuthentication(claims))
+			.thenThrow(new IllegalArgumentException("Credential version mismatch."));
 
 		jwtAuthenticationFilter.doFilterInternal(request, response, chain);
 

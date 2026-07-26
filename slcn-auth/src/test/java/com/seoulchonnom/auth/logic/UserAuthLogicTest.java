@@ -170,6 +170,7 @@ class UserAuthLogicTest {
 		when(refreshTokenHasher.hash("refresh-token")).thenReturn("hashed-refresh-token");
 		when(refreshTokenHasher.hash("new-refresh")).thenReturn("hashed-new-refresh");
 		when(userAuthStore.getUserDetailById("USER-0001")).thenReturn(userDetail);
+		when(jwtTokenProvider.hasCurrentCredentialVersion(claims, userDetail)).thenReturn(true);
 		when(jwtTokenProvider.createToken(userDetail, "USER-0001")).thenReturn(tokenRdo);
 		when(jwtTokenProvider.getRefreshTokenTtl()).thenReturn(Duration.ofDays(14));
 
@@ -197,10 +198,57 @@ class UserAuthLogicTest {
 	}
 
 	@Test
+	void reissueToken_shouldRejectTokenIssuedBeforePasswordChange() {
+		UserDetail currentUser = new UserDetail(user("USER-0001", "tester", "encoded-password"));
+		Claims claims = mock(Claims.class);
+		when(claims.getSubject()).thenReturn("USER-0001");
+		when(jwtTokenProvider.validateRefreshToken("refresh-token")).thenReturn(TokenValidationResult.valid(claims));
+		when(refreshSessionStore.findBySessionId("session-1")).thenReturn(Optional.of(
+			new RefreshSession("session-1", "USER-0001", "hashed-refresh-token", 1L, 2L)));
+		when(refreshTokenHasher.hash("refresh-token")).thenReturn("hashed-refresh-token");
+		when(userAuthStore.getUserDetailById("USER-0001")).thenReturn(currentUser);
+		when(jwtTokenProvider.hasCurrentCredentialVersion(claims, currentUser)).thenReturn(false);
+
+		assertThatThrownBy(() -> userAuthLogic.reissueToken("refresh-token", "session-1"))
+			.isInstanceOf(InvalidRefreshTokenException.class);
+
+		verify(jwtTokenProvider, never()).createToken(any(), anyString());
+		verify(refreshSessionStore, never()).save(any(), any());
+	}
+
+	@Test
 	void logout_shouldDeleteStoredSession() {
 		userAuthLogic.logout("session-1");
 
 		verify(refreshSessionStore).delete("session-1");
+	}
+
+	@Test
+	void logoutAll_shouldDeleteEveryUserSession() {
+		userAuthLogic.logoutAll("USER-0001");
+
+		verify(refreshSessionStore).deleteAllByUserId("USER-0001");
+	}
+
+	@Test
+	void issueAuthenticatedUserRefreshSession_shouldCreateRefreshOnlyCurrentSession() {
+		UserDetail userDetail = new UserDetail(user("USER-0001", "tester", "encoded-password"));
+		when(userAuthStore.getUserDetailById("USER-0001")).thenReturn(userDetail);
+		when(jwtTokenProvider.createRefreshToken(userDetail, "USER-0001")).thenReturn("new-refresh");
+		when(jwtTokenProvider.getRefreshTokenTtl()).thenReturn(Duration.ofDays(14));
+		when(refreshTokenHasher.hash("new-refresh")).thenReturn("hashed-new-refresh");
+
+		TokenSessionVo result = userAuthLogic.issueAuthenticatedUserRefreshSession("USER-0001");
+
+		assertThat(result.sessionId()).isNotBlank();
+		assertThat(result.tokenRdo().getUserId()).isEqualTo("USER-0001");
+		assertThat(result.tokenRdo().getAccessToken()).isNull();
+		assertThat(result.tokenRdo().getRefreshToken()).isEqualTo("new-refresh");
+		ArgumentCaptor<RefreshSession> sessionCaptor = ArgumentCaptor.forClass(RefreshSession.class);
+		verify(refreshSessionStore).save(sessionCaptor.capture(), eq(Duration.ofDays(14)));
+		assertThat(sessionCaptor.getValue().sessionId()).isEqualTo(result.sessionId());
+		assertThat(sessionCaptor.getValue().userId()).isEqualTo("USER-0001");
+		verify(jwtTokenProvider, never()).createToken(any(), anyString());
 	}
 
 	private User user(String id, String username, String password) {

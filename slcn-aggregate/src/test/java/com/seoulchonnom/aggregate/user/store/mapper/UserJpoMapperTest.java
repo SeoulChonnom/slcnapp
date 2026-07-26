@@ -27,6 +27,8 @@ class UserJpoMapperTest {
 		userJpo.setUsername("string");
 		userJpo.setName("string");
 		userJpo.setPassword("$2a$10$hash");
+		userJpo.setProfileImageFileId("file-1");
+		userJpo.setCredentialVersion(null);
 
 		User user = userJpoMapper.toDomain(userJpo);
 
@@ -36,5 +38,7 @@ class UserJpoMapperTest {
 		assertThat(user.getModifiedTime()).isEqualTo(200L);
 		assertThat(user.getUsername()).isEqualTo("string");
 		assertThat(user.getPassword()).isEqualTo("$2a$10$hash");
+		assertThat(user.getProfileImageFileId()).isEqualTo("file-1");
+		assertThat(user.getCredentialVersion()).isZero();
 	}
 }

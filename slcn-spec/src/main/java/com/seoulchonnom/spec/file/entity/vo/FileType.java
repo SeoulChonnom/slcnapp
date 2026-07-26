@@ -11,7 +11,8 @@ import lombok.RequiredArgsConstructor;
 public enum FileType {
 	LOGO("logo"),
 	MAP("map"),
-	TRAVEL("travel");
+	TRAVEL("travel"),
+	PROFILE("profile");
 
 	private final String value;
 

@@ -6,6 +6,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import com.seoulchonnom.auth.store.UserAuthStore;
+import com.seoulchonnom.auth.store.projection.UserDetail;
 
 import lombok.RequiredArgsConstructor;
 
@@ -17,5 +18,9 @@ public class UserAuthDetailLogic implements UserDetailsService {
 	@Override
 	public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
 		return userAuthStore.getUserDetail(username);
+	}
+
+	public UserDetail loadUserById(String userId) {
+		return userAuthStore.getUserDetailById(userId);
 	}
 }

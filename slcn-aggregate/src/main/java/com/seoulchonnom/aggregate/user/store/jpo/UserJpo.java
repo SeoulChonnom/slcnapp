@@ -28,6 +28,8 @@ public class UserJpo extends DomainEntityJpo {
 
 	private String name;
 	private String password;
+	private String profileImageFileId;
+	private Long credentialVersion;
 
 	@ElementCollection(fetch = FetchType.LAZY)
 	@CollectionTable(name = "authority", schema = "slcn", joinColumns = @JoinColumn(name = "user_id"))

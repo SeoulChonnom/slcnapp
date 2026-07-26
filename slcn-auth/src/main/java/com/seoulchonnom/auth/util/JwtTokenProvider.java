@@ -19,6 +19,7 @@ import org.springframework.util.StringUtils;
 
 import com.seoulchonnom.auth.constant.AuthConstant;
 import com.seoulchonnom.auth.logic.UserAuthDetailLogic;
+import com.seoulchonnom.auth.store.projection.UserDetail;
 import com.seoulchonnom.spec.user.facade.sdo.TokenRdo;
 
 import io.jsonwebtoken.Claims;
@@ -45,6 +46,7 @@ public class JwtTokenProvider {
 	private static final String CLAIM_LEGACY_USERNAME = "userName";
 	private static final String CLAIM_ROLES = "roles";
 	private static final String CLAIM_TOKEN_TYPE = "token_type";
+	private static final String CLAIM_CREDENTIAL_VERSION = "credential_version";
 	private static final long ACCESS_TOKEN_VALID_TIME = 30 * 60 * 1000L;
 	private static final long REFRESH_TOKEN_VALID_TIME = 14 * 24 * 60 * 60 * 1000L;
 
@@ -76,6 +78,7 @@ public class JwtTokenProvider {
 
 	public TokenRdo createToken(UserDetails userDetails, String userId) {
 		Date now = new Date();
+		long credentialVersion = credentialVersion(userDetails);
 		List<String> roles = userDetails.getAuthorities().stream()
 			.map(GrantedAuthority::getAuthority)
 			.toList();
@@ -87,6 +90,7 @@ public class JwtTokenProvider {
 			.claim(CLAIM_LEGACY_USERNAME, userDetails.getUsername())
 			.claim(CLAIM_ROLES, roles)
 			.claim(CLAIM_TOKEN_TYPE, ACCESS_TOKEN_TYPE)
+			.claim(CLAIM_CREDENTIAL_VERSION, credentialVersion)
 			.claim(Claims.AUDIENCE, accessAudiences)
 			.issuer(issuer)
 			.issuedAt(now)
@@ -94,22 +98,28 @@ public class JwtTokenProvider {
 			.signWith(secretKey, macAlgorithm)
 			.compact();
 
-		String refreshToken = Jwts.builder()
-			.subject(userId)
-			.id(UUID.randomUUID().toString())
-			.claim(CLAIM_TOKEN_TYPE, REFRESH_TOKEN_TYPE)
-			.claim(Claims.AUDIENCE, refreshAudience)
-			.issuer(issuer)
-			.issuedAt(now)
-			.expiration(new Date(now.getTime() + REFRESH_TOKEN_VALID_TIME))
-			.signWith(secretKey, macAlgorithm)
-			.compact();
+		String refreshToken = createRefreshToken(userDetails, userId);
 
 		return TokenRdo.builder()
 			.userId(userId)
 			.accessToken(accessToken)
 			.refreshToken(refreshToken)
 			.build();
+	}
+
+	public String createRefreshToken(UserDetails userDetails, String userId) {
+		Date now = new Date();
+		return Jwts.builder()
+			.subject(userId)
+			.id(UUID.randomUUID().toString())
+			.claim(CLAIM_TOKEN_TYPE, REFRESH_TOKEN_TYPE)
+			.claim(CLAIM_CREDENTIAL_VERSION, credentialVersion(userDetails))
+			.claim(Claims.AUDIENCE, refreshAudience)
+			.issuer(issuer)
+			.issuedAt(now)
+			.expiration(new Date(now.getTime() + REFRESH_TOKEN_VALID_TIME))
+			.signWith(secretKey, macAlgorithm)
+			.compact();
 	}
 
 	public TokenValidationResult validateAccessToken(String token) {
@@ -143,8 +153,15 @@ public class JwtTokenProvider {
 			throw new IllegalArgumentException("Access token is required.");
 		}
 
-		UserDetails userDetails = userAuthDetailLogic.loadUserByUsername(getUserName(claims));
+		UserDetail userDetails = userAuthDetailLogic.loadUserById(claims.getSubject());
+		if (!hasCurrentCredentialVersion(claims, userDetails)) {
+			throw new IllegalArgumentException("Credential version mismatch.");
+		}
 		return new UsernamePasswordAuthenticationToken(userDetails, "", userDetails.getAuthorities());
+	}
+
+	public boolean hasCurrentCredentialVersion(Claims claims, UserDetails userDetails) {
+		return credentialVersion(claims) == credentialVersion(userDetails);
 	}
 
 	public String getUserName(String token) {
@@ -161,6 +178,18 @@ public class JwtTokenProvider {
 			return username;
 		}
 		return claims.get(CLAIM_LEGACY_USERNAME, String.class);
+	}
+
+	private long credentialVersion(Claims claims) {
+		Object value = claims.get(CLAIM_CREDENTIAL_VERSION);
+		return value instanceof Number number ? number.longValue() : 0L;
+	}
+
+	private long credentialVersion(UserDetails userDetails) {
+		if (userDetails instanceof UserDetail userDetail) {
+			return userDetail.getUser().getCredentialVersion();
+		}
+		return 0L;
 	}
 
 	private TokenValidationResult validateToken(

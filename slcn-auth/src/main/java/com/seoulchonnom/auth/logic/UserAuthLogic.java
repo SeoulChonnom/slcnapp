@@ -84,6 +84,9 @@ public class UserAuthLogic {
 		}
 
 		UserDetail userDetail = userAuthStore.getUserDetailById(validationResult.claims().getSubject());
+		if (!jwtTokenProvider.hasCurrentCredentialVersion(validationResult.claims(), userDetail)) {
+			throw new InvalidRefreshTokenException();
+		}
 		TokenRdo tokenRdo = jwtTokenProvider.createToken(userDetail, userDetail.getUser().getId());
 		saveRefreshSession(sessionId, tokenRdo);
 		return new TokenSessionVo(sessionId, tokenRdo);
@@ -93,6 +96,21 @@ public class UserAuthLogic {
 		if (StringUtils.hasText(sessionId)) {
 			refreshSessionStore.delete(sessionId);
 		}
+	}
+
+	public void logoutAll(String userId) {
+		refreshSessionStore.deleteAllByUserId(userId);
+	}
+
+	public TokenSessionVo issueAuthenticatedUserRefreshSession(String userId) {
+		UserDetail userDetail = userAuthStore.getUserDetailById(userId);
+		TokenRdo tokenRdo = TokenRdo.builder()
+			.userId(userId)
+			.refreshToken(jwtTokenProvider.createRefreshToken(userDetail, userId))
+			.build();
+		String sessionId = UUID.randomUUID().toString();
+		saveRefreshSession(sessionId, tokenRdo);
+		return new TokenSessionVo(sessionId, tokenRdo);
 	}
 
 	private void recordLoginFailure(UserLogin userLogin) {

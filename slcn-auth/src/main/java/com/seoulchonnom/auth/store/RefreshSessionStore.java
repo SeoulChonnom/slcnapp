@@ -1,8 +1,11 @@
 package com.seoulchonnom.auth.store;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Repository;
@@ -18,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class RefreshSessionStore {
 	private static final String KEY_PREFIX = "auth:refresh:";
+	private static final String USER_SESSIONS_KEY_PREFIX = "auth:refresh:user:";
 	private static final String USER_ID_FIELD = "userId";
 	private static final String REFRESH_TOKEN_HASH_FIELD = "refreshTokenHash";
 	private static final String ISSUED_AT_FIELD = "issuedAt";
@@ -27,6 +31,7 @@ public class RefreshSessionStore {
 
 	public void save(RefreshSession refreshSession, Duration ttl) {
 		String key = key(refreshSession.sessionId());
+		String userSessionsKey = userSessionsKey(refreshSession.userId());
 		redisTemplate.opsForHash().putAll(key, Map.of(
 			USER_ID_FIELD, refreshSession.userId(),
 			REFRESH_TOKEN_HASH_FIELD, refreshSession.refreshTokenHash(),
@@ -34,6 +39,8 @@ public class RefreshSessionStore {
 			EXPIRES_AT_FIELD, String.valueOf(refreshSession.expiresAt())
 		));
 		redisTemplate.expire(key, ttl);
+		redisTemplate.opsForSet().add(userSessionsKey, refreshSession.sessionId());
+		redisTemplate.expire(userSessionsKey, ttl);
 	}
 
 	public Optional<RefreshSession> findBySessionId(String sessionId) {
@@ -69,10 +76,30 @@ public class RefreshSessionStore {
 	}
 
 	public void delete(String sessionId) {
+		findBySessionId(sessionId).ifPresent(refreshSession ->
+			redisTemplate.opsForSet().remove(userSessionsKey(refreshSession.userId()), sessionId));
 		redisTemplate.delete(key(sessionId));
+	}
+
+	public void deleteAllByUserId(String userId) {
+		String userSessionsKey = userSessionsKey(userId);
+		Set<Object> sessionIds = redisTemplate.opsForSet().members(userSessionsKey);
+		List<String> keys = new ArrayList<>();
+		if (sessionIds != null) {
+			sessionIds.stream()
+				.map(String::valueOf)
+				.map(this::key)
+				.forEach(keys::add);
+		}
+		keys.add(userSessionsKey);
+		redisTemplate.delete(keys);
 	}
 
 	private String key(String sessionId) {
 		return KEY_PREFIX + sessionId;
+	}
+
+	private String userSessionsKey(String userId) {
+		return USER_SESSIONS_KEY_PREFIX + userId;
 	}
 }

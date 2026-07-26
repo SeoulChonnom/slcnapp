@@ -111,7 +111,7 @@ class TravelResourceJsonContractTest {
 	void modifyTravel_shouldBindExistingAndNewFileBoxItems() throws Exception {
 		when(travelLogic.modifyTravel(eq("TRAVEL-1"), any(TravelUdo.class))).thenReturn(new TravelDetailRdo());
 
-		mockMvc.perform(patch("/travels/TRAVEL-1")
+		mockMvc.perform(put("/travels/TRAVEL-1")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{

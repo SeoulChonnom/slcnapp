@@ -9,10 +9,12 @@ import org.mapstruct.Builder;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
+import com.seoulchonnom.spec.file.facade.sdo.FileAssetRdo;
 import com.seoulchonnom.spec.user.entity.Authority;
 import com.seoulchonnom.spec.user.entity.Role;
 import com.seoulchonnom.spec.user.entity.User;
 import com.seoulchonnom.spec.user.facade.sdo.UserCdo;
+import com.seoulchonnom.spec.user.facade.sdo.UserProfileRdo;
 import com.seoulchonnom.spec.user.facade.sdo.UserRdo;
 
 @Mapper(componentModel = SPRING)
@@ -23,9 +25,16 @@ public interface UserMapper {
 	@Mapping(target = "roleList", source = "user.authorityList")
 	UserRdo toUserRdo(User user, String accessToken);
 
+	@Mapping(target = "username", source = "user.username")
+	@Mapping(target = "name", source = "user.name")
+	@Mapping(target = "profileImage", source = "profileImage")
+	UserProfileRdo toUserProfileRdo(User user, FileAssetRdo profileImage);
+
 	@Mapping(target = "id", source = "id")
 	@Mapping(target = "password", source = "password")
 	@Mapping(target = "authorityList", expression = "java(defaultAuthorityList())")
+	@Mapping(target = "profileImageFileId", ignore = true)
+	@Mapping(target = "credentialVersion", constant = "0L")
 	@Mapping(target = "entityVersion", ignore = true)
 	@Mapping(target = "registeredTime", ignore = true)
 	@Mapping(target = "modifiedTime", ignore = true)

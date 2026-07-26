@@ -15,9 +15,13 @@ import com.seoulchonnom.spec.user.entity.User;
 public interface UserJpoMapper {
 
 	@Mapping(target = "authorityList", source = "authorityList")
+	@Mapping(target = "profileImageFileId", source = "profileImageFileId")
+	@Mapping(target = "credentialVersion", source = "credentialVersion")
 	UserJpo toJpo(User user);
 
 	@Mapping(target = "authorityList", source = "authorityList")
+	@Mapping(target = "profileImageFileId", source = "profileImageFileId")
+	@Mapping(target = "credentialVersion", source = "credentialVersion", defaultValue = "0L")
 	User toDomain(UserJpo userJpo);
 
 	@AfterMapping

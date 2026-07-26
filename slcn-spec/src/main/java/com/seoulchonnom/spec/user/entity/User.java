@@ -19,6 +19,8 @@ public class User extends DomainEntity {
 	private String username;
 	private String name;
 	private String password;
+	private String profileImageFileId;
+	private long credentialVersion;
 	private List<Authority> authorityList;
 
 }
