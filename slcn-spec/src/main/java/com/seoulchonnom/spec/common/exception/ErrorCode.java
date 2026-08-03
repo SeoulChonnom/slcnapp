@@ -1,6 +1,7 @@
 package com.seoulchonnom.spec.common.exception;
 
 import static com.seoulchonnom.spec.calendar.constant.CalendarConstant.*;
+import static com.seoulchonnom.spec.client.constant.ClientConstant.*;
 import static com.seoulchonnom.spec.file.constant.FileConstant.*;
 import static com.seoulchonnom.spec.schedule.constant.ScheduleConstant.*;
 import static com.seoulchonnom.spec.travel.constant.TravelConstant.*;
@@ -28,6 +29,7 @@ public enum ErrorCode {
 	USER_LOGIN_NOT_FOUND(HttpStatus.INTERNAL_SERVER_ERROR, USER_LOGIN_NOT_FOUND_ERROR_MESSAGE),
 	ACCESS_ROLE_MISSING(HttpStatus.FORBIDDEN, "접근 권한이 없습니다."),
 	ACCESS_ROLE_DENIED(HttpStatus.FORBIDDEN, ACCESS_ROLE_DENIED_ERROR_MESSAGE),
+	INVALID_CLIENT(HttpStatus.BAD_REQUEST, INVALID_CLIENT_ERROR_MESSAGE),
 
 	INVALID_SCHEDULE_DATE(HttpStatus.BAD_REQUEST, INVALID_DATE_ERROR_MESSAGE),
 	SCHEDULE_NOT_FOUND(HttpStatus.BAD_REQUEST, SCHEDULE_NOT_FOND_ERROR_MESSAGE),

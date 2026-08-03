@@ -10,6 +10,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import com.seoulchonnom.auth.store.projection.ClientPrincipal;
 import com.seoulchonnom.auth.util.JwtTokenProvider;
 import com.seoulchonnom.auth.util.JwtTokenProvider.TokenValidationResult;
 import com.seoulchonnom.auth.util.JwtTokenProvider.TokenValidationStatus;
@@ -39,6 +40,7 @@ class JwtAuthenticationFilterTest {
 		assertThat(jwtAuthenticationFilter.shouldNotFilter(requestFor("/users/login"))).isTrue();
 		assertThat(jwtAuthenticationFilter.shouldNotFilter(requestFor("/users/token"))).isTrue();
 		assertThat(jwtAuthenticationFilter.shouldNotFilter(requestFor("/users/logout"))).isTrue();
+		assertThat(jwtAuthenticationFilter.shouldNotFilter(requestFor("/clients/token"))).isTrue();
 	}
 
 	@Test
@@ -78,6 +80,29 @@ class JwtAuthenticationFilterTest {
 
 		verify(chain).doFilter(request, response);
 		assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+	}
+
+	@Test
+	void doFilterInternal_clientToken_shouldSetClientAuthentication() throws Exception {
+		MockHttpServletRequest request = requestFor("/trips");
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		FilterChain chain = mock(FilterChain.class);
+		Claims claims = mock(Claims.class);
+		ClientPrincipal principal = new ClientPrincipal("CRON-001", "schedule-cron");
+		var authentication = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+			principal, "", principal.getAuthorities());
+		when(jwtTokenProvider.resolveToken(request)).thenReturn("client-access-token");
+		when(jwtTokenProvider.validateAccessToken("client-access-token")).thenReturn(
+			TokenValidationResult.valid(claims));
+		when(jwtTokenProvider.getAuthentication(claims)).thenReturn(authentication);
+
+		jwtAuthenticationFilter.doFilterInternal(request, response, chain);
+
+		verify(chain).doFilter(request, response);
+		assertThat(SecurityContextHolder.getContext().getAuthentication().getPrincipal()).isSameAs(principal);
+		assertThat(SecurityContextHolder.getContext().getAuthentication().getAuthorities())
+			.extracting("authority")
+			.containsExactly("CLIENT");
 	}
 
 	private MockHttpServletRequest requestFor(String path) {

@@ -33,7 +33,8 @@ public class SecurityConfiguration {
 				.authorizeHttpRequests((authorizeRequests) -> authorizeRequests
 					.requestMatchers("/swagger-ui/**", "/v3/**", "/error").permitAll()
 					.requestMatchers("/users/login", "/users/token", "/users/logout").permitAll()
-						.requestMatchers(CorsUtils::isPreFlightRequest).permitAll()
+					.requestMatchers("/clients/token").permitAll()
+					.requestMatchers(CorsUtils::isPreFlightRequest).permitAll()
 					.requestMatchers("/users/register").hasAuthority("ADMIN")
 						.anyRequest().hasAuthority("USER"))
 				.exceptionHandling(handling -> handling

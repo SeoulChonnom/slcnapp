@@ -19,7 +19,9 @@ import org.springframework.util.StringUtils;
 
 import com.seoulchonnom.auth.constant.AuthConstant;
 import com.seoulchonnom.auth.logic.UserAuthDetailLogic;
+import com.seoulchonnom.auth.store.projection.ClientPrincipal;
 import com.seoulchonnom.auth.store.projection.UserDetail;
+import com.seoulchonnom.spec.user.entity.Role;
 import com.seoulchonnom.spec.user.facade.sdo.TokenRdo;
 
 import io.jsonwebtoken.Claims;
@@ -47,6 +49,11 @@ public class JwtTokenProvider {
 	private static final String CLAIM_ROLES = "roles";
 	private static final String CLAIM_TOKEN_TYPE = "token_type";
 	private static final String CLAIM_CREDENTIAL_VERSION = "credential_version";
+	private static final String CLAIM_PRINCIPAL_TYPE = "principal_type";
+	private static final String CLAIM_CLIENT_ID = "client_id";
+	private static final String CLAIM_CLIENT_NAME = "client_name";
+	private static final String CLIENT_PRINCIPAL_TYPE = "client";
+	private static final String CLIENT_AUTHORITY = Role.CLIENT.name();
 	private static final long ACCESS_TOKEN_VALID_TIME = 30 * 60 * 1000L;
 	private static final long REFRESH_TOKEN_VALID_TIME = 14 * 24 * 60 * 60 * 1000L;
 
@@ -122,6 +129,24 @@ public class JwtTokenProvider {
 			.compact();
 	}
 
+	public String createClientAccessToken(String clientId, String clientName) {
+		Date now = new Date();
+		return Jwts.builder()
+			.subject(clientId)
+			.id(UUID.randomUUID().toString())
+			.claim(CLAIM_PRINCIPAL_TYPE, CLIENT_PRINCIPAL_TYPE)
+			.claim(CLAIM_CLIENT_ID, clientId)
+			.claim(CLAIM_CLIENT_NAME, clientName)
+			.claim(CLAIM_ROLES, List.of(CLIENT_AUTHORITY))
+			.claim(CLAIM_TOKEN_TYPE, ACCESS_TOKEN_TYPE)
+			.claim(Claims.AUDIENCE, accessAudiences)
+			.issuer(issuer)
+			.issuedAt(now)
+			.expiration(new Date(now.getTime() + ACCESS_TOKEN_VALID_TIME))
+			.signWith(secretKey, macAlgorithm)
+			.compact();
+	}
+
 	public TokenValidationResult validateAccessToken(String token) {
 		return validateToken(token, ACCESS_TOKEN_TYPE, accessAudiences, true);
 	}
@@ -151,6 +176,16 @@ public class JwtTokenProvider {
 	public Authentication getAuthentication(Claims claims) {
 		if (!ACCESS_TOKEN_TYPE.equals(claims.get(CLAIM_TOKEN_TYPE, String.class))) {
 			throw new IllegalArgumentException("Access token is required.");
+		}
+		if (isClientToken(claims)) {
+			if (!hasValidClientIdentity(claims) || !hasOnlyClientRole(claims)) {
+				throw new IllegalArgumentException("Invalid client access token.");
+			}
+			ClientPrincipal clientPrincipal = new ClientPrincipal(
+				claims.get(CLAIM_CLIENT_ID, String.class),
+				claims.get(CLAIM_CLIENT_NAME, String.class)
+			);
+			return new UsernamePasswordAuthenticationToken(clientPrincipal, "", clientPrincipal.getAuthorities());
 		}
 
 		UserDetail userDetails = userAuthDetailLogic.loadUserById(claims.getSubject());
@@ -234,14 +269,17 @@ public class JwtTokenProvider {
 				return TokenValidationResult.invalid(TokenValidationStatus.INVALID_AUDIENCE, claims);
 			}
 
-			if (!StringUtils.hasText(claims.getSubject()) || (requireRoles && !StringUtils.hasText(
-				getUserName(claims)))) {
+			if (!hasRequiredIdentityClaims(claims, requireRoles)) {
 				log.warn("JWT validation failed: missing required identity claims. {}", describeClaims(claims));
 				return TokenValidationResult.invalid(TokenValidationStatus.MISSING_REQUIRED_CLAIM, claims);
 			}
 
 			if (requireRoles && !hasRolesClaim(claims)) {
 				log.warn("JWT validation failed: missing roles claim. {}", describeClaims(claims));
+				return TokenValidationResult.invalid(TokenValidationStatus.MISSING_REQUIRED_CLAIM, claims);
+			}
+			if (isClientToken(claims) && !hasOnlyClientRole(claims)) {
+				log.warn("JWT validation failed: invalid client roles. {}", describeClaims(claims));
 				return TokenValidationResult.invalid(TokenValidationStatus.MISSING_REQUIRED_CLAIM, claims);
 			}
 
@@ -272,6 +310,33 @@ public class JwtTokenProvider {
 		return roles instanceof String stringRoles && StringUtils.hasText(stringRoles);
 	}
 
+	private boolean hasRequiredIdentityClaims(Claims claims, boolean requireRoles) {
+		if (!StringUtils.hasText(claims.getSubject())) {
+			return false;
+		}
+		if (!requireRoles) {
+			return true;
+		}
+		return isClientToken(claims) ? hasValidClientIdentity(claims) : StringUtils.hasText(getUserName(claims));
+	}
+
+	private boolean isClientToken(Claims claims) {
+		return CLIENT_PRINCIPAL_TYPE.equals(claims.get(CLAIM_PRINCIPAL_TYPE, String.class));
+	}
+
+	private boolean hasValidClientIdentity(Claims claims) {
+		String clientId = claims.get(CLAIM_CLIENT_ID, String.class);
+		return StringUtils.hasText(clientId) && clientId.equals(claims.getSubject());
+	}
+
+	private boolean hasOnlyClientRole(Claims claims) {
+		Object roles = claims.get(CLAIM_ROLES);
+		if (roles instanceof Collection<?> collection) {
+			return collection.size() == 1 && CLIENT_AUTHORITY.equals(String.valueOf(collection.iterator().next()));
+		}
+		return CLIENT_AUTHORITY.equals(roles);
+	}
+
 	private boolean hasExpectedAudience(Object actualAudience, List<String> expectedAudiences) {
 		if (actualAudience instanceof String audience) {
 			return expectedAudiences.contains(audience);
@@ -292,8 +357,9 @@ public class JwtTokenProvider {
 			return "claims=unavailable";
 		}
 
+		String identity = isClientToken(claims) ? claims.get(CLAIM_CLIENT_ID, String.class) : getUserName(claims);
 		return "sub=" + claims.getSubject()
-			+ ", username=" + maskValue(getUserName(claims))
+			+ ", identity=" + maskValue(identity)
 			+ ", jti=" + claims.getId();
 	}
 

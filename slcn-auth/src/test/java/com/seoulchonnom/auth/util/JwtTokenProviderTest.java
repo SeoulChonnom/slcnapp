@@ -14,6 +14,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.seoulchonnom.auth.logic.UserAuthDetailLogic;
+import com.seoulchonnom.auth.store.projection.ClientPrincipal;
 import com.seoulchonnom.auth.store.projection.UserDetail;
 import com.seoulchonnom.spec.user.entity.Authority;
 import com.seoulchonnom.spec.user.facade.sdo.TokenRdo;
@@ -90,6 +91,27 @@ class JwtTokenProviderTest {
 		assertThat(validation.valid()).isTrue();
 		assertThat(validation.claims().getSubject()).isEqualTo("USER-001");
 		assertThat(validation.claims().get("token_type", String.class)).isEqualTo("refresh");
+	}
+
+	@Test
+	void createClientAccessToken_shouldCreateClientOnlyAccessTokenWithoutUserLookup() {
+		String accessToken = jwtTokenProvider.createClientAccessToken("CRON-001", "schedule-cron");
+
+		JwtTokenProvider.TokenValidationResult validation = jwtTokenProvider.validateAccessToken(accessToken);
+
+		assertThat(validation.valid()).isTrue();
+		assertThat(validation.claims().getSubject()).isEqualTo("CRON-001");
+		assertThat(validation.claims().get("token_type", String.class)).isEqualTo("access");
+		assertThat(validation.claims().get("principal_type", String.class)).isEqualTo("client");
+		assertThat(validation.claims().get("client_id", String.class)).isEqualTo("CRON-001");
+		assertThat(validation.claims().get("client_name", String.class)).isEqualTo("schedule-cron");
+		assertThat(validation.claims().get("roles", List.class)).containsExactly("CLIENT");
+
+		var authentication = jwtTokenProvider.getAuthentication(validation.claims());
+
+		assertThat(authentication.getPrincipal()).isInstanceOf(ClientPrincipal.class);
+		assertThat(authentication.getAuthorities()).extracting("authority").containsExactly("CLIENT");
+		verifyNoInteractions(userAuthDetailLogic);
 	}
 
 	@Test
