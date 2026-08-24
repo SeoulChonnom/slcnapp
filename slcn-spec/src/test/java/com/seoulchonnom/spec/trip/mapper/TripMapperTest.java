@@ -12,6 +12,7 @@ import com.seoulchonnom.spec.file.entity.vo.FileType;
 import com.seoulchonnom.spec.file.facade.sdo.FileAssetRdo;
 import com.seoulchonnom.spec.trip.entity.vo.Option;
 import com.seoulchonnom.spec.trip.entity.vo.Quiz;
+import com.seoulchonnom.spec.trip.entity.vo.TripType;
 import com.seoulchonnom.spec.trip.facade.sdo.OptionCdo;
 import com.seoulchonnom.spec.trip.facade.sdo.QuizCdo;
 import com.seoulchonnom.spec.trip.facade.sdo.QuizRdo;
@@ -132,7 +133,7 @@ class TripMapperTest {
 		TripListRdo tripListRdo = tripMapper.toTripListRdo(castTrip(trip), logo);
 
 		assertThat(tripListRdo.getId()).isEqualTo("trip-1");
-		assertThat(tripListRdo.getType()).isEqualTo("ryu");
+		assertThat(tripListRdo.getType()).isEqualTo(TripType.RYU);
 		assertThat(tripListRdo.getName()).isEqualTo("Trip Name");
 		assertThat(tripListRdo.getLogo()).isSameAs(logo);
 	}
@@ -176,7 +177,7 @@ class TripMapperTest {
 		Object trip = Class.forName("com.seoulchonnom.spec.trip.entity.Trip").getDeclaredConstructor().newInstance();
 		set(trip, "id", "trip-1");
 		set(trip, "date", "2026-03-31");
-		set(trip, "type", "ryu");
+		set(trip, "type", TripType.RYU);
 		set(trip, "name", "Trip Name");
 		set(trip, "nextButtonText", "next");
 		set(trip, "previousButtonText", "prev");

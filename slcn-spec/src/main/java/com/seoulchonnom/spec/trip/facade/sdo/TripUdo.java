@@ -3,6 +3,7 @@ package com.seoulchonnom.spec.trip.facade.sdo;
 import java.util.List;
 
 import com.seoulchonnom.spec.filebox.facade.sdo.FileBoxItemUdo;
+import com.seoulchonnom.spec.trip.entity.vo.TripType;
 
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
@@ -16,7 +17,7 @@ import lombok.Setter;
 @AllArgsConstructor
 public class TripUdo {
 	private String date;
-	private String type;
+	private TripType type;
 	private String name;
 	private String nextButtonText;
 	private String previousButtonText;

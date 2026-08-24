@@ -1,6 +1,7 @@
 package com.seoulchonnom.spec.trip.facade.sdo;
 
 import com.seoulchonnom.spec.file.facade.sdo.FileAssetRdo;
+import com.seoulchonnom.spec.trip.entity.vo.TripType;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -14,7 +15,7 @@ import lombok.Setter;
 public class TripListRdo {
 	private String id;
 	private String date;
-	private String type;
+	private TripType type;
 	private String name;
 	private FileAssetRdo logo;
 }

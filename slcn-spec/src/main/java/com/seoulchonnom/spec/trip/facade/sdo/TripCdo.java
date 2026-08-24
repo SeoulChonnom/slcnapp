@@ -3,6 +3,7 @@ package com.seoulchonnom.spec.trip.facade.sdo;
 import java.util.List;
 
 import com.seoulchonnom.spec.filebox.facade.sdo.FileBoxItemCdo;
+import com.seoulchonnom.spec.trip.entity.vo.TripType;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -21,9 +22,8 @@ public class TripCdo {
 	@NotBlank(message = "나들이 일자는 필수값 입니다.")
 	@Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}$", message = "나들이 일자는 yyyy-MM-dd 형식이어야 합니다.")
 	private String date;
-	@NotBlank(message = "나들이 타입은 필수값 입니다.")
-	@Pattern(regexp = "^(ryu|ayo)$", message = "나들이 타입은 ryu 또는 ayo 여야 합니다.")
-	private String type;
+	@NotNull(message = "나들이 타입은 필수값 입니다.")
+	private TripType type;
 	@NotBlank(message = "나들이 이름은 필수값 입니다.")
 	private String name;
 

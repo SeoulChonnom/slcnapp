@@ -2,6 +2,7 @@ package com.seoulchonnom.spec.trip.entity;
 
 import com.seoulchonnom.spec.common.entity.DomainEntity;
 import com.seoulchonnom.spec.trip.entity.vo.Quiz;
+import com.seoulchonnom.spec.trip.entity.vo.TripType;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -16,14 +17,14 @@ import lombok.Setter;
 @Setter
 public class Trip extends DomainEntity {
 	private String date;
-	private String type;
+	private TripType type;
 	private String name;
 	private String nextButtonText;
 	private String previousButtonText;
 	private String driveUrl;
 	private Quiz quiz;
 
-	public Trip(String id, String date, String type, String name, String nextButtonText, String previousButtonText,
+	public Trip(String id, String date, TripType type, String name, String nextButtonText, String previousButtonText,
 		String driveUrl, Quiz quiz) {
 		super(id);
 		this.date = date;

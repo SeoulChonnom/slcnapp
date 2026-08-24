@@ -25,6 +25,7 @@ import com.seoulchonnom.spec.filebox.entity.vo.FileBoxTargetType;
 import com.seoulchonnom.spec.filebox.facade.sdo.FileBoxItemCdo;
 import com.seoulchonnom.spec.filebox.mapper.FileBoxMapper;
 import com.seoulchonnom.spec.trip.entity.Trip;
+import com.seoulchonnom.spec.trip.entity.vo.TripType;
 import com.seoulchonnom.spec.trip.facade.sdo.OptionCdo;
 import com.seoulchonnom.spec.trip.facade.sdo.QuizCdo;
 import com.seoulchonnom.spec.trip.facade.sdo.TripCdo;
@@ -105,13 +106,13 @@ class TripLogicTest {
 	}
 
 	private Trip tripWithoutQuiz() {
-		return new Trip("TRIP-0001", "2026-04-16", "ryu", "봄 나들이", null, null, "https://drive.example", null);
+		return new Trip("TRIP-0001", "2026-04-16", TripType.RYU, "봄 나들이", null, null, "https://drive.example", null);
 	}
 
 	private TripCdo createValidTripCdo() {
 		return new TripCdo(
 			"2026-04-16",
-			"ryu",
+			TripType.RYU,
 			"봄 나들이",
 			null,
 			null,

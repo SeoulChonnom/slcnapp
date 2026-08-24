@@ -11,6 +11,7 @@ import com.seoulchonnom.aggregate.trip.store.jpo.TripJpo;
 import com.seoulchonnom.spec.trip.entity.Trip;
 import com.seoulchonnom.spec.trip.entity.vo.Option;
 import com.seoulchonnom.spec.trip.entity.vo.Quiz;
+import com.seoulchonnom.spec.trip.entity.vo.TripType;
 
 class TripJpoMapperTest {
 	private final TripJpoMapper tripJpoMapper = Mappers.getMapper(TripJpoMapper.class);
@@ -23,7 +24,7 @@ class TripJpoMapperTest {
 		tripJpo.setRegisteredTime(100L);
 		tripJpo.setModifiedTime(200L);
 		tripJpo.setDate("2026-03-31");
-		tripJpo.setType("ryu");
+		tripJpo.setType(TripType.RYU);
 		tripJpo.setName("Trip Name");
 		tripJpo.setDriveUrl("https://drive.example");
 		tripJpo.setQuiz(quiz());
@@ -43,7 +44,7 @@ class TripJpoMapperTest {
 	void toJpo_shouldMapCurrentTripRootShape() {
 		Trip trip = Trip.builder()
 			.date("2026-03-31")
-			.type("ayo")
+			.type(TripType.AYO)
 			.name("Trip Name")
 			.driveUrl("https://drive.example")
 			.quiz(quiz())

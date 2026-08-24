@@ -18,6 +18,7 @@ import com.seoulchonnom.aggregate.trip.logic.TripLogic;
 import com.seoulchonnom.rest.common.handler.CommonExceptionHandler;
 import com.seoulchonnom.spec.filebox.entity.vo.FileBoxItemRole;
 import com.seoulchonnom.spec.filebox.entity.vo.FileBoxTargetType;
+import com.seoulchonnom.spec.trip.entity.vo.TripType;
 import com.seoulchonnom.spec.trip.facade.sdo.TripCdo;
 import com.seoulchonnom.spec.trip.facade.sdo.TripDetailRdo;
 
@@ -46,7 +47,7 @@ class TripResourceJsonContractTest {
 				.content("""
 					{
 					  "date": "2026-04-01",
-					  "type": "ryu",
+					  "type": "RYU",
 					  "name": "봄 나들이",
 					  "nextButtonText": "다음 지도",
 					  "previousButtonText": "이전 지도",
@@ -95,6 +96,7 @@ class TripResourceJsonContractTest {
 		verify(tripLogic).registerTrip(captor.capture());
 		TripCdo tripCdo = captor.getValue();
 		assertEquals("2026-04-01", tripCdo.getDate());
+		assertEquals(TripType.RYU, tripCdo.getType());
 		assertEquals(FileBoxTargetType.TRIP, tripCdo.getFiles().get(0).getTargetType());
 		assertEquals(FileBoxItemRole.LOGO, tripCdo.getFiles().get(0).getRole());
 		assertEquals(FileBoxItemRole.FIRST_MAP, tripCdo.getFiles().get(1).getRole());
@@ -108,7 +110,7 @@ class TripResourceJsonContractTest {
 				.content("""
 					{
 					  "date": "2026-04-01",
-					  "type": "ryu",
+					  "type": "RYU",
 					  "name": "봄 나들이",
 					  "driveUrl": "https://drive.example/trip",
 					  "quiz": {
@@ -139,7 +141,7 @@ class TripResourceJsonContractTest {
 				.content("""
 					{
 					  "date": "2026-04-01",
-					  "type": "ryu",
+					  "type": "RYU",
 					  "name": "봄 나들이",
 					  "driveUrl": "https://drive.example/trip",
 					  "quiz": {
@@ -164,6 +166,24 @@ class TripResourceJsonContractTest {
 					      "sortOrder": 1
 					    }
 					  ]
+					}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value("입력이 올바르지 않습니다."));
+
+		verifyNoInteractions(tripLogic);
+	}
+
+	@Test
+	void createTrip_withUnknownType_shouldReturnBadRequest() throws Exception {
+		mockMvc.perform(post("/trips")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "date": "2026-04-01",
+					  "type": "unknown",
+					  "name": "봄 나들이",
+					  "driveUrl": "https://drive.example/trip"
 					}
 					"""))
 			.andExpect(status().isBadRequest())
