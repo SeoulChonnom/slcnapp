@@ -9,6 +9,8 @@ spring:
   data:
     mongodb:
       uri: "${SLCN_MONGODB_URL}"
+      # @Indexed/@CompoundIndex는 이 값이 true일 때만 실제 인덱스로 생성된다. 기본값은 false다.
+      auto-index-creation: true
     redis:
       host: "${SLCN_REDIS_URL}"
       port: "${SLCN_REDIS_PORT}"
