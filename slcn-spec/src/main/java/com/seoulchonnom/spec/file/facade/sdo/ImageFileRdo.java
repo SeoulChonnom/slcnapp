@@ -16,4 +16,8 @@ public class ImageFileRdo {
 	 * 실제로 응답한 파생본 이름. 원본을 응답했다면 "original"이다. ETag를 만들 때 원본과 파생본을 구분하는 데 쓴다.
 	 */
 	private String variant;
+	/**
+	 * 다운로드 응답의 Content-Disposition에 쓰는 파일명.
+	 */
+	private String downloadFilename;
 }

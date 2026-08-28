@@ -130,4 +130,45 @@ class FileLogicTest {
 		assertThat(result.getImage()).containsExactly(1, 2, 3);
 		assertThat(result.getVariant()).isEqualTo("original");
 	}
+
+	@Test
+	void getImageFileById_shouldCarryTheUploadedFilenameForDownloads() throws Exception {
+		Files.createDirectories(tempDir.resolve("travel"));
+		Files.write(tempDir.resolve("travel/stored.png"), new byte[] {1});
+		ReflectionTestUtils.setField(fileLogic, "directory", tempDir + "/");
+		FileAsset fileAsset = new FileAsset(FileType.TRAVEL, "제주 바다.png", "stored.png", "image/png", 1L);
+		when(fileAssetStore.findById("file-1")).thenReturn(fileAsset);
+
+		var result = fileLogic.getImageFileById("file-1");
+
+		assertThat(result.getDownloadFilename()).isEqualTo("제주 바다.png");
+	}
+
+	@Test
+	void getImageFileById_shouldNameVariantDownloadsAfterTheOriginalFile() throws Exception {
+		Files.createDirectories(tempDir.resolve("travel"));
+		Files.write(tempDir.resolve("travel/stored_home-thumb.webp"), new byte[] {9});
+		ReflectionTestUtils.setField(fileLogic, "directory", tempDir + "/");
+		FileAsset fileAsset = new FileAsset(FileType.TRAVEL, "제주 바다.png", "stored.png", "image/png", 1L);
+		fileAsset.setVariants(List.of(new FileVariant("home-thumb", "stored_home-thumb.webp", "image/webp")));
+		when(fileAssetStore.findById("file-1")).thenReturn(fileAsset);
+		when(fileUtils.existsFileRef("travel", "stored_home-thumb.webp")).thenReturn(true);
+
+		var result = fileLogic.getImageFileById("file-1", ImageVariant.HOME_THUMB);
+
+		assertThat(result.getDownloadFilename()).isEqualTo("제주 바다_home-thumb.webp");
+	}
+
+	@Test
+	void getImageFileById_shouldStripPathAndControlCharactersFromTheUploadedFilename() throws Exception {
+		Files.createDirectories(tempDir.resolve("travel"));
+		Files.write(tempDir.resolve("travel/stored.png"), new byte[] {1});
+		ReflectionTestUtils.setField(fileLogic, "directory", tempDir + "/");
+		FileAsset fileAsset = new FileAsset(FileType.TRAVEL, "../../etc/pa\"ss\r\nwd.png", "stored.png", "image/png", 1L);
+		when(fileAssetStore.findById("file-1")).thenReturn(fileAsset);
+
+		var result = fileLogic.getImageFileById("file-1");
+
+		assertThat(result.getDownloadFilename()).isEqualTo("passwd.png");
+	}
 }

@@ -2,10 +2,12 @@ package com.seoulchonnom.rest.file;
 
 import static com.seoulchonnom.spec.file.constant.FileConstant.*;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import org.springframework.http.CacheControl;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -69,6 +71,24 @@ public class FileResource implements FileFacade {
 	}
 
 	@Override
+	@GetMapping("/files/{fileId}/download")
+	public ResponseEntity<byte[]> downloadFileById(@PathVariable("fileId") String fileId,
+		@RequestParam(value = "variant", required = false) String variant,
+		@RequestHeader(value = HttpHeaders.IF_NONE_MATCH, required = false) String ifNoneMatch) {
+		ImageVariant requestedVariant = resolveDownloadVariant(variant);
+		String requestedTag = requestedVariant == null ? ORIGINAL_VARIANT_TAG : requestedVariant.getValue();
+
+		String etag = downloadEtagOf(fileId, requestedTag);
+		if (isNotModified(ifNoneMatch, etag)) {
+			return notModified(etag);
+		}
+
+		ImageFileRdo imageFileRdo = fileLogic.getImageFileById(fileId, requestedVariant);
+		return toImageResponse(imageFileRdo, downloadEtagOf(fileId, imageFileRdo.getVariant()),
+			attachmentDisposition(imageFileRdo.getDownloadFilename()));
+	}
+
+	@Override
 	@GetMapping("/file")
 	public ResponseEntity<byte[]> getFile(@RequestParam("type") String type, @RequestParam("filename") String filename,
 		@RequestHeader(value = HttpHeaders.IF_NONE_MATCH, required = false) String ifNoneMatch) {
@@ -81,15 +101,35 @@ public class FileResource implements FileFacade {
 	}
 
 	/**
-	 * variant가 우선하고, 없으면 width로 고른다. 알 수 없는 값은 오류가 아니라 원본 요청으로 취급한다.
-	 * 프론트가 실패 후 원본으로 재시도하는 왕복을 없애기 위한 선택이다.
+	 * variant가 우선하고, 없으면 width로 고른다. 알 수 없는 variant는 오류가 아니라 기본 축소본으로 처리한다.
+	 * 4xx를 주면 프론트가 원본으로 재시도하는 왕복이 생기고, 원본으로 폴백하면 오타 하나에 수 MB가 나간다.
+	 * 원본이 필요하면 파라미터를 비우거나 variant=original을 쓴다.
 	 */
 	private ImageVariant resolveVariant(String variant, Integer width) {
 		if (StringUtils.hasText(variant)) {
-			return ImageVariant.from(variant).orElse(null);
+			if (isOriginalRequest(variant)) {
+				return null;
+			}
+			return ImageVariant.from(variant).orElseGet(ImageVariant::defaultVariant);
 		}
 
 		return ImageVariant.coveringWidth(width).orElse(null);
+	}
+
+	/**
+	 * 저장은 조회와 기본값이 다르다. 사용자가 파일로 남기려는 것은 원본이므로,
+	 * variant를 명시하지 않았거나 알 수 없는 값이면 축소본으로 바꿔치지 않고 원본을 내려준다.
+	 */
+	private ImageVariant resolveDownloadVariant(String variant) {
+		if (!StringUtils.hasText(variant) || isOriginalRequest(variant)) {
+			return null;
+		}
+
+		return ImageVariant.from(variant).orElse(null);
+	}
+
+	private boolean isOriginalRequest(String variant) {
+		return ORIGINAL_VARIANT_TAG.equalsIgnoreCase(variant.trim());
 	}
 
 	/**
@@ -128,16 +168,42 @@ public class FileResource implements FileFacade {
 	}
 
 	private ResponseEntity<byte[]> toImageResponse(ImageFileRdo imageFileRdo, String etag) {
+		return toImageResponse(imageFileRdo, etag, null);
+	}
+
+	private ResponseEntity<byte[]> toImageResponse(ImageFileRdo imageFileRdo, String etag,
+		ContentDisposition contentDisposition) {
 		MediaType mediaType = imageFileRdo.getMimeType() == null
 			? MediaType.APPLICATION_OCTET_STREAM
 			: MediaType.parseMediaType(imageFileRdo.getMimeType());
 
-		return ResponseEntity.ok()
+		ResponseEntity.BodyBuilder builder = ResponseEntity.ok()
 			.contentType(mediaType)
 			.contentLength(imageFileRdo.getImage().length)
 			.eTag(etag)
-			.cacheControl(imageCacheControl())
-			.body(imageFileRdo.getImage());
+			.cacheControl(imageCacheControl());
+		if (contentDisposition != null) {
+			builder.header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition.toString());
+		}
+
+		return builder.body(imageFileRdo.getImage());
+	}
+
+	/**
+	 * 한글 파일명이 들어올 수 있으므로 RFC 5987 인코딩을 함께 내보낸다.
+	 */
+	private ContentDisposition attachmentDisposition(String filename) {
+		String safeFilename = StringUtils.hasText(filename) ? filename : "download";
+		return ContentDisposition.attachment()
+			.filename(safeFilename, StandardCharsets.UTF_8)
+			.build();
+	}
+
+	/**
+	 * 같은 바이트라도 첨부 응답은 헤더가 다르므로 조회 응답과 ETag를 섞지 않는다.
+	 */
+	private String downloadEtagOf(String fileId, String variantTag) {
+		return etagOf(fileId, variantTag + "-download");
 	}
 
 	/**

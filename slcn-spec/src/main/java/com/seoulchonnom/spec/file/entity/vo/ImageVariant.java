@@ -22,7 +22,7 @@ public enum ImageVariant {
 	private final int width;
 
 	/**
-	 * 알 수 없는 값이면 비어 있는 Optional을 반환한다. 호출자는 원본으로 폴백해야 한다.
+	 * 알 수 없는 값이면 비어 있는 Optional을 반환한다.
 	 */
 	public static Optional<ImageVariant> from(String value) {
 		if (value == null || value.isBlank()) {
@@ -46,6 +46,14 @@ public enum ImageVariant {
 		return Arrays.stream(values())
 			.filter(variant -> variant.width >= width)
 			.min(Comparator.comparingInt(ImageVariant::getWidth));
+	}
+
+	/**
+	 * 알 수 없는 variant를 받았을 때 대신 내보낼 파생본.
+	 * 원본으로 폴백하면 오타 하나에 수 MB가 나가므로, 화질 손실이 가장 적은 파생본을 고른다.
+	 */
+	public static ImageVariant defaultVariant() {
+		return HOME_FEATURE;
 	}
 
 	@JsonValue

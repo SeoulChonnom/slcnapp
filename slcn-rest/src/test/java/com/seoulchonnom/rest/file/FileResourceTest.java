@@ -7,6 +7,7 @@ import static org.mockito.Mockito.*;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockMultipartFile;
 
@@ -134,13 +135,102 @@ class FileResourceTest {
 	}
 
 	@Test
-	void getFileById_shouldTreatUnknownVariantAsOriginalRequestInsteadOfFailing() {
-		when(fileLogic.getImageFileById("file-1", null)).thenReturn(imageRdo(new byte[] {1}, "image/png", "original"));
+	void getFileById_shouldServeDefaultVariantForUnknownVariantInsteadOfTheOriginal() {
+		when(fileLogic.getImageFileById("file-1", ImageVariant.HOME_FEATURE))
+			.thenReturn(imageRdo(new byte[] {5}, "image/webp", "home-feature"));
 
 		var response = fileResource.getFileById("file-1", "does-not-exist", null, null, null);
 
 		assertEquals(HttpStatus.OK, response.getStatusCode());
+		assertEquals("\"file-1-home-feature\"", response.getHeaders().getETag());
+		verify(fileLogic, never()).getImageFileById("file-1", null);
+	}
+
+	@Test
+	void getFileById_shouldServeOriginalWhenVariantIsExplicitlyOriginal() {
+		when(fileLogic.getImageFileById("file-1", null)).thenReturn(imageRdo(new byte[] {1}, "image/png", "original"));
+
+		var response = fileResource.getFileById("file-1", "original", null, null, null);
+
+		assertEquals(HttpStatus.OK, response.getStatusCode());
 		assertEquals("\"file-1-original\"", response.getHeaders().getETag());
+	}
+
+	@Test
+	void getFileById_shouldStillServeOriginalWhenNoParametersAreGiven() {
+		when(fileLogic.getImageFileById("file-1", null)).thenReturn(imageRdo(new byte[] {1}, "image/png", "original"));
+
+		var response = fileResource.getFileById("file-1", null, null, null, null);
+
+		assertEquals(HttpStatus.OK, response.getStatusCode());
+		assertEquals("\"file-1-original\"", response.getHeaders().getETag());
+	}
+
+	@Test
+	void downloadFileById_shouldReturnOriginalAsAttachmentWithUploadedFilename() {
+		when(fileLogic.getImageFileById("file-1", null))
+			.thenReturn(imageRdo(new byte[] {1, 2}, "image/png", "original", "여행 사진.png"));
+
+		var response = fileResource.downloadFileById("file-1", null, null);
+
+		assertEquals(HttpStatus.OK, response.getStatusCode());
+		String disposition = response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION);
+		assertTrue(disposition.startsWith("attachment;"), disposition);
+		// 한글 파일명은 RFC 5987로 인코딩되어야 한다.
+		assertTrue(disposition.contains("filename*=UTF-8''"), disposition);
+		assertArrayEquals(new byte[] {1, 2}, response.getBody());
+	}
+
+	@Test
+	void downloadFileById_shouldReturnRequestedVariantWhenItIsKnown() {
+		when(fileLogic.getImageFileById("file-1", ImageVariant.HOME_THUMB))
+			.thenReturn(imageRdo(new byte[] {9}, "image/webp", "home-thumb", "cover_home-thumb.webp"));
+
+		var response = fileResource.downloadFileById("file-1", "home-thumb", null);
+
+		assertEquals(HttpStatus.OK, response.getStatusCode());
+		assertEquals("image/webp", response.getHeaders().getContentType().toString());
+		assertTrue(response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION)
+			.contains("cover_home-thumb.webp"));
+	}
+
+	@Test
+	void downloadFileById_shouldFallBackToOriginalForUnknownVariantSoSavesAreNeverDownscaled() {
+		when(fileLogic.getImageFileById("file-1", null))
+			.thenReturn(imageRdo(new byte[] {1}, "image/png", "original", "cover.png"));
+
+		var response = fileResource.downloadFileById("file-1", "does-not-exist", null);
+
+		assertEquals(HttpStatus.OK, response.getStatusCode());
+		verify(fileLogic, never()).getImageFileById("file-1", ImageVariant.HOME_FEATURE);
+	}
+
+	@Test
+	void downloadFileById_shouldNotShareItsEtagWithTheInlineResponse() {
+		when(fileLogic.getImageFileById("file-1", null))
+			.thenReturn(imageRdo(new byte[] {1}, "image/png", "original", "cover.png"));
+
+		var response = fileResource.downloadFileById("file-1", null, null);
+
+		assertEquals("\"file-1-original-download\"", response.getHeaders().getETag());
+	}
+
+	@Test
+	void downloadFileById_shouldReturnNotModifiedWhenEtagMatches() {
+		var response = fileResource.downloadFileById("file-1", null, "\"file-1-original-download\"");
+
+		assertEquals(HttpStatus.NOT_MODIFIED, response.getStatusCode());
+		verify(fileLogic, never()).getImageFileById(anyString(), any());
+	}
+
+	@Test
+	void downloadFileById_shouldUseAFallbackNameWhenTheAssetHasNoUsableFilename() {
+		when(fileLogic.getImageFileById("file-1", null))
+			.thenReturn(imageRdo(new byte[] {1}, "image/png", "original", ""));
+
+		var response = fileResource.downloadFileById("file-1", null, null);
+
+		assertTrue(response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION).contains("download"));
 	}
 
 	@Test
@@ -193,6 +283,15 @@ class FileResourceTest {
 	}
 
 	private ImageFileRdo imageRdo(byte[] image, String mimeType, String variant) {
-		return ImageFileRdo.builder().image(image).mimeType(mimeType).variant(variant).build();
+		return imageRdo(image, mimeType, variant, "cover.png");
+	}
+
+	private ImageFileRdo imageRdo(byte[] image, String mimeType, String variant, String downloadFilename) {
+		return ImageFileRdo.builder()
+			.image(image)
+			.mimeType(mimeType)
+			.variant(variant)
+			.downloadFilename(downloadFilename)
+			.build();
 	}
 }

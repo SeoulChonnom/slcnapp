@@ -65,7 +65,7 @@ public class FileLogic {
 	}
 
 	public ImageFileRdo getImageFile(String type, String filename) {
-		return readImageFile(type, filename, ORIGINAL_VARIANT_TAG, null);
+		return readImageFile(type, filename, ORIGINAL_VARIANT_TAG, null, filename);
 	}
 
 	public ImageFileRdo getImageFileById(String fileId) {
@@ -84,16 +84,19 @@ public class FileLogic {
 		if (fileVariant.isPresent()) {
 			FileVariant resolved = fileVariant.get();
 			if (fileUtils.existsFileRef(type, resolved.getFilename())) {
-				return readImageFile(type, resolved.getFilename(), resolved.getVariant(), resolved.getMimeType());
+				return readImageFile(type, resolved.getFilename(), resolved.getVariant(), resolved.getMimeType(),
+					fileAsset.downloadFilename(resolved));
 			}
 			log.warn("Variant recorded but missing on disk, serving original. fileId={}, variant={}",
 				fileId, resolved.getVariant());
 		}
 
-		return readImageFile(type, fileAsset.getStoredFilename(), ORIGINAL_VARIANT_TAG, null);
+		return readImageFile(type, fileAsset.getStoredFilename(), ORIGINAL_VARIANT_TAG, null,
+			fileAsset.downloadFilename(null));
 	}
 
-	private ImageFileRdo readImageFile(String type, String filename, String variantTag, String mimeType) {
+	private ImageFileRdo readImageFile(String type, String filename, String variantTag, String mimeType,
+		String downloadFilename) {
 		fileUtils.isValidFileRef(type, filename);
 
 		try {
@@ -102,6 +105,7 @@ public class FileLogic {
 				.image(Files.readAllBytes(filePath))
 				.mimeType(mimeType != null ? mimeType : Files.probeContentType(filePath))
 				.variant(variantTag)
+				.downloadFilename(downloadFilename)
 				.build();
 		} catch (IOException e) {
 			throw new FilePathInvalidException();

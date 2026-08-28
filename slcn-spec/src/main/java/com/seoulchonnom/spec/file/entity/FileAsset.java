@@ -76,6 +76,41 @@ public class FileAsset extends DomainEntity {
 		return baseFilename() + "_" + variant.getValue() + "." + extension;
 	}
 
+	/**
+	 * 사용자가 저장할 때 보게 될 파일명. 원본 파일명을 살리되 파생본은 접미사와 실제 확장자를 붙인다.
+	 * 업로드된 이름을 그대로 쓰므로 경로 구분자와 제어 문자는 제거한다.
+	 */
+	public String downloadFilename(FileVariant fileVariant) {
+		String source = sanitizeFilename(originalFilename);
+		if (source.isBlank()) {
+			source = sanitizeFilename(storedFilename);
+		}
+
+		if (fileVariant == null) {
+			return source;
+		}
+
+		int extensionIndex = source.lastIndexOf('.');
+		String base = extensionIndex < 0 ? source : source.substring(0, extensionIndex);
+		String variantFile = fileVariant.getFilename();
+		int variantExtensionIndex = variantFile.lastIndexOf('.');
+		String extension = variantExtensionIndex < 0 ? "" : variantFile.substring(variantExtensionIndex);
+		return base + "_" + fileVariant.getVariant() + extension;
+	}
+
+	private String sanitizeFilename(String value) {
+		if (value == null) {
+			return "";
+		}
+
+		String name = value.replace('\\', '/');
+		int separatorIndex = name.lastIndexOf('/');
+		if (separatorIndex >= 0) {
+			name = name.substring(separatorIndex + 1);
+		}
+		return name.replaceAll("[\\p{Cntrl}\"]", "").trim();
+	}
+
 	private String baseFilename() {
 		int extensionIndex = storedFilename.lastIndexOf('.');
 		return extensionIndex < 0 ? storedFilename : storedFilename.substring(0, extensionIndex);
