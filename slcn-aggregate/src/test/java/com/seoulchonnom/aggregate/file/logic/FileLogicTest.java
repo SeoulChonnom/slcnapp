@@ -17,6 +17,8 @@ import com.seoulchonnom.aggregate.file.store.FileAssetStore;
 import com.seoulchonnom.aggregate.file.util.FileUtils;
 import com.seoulchonnom.spec.file.entity.FileAsset;
 import com.seoulchonnom.spec.file.entity.vo.FileType;
+import com.seoulchonnom.spec.file.entity.vo.FileVariant;
+import com.seoulchonnom.spec.file.entity.vo.ImageVariant;
 
 class FileLogicTest {
 	private final FileUtils fileUtils = mock(FileUtils.class);
@@ -31,11 +33,16 @@ class FileLogicTest {
 		MockMultipartFile file = new MockMultipartFile("files", "travel.png", "image/png", new byte[] {1});
 		FileAsset fileAsset = new FileAsset(FileType.TRAVEL, "travel.png", "stored.png", "image/png", 1L);
 		when(fileUtils.saveImageAsset(file, "travel")).thenReturn(fileAsset);
+		when(fileUtils.writeVariants(fileAsset)).thenReturn(new FileUtils.ImageProfile(1600, 900,
+			List.of(new FileVariant("home-thumb", "stored_home-thumb.webp", "image/webp"))));
 		when(fileAssetStore.save(fileAsset)).thenReturn(fileAsset);
 
 		List<FileAsset> result = fileLogic.uploadFiles(List.of(file), "travel");
 
 		assertThat(result).containsExactly(fileAsset);
+		assertThat(fileAsset.getWidth()).isEqualTo(1600);
+		assertThat(fileAsset.getHeight()).isEqualTo(900);
+		assertThat(fileAsset.variantNames()).containsExactly("home-thumb");
 		verify(fileAssetStore).save(fileAsset);
 	}
 
@@ -57,6 +64,70 @@ class FileLogicTest {
 		var result = fileLogic.getImageFileById("file-1");
 
 		assertThat(result.getImage()).containsExactly(1, 2, 3);
+		assertThat(result.getVariant()).isEqualTo("original");
 		verify(fileUtils).isValidFileRef("travel", "stored.png");
+	}
+
+	@Test
+	void getImageFileById_shouldReadVariantWhenGeneratedAndPresentOnDisk() throws Exception {
+		Files.createDirectories(tempDir.resolve("travel"));
+		Files.write(tempDir.resolve("travel/stored_home-thumb.webp"), new byte[] {9, 9});
+		ReflectionTestUtils.setField(fileLogic, "directory", tempDir + "/");
+		FileAsset fileAsset = new FileAsset(FileType.TRAVEL, "travel.png", "stored.png", "image/png", 3L);
+		fileAsset.setVariants(List.of(new FileVariant("home-thumb", "stored_home-thumb.webp", "image/webp")));
+		when(fileAssetStore.findById("file-1")).thenReturn(fileAsset);
+		when(fileUtils.existsFileRef("travel", "stored_home-thumb.webp")).thenReturn(true);
+
+		var result = fileLogic.getImageFileById("file-1", ImageVariant.HOME_THUMB);
+
+		assertThat(result.getImage()).containsExactly(9, 9);
+		assertThat(result.getMimeType()).isEqualTo("image/webp");
+		assertThat(result.getVariant()).isEqualTo("home-thumb");
+	}
+
+	@Test
+	void getImageFileById_shouldFallBackToOriginalWhenVariantWasNeverGenerated() throws Exception {
+		Files.createDirectories(tempDir.resolve("travel"));
+		Files.write(tempDir.resolve("travel/stored.png"), new byte[] {1, 2, 3});
+		ReflectionTestUtils.setField(fileLogic, "directory", tempDir + "/");
+		FileAsset fileAsset = new FileAsset(FileType.TRAVEL, "travel.png", "stored.png", "image/png", 3L);
+		when(fileAssetStore.findById("file-1")).thenReturn(fileAsset);
+
+		var result = fileLogic.getImageFileById("file-1", ImageVariant.HOME_THUMB);
+
+		assertThat(result.getImage()).containsExactly(1, 2, 3);
+		assertThat(result.getVariant()).isEqualTo("original");
+	}
+
+	@Test
+	void getImageFileById_shouldServeJpegVariantWhenThatIsWhatWasRecorded() throws Exception {
+		Files.createDirectories(tempDir.resolve("travel"));
+		Files.write(tempDir.resolve("travel/stored_home-thumb.jpg"), new byte[] {8});
+		ReflectionTestUtils.setField(fileLogic, "directory", tempDir + "/");
+		FileAsset fileAsset = new FileAsset(FileType.TRAVEL, "travel.png", "stored.png", "image/png", 3L);
+		fileAsset.setVariants(List.of(new FileVariant("home-thumb", "stored_home-thumb.jpg", "image/jpeg")));
+		when(fileAssetStore.findById("file-1")).thenReturn(fileAsset);
+		when(fileUtils.existsFileRef("travel", "stored_home-thumb.jpg")).thenReturn(true);
+
+		var result = fileLogic.getImageFileById("file-1", ImageVariant.HOME_THUMB);
+
+		assertThat(result.getMimeType()).isEqualTo("image/jpeg");
+		assertThat(result.getVariant()).isEqualTo("home-thumb");
+	}
+
+	@Test
+	void getImageFileById_shouldFallBackToOriginalWhenVariantIsRecordedButMissingOnDisk() throws Exception {
+		Files.createDirectories(tempDir.resolve("travel"));
+		Files.write(tempDir.resolve("travel/stored.png"), new byte[] {1, 2, 3});
+		ReflectionTestUtils.setField(fileLogic, "directory", tempDir + "/");
+		FileAsset fileAsset = new FileAsset(FileType.TRAVEL, "travel.png", "stored.png", "image/png", 3L);
+		fileAsset.setVariants(List.of(new FileVariant("home-thumb", "stored_home-thumb.webp", "image/webp")));
+		when(fileAssetStore.findById("file-1")).thenReturn(fileAsset);
+		when(fileUtils.existsFileRef("travel", "stored_home-thumb.webp")).thenReturn(false);
+
+		var result = fileLogic.getImageFileById("file-1", ImageVariant.HOME_THUMB);
+
+		assertThat(result.getImage()).containsExactly(1, 2, 3);
+		assertThat(result.getVariant()).isEqualTo("original");
 	}
 }

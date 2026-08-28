@@ -1,6 +1,7 @@
 package com.seoulchonnom.rest.file;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import java.util.List;
@@ -12,14 +13,17 @@ import org.springframework.mock.web.MockMultipartFile;
 import com.seoulchonnom.aggregate.file.logic.FileLogic;
 import com.seoulchonnom.spec.file.entity.FileAsset;
 import com.seoulchonnom.spec.file.entity.vo.FileType;
+import com.seoulchonnom.spec.file.entity.vo.FileVariant;
+import com.seoulchonnom.spec.file.entity.vo.ImageVariant;
 import com.seoulchonnom.spec.file.facade.sdo.ImageFileRdo;
 
 class FileResourceTest {
+	private final FileLogic fileLogic = mock(FileLogic.class);
+	private final FileResource fileResource = new FileResource(fileLogic);
+
 	@Test
 	void uploadFile_shouldReturnFileAsset() {
-		FileLogic fileLogic = mock(FileLogic.class);
-		FileResource fileResource = new FileResource(fileLogic);
-		MockMultipartFile file = new MockMultipartFile("file", "sample.png", "image/png", new byte[] { 1, 2, 3 });
+		MockMultipartFile file = new MockMultipartFile("file", "sample.png", "image/png", new byte[] {1, 2, 3});
 		FileAsset fileAsset = new FileAsset(FileType.LOGO, "sample.png",
 			"72d768d4-2b05-48f9-bee8-fee3b52e909f.png", "image/png", 3L);
 		fileAsset.setId("file-1");
@@ -35,12 +39,15 @@ class FileResourceTest {
 
 	@Test
 	void uploadFiles_shouldReturnFileAssets() {
-		FileLogic fileLogic = mock(FileLogic.class);
-		FileResource fileResource = new FileResource(fileLogic);
 		MockMultipartFile file = new MockMultipartFile("files", "travel.png", "image/png", new byte[] {1, 2, 3});
 		FileAsset fileAsset = new FileAsset(FileType.TRAVEL, "travel.png",
 			"72d768d4-2b05-48f9-bee8-fee3b52e909f.png", "image/png", 3L);
 		fileAsset.setId("file-1");
+		fileAsset.setWidth(1600);
+		fileAsset.setHeight(900);
+		fileAsset.setVariants(List.of(
+			new FileVariant("home-feature", "cover_home-feature.webp", "image/webp"),
+			new FileVariant("home-thumb", "cover_home-thumb.webp", "image/webp")));
 		when(fileLogic.uploadFiles(List.of(file), "travel")).thenReturn(List.of(fileAsset));
 
 		var response = fileResource.uploadFiles(List.of(file), "travel");
@@ -49,17 +56,18 @@ class FileResourceTest {
 		assertEquals("file-1", response.getBody().get(0).getFileId());
 		assertEquals(FileType.TRAVEL, response.getBody().get(0).getType());
 		assertEquals("travel/72d768d4-2b05-48f9-bee8-fee3b52e909f.png", response.getBody().get(0).getPath());
+		assertEquals(1600, response.getBody().get(0).getWidth());
+		assertEquals(900, response.getBody().get(0).getHeight());
+		assertEquals(List.of("home-feature", "home-thumb"), response.getBody().get(0).getVariants());
 	}
 
 	@Test
 	void getFile_shouldReturnBinaryResponseWithMimeType() {
-		FileLogic fileLogic = mock(FileLogic.class);
-		FileResource fileResource = new FileResource(fileLogic);
-		byte[] image = new byte[] { 1, 2, 3 };
+		byte[] image = new byte[] {1, 2, 3};
 		when(fileLogic.getImageFile("logo", "72d768d4-2b05-48f9-bee8-fee3b52e909f.png"))
-			.thenReturn(ImageFileRdo.builder().image(image).mimeType("image/png").build());
+			.thenReturn(imageRdo(image, "image/png", "original"));
 
-		var response = fileResource.getFile("logo", "72d768d4-2b05-48f9-bee8-fee3b52e909f.png");
+		var response = fileResource.getFile("logo", "72d768d4-2b05-48f9-bee8-fee3b52e909f.png", null);
 
 		assertEquals(HttpStatus.OK, response.getStatusCode());
 		assertEquals("image/png", response.getHeaders().getContentType().toString());
@@ -69,17 +77,122 @@ class FileResourceTest {
 
 	@Test
 	void getFileById_shouldReturnBinaryResponseWithMimeType() {
-		FileLogic fileLogic = mock(FileLogic.class);
-		FileResource fileResource = new FileResource(fileLogic);
 		byte[] image = new byte[] {1, 2, 3};
-		when(fileLogic.getImageFileById("file-1"))
-			.thenReturn(ImageFileRdo.builder().image(image).mimeType("image/png").build());
+		when(fileLogic.getImageFileById("file-1", null)).thenReturn(imageRdo(image, "image/png", "original"));
 
-		var response = fileResource.getFileById("file-1");
+		var response = fileResource.getFileById("file-1", null, null, null, null);
 
 		assertEquals(HttpStatus.OK, response.getStatusCode());
 		assertEquals("image/png", response.getHeaders().getContentType().toString());
 		assertEquals(3, response.getHeaders().getContentLength());
 		assertArrayEquals(image, response.getBody());
+	}
+
+	@Test
+	void getFileById_shouldAllowPrivateBrowserCachingWithEtag() {
+		when(fileLogic.getImageFileById("file-1", null))
+			.thenReturn(imageRdo(new byte[] {1}, "image/png", "original"));
+
+		var response = fileResource.getFileById("file-1", null, null, null, null);
+
+		assertEquals("\"file-1-original\"", response.getHeaders().getETag());
+		assertEquals("max-age=86400, private", response.getHeaders().getCacheControl());
+	}
+
+	@Test
+	void getFileById_shouldServeRequestedVariantAndTagItSeparately() {
+		when(fileLogic.getImageFileById("file-1", ImageVariant.HOME_THUMB))
+			.thenReturn(imageRdo(new byte[] {9}, "image/webp", "home-thumb"));
+
+		var response = fileResource.getFileById("file-1", "home-thumb", 320, "webp", null);
+
+		assertEquals(HttpStatus.OK, response.getStatusCode());
+		assertEquals("image/webp", response.getHeaders().getContentType().toString());
+		assertEquals("\"file-1-home-thumb\"", response.getHeaders().getETag());
+	}
+
+	@Test
+	void getFileById_shouldReflectJpegContentTypeWhenTheVariantFellBack() {
+		when(fileLogic.getImageFileById("file-1", ImageVariant.HOME_THUMB))
+			.thenReturn(imageRdo(new byte[] {9}, "image/jpeg", "home-thumb"));
+
+		var response = fileResource.getFileById("file-1", "home-thumb", null, null, null);
+
+		assertEquals("image/jpeg", response.getHeaders().getContentType().toString());
+		assertEquals("\"file-1-home-thumb\"", response.getHeaders().getETag());
+	}
+
+	@Test
+	void getFileById_shouldSelectVariantByWidthWhenVariantIsAbsent() {
+		when(fileLogic.getImageFileById("file-1", ImageVariant.HOME_FEATURE))
+			.thenReturn(imageRdo(new byte[] {7}, "image/jpeg", "home-feature"));
+
+		var response = fileResource.getFileById("file-1", null, 640, null, null);
+
+		assertEquals(HttpStatus.OK, response.getStatusCode());
+		assertEquals("\"file-1-home-feature\"", response.getHeaders().getETag());
+	}
+
+	@Test
+	void getFileById_shouldTreatUnknownVariantAsOriginalRequestInsteadOfFailing() {
+		when(fileLogic.getImageFileById("file-1", null)).thenReturn(imageRdo(new byte[] {1}, "image/png", "original"));
+
+		var response = fileResource.getFileById("file-1", "does-not-exist", null, null, null);
+
+		assertEquals(HttpStatus.OK, response.getStatusCode());
+		assertEquals("\"file-1-original\"", response.getHeaders().getETag());
+	}
+
+	@Test
+	void getFileById_shouldReportOriginalEtagWhenVariantFallsBackToOriginal() {
+		when(fileLogic.getImageFileById("file-1", ImageVariant.HOME_THUMB))
+			.thenReturn(imageRdo(new byte[] {1}, "image/png", "original"));
+
+		var response = fileResource.getFileById("file-1", "home-thumb", null, null, null);
+
+		assertEquals("\"file-1-original\"", response.getHeaders().getETag());
+	}
+
+	@Test
+	void getFileById_shouldReturnNotModifiedWithoutReadingFileWhenEtagMatches() {
+		var response = fileResource.getFileById("file-1", "home-thumb", null, null, "\"file-1-home-thumb\"");
+
+		assertEquals(HttpStatus.NOT_MODIFIED, response.getStatusCode());
+		assertNull(response.getBody());
+		assertEquals("\"file-1-home-thumb\"", response.getHeaders().getETag());
+		verify(fileLogic, never()).getImageFileById(anyString(), any());
+	}
+
+	@Test
+	void getFileById_shouldAcceptWeakAndListedEtagCandidates() {
+		var response = fileResource.getFileById("file-1", null, null, null,
+			"\"other\", W/\"file-1-original\"");
+
+		assertEquals(HttpStatus.NOT_MODIFIED, response.getStatusCode());
+		verify(fileLogic, never()).getImageFileById(anyString(), any());
+	}
+
+	@Test
+	void getFileById_shouldServeContentWhenEtagBelongsToADifferentVariant() {
+		when(fileLogic.getImageFileById("file-1", ImageVariant.HOME_THUMB))
+			.thenReturn(imageRdo(new byte[] {9}, "image/jpeg", "home-thumb"));
+
+		var response = fileResource.getFileById("file-1", "home-thumb", null, null, "\"file-1-original\"");
+
+		assertEquals(HttpStatus.OK, response.getStatusCode());
+		assertArrayEquals(new byte[] {9}, response.getBody());
+	}
+
+	@Test
+	void getFile_shouldReturnNotModifiedWhenEtagMatches() {
+		var response = fileResource.getFile("logo", "72d768d4-2b05-48f9-bee8-fee3b52e909f.png",
+			"\"logo/72d768d4-2b05-48f9-bee8-fee3b52e909f.png-original\"");
+
+		assertEquals(HttpStatus.NOT_MODIFIED, response.getStatusCode());
+		verify(fileLogic, never()).getImageFile(anyString(), anyString());
+	}
+
+	private ImageFileRdo imageRdo(byte[] image, String mimeType, String variant) {
+		return ImageFileRdo.builder().image(image).mimeType(mimeType).variant(variant).build();
 	}
 }

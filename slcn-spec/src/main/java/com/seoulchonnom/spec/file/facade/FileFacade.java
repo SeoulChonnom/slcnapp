@@ -2,8 +2,10 @@ package com.seoulchonnom.spec.file.facade;
 
 import java.util.List;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -28,15 +30,27 @@ public interface FileFacade {
 		@RequestParam("files") List<MultipartFile> files,
 		@RequestParam("type") String type);
 
-	@Operation(summary = "파일 ID 조회 API", description = "FileAsset ID를 통해 파일을 조회합니다.")
+	@Operation(summary = "파일 ID 조회 API",
+		description = "FileAsset ID를 통해 파일을 조회합니다. "
+			+ "variant(home-feature, home-thumb) 또는 width를 지정하면 축소본을 응답하고, "
+			+ "지정하지 않거나 해당 축소본이 없으면 원본을 그대로 응답합니다. "
+			+ "축소본은 항상 JPEG이므로 format 파라미터는 호환을 위해 받기만 하고 사용하지 않습니다.")
 	@ApiResponse(responseCode = "200", description = "파일 조회 성공")
-	ResponseEntity<byte[]> getFileById(@PathVariable("fileId") String fileId);
+	@ApiResponse(responseCode = "304", description = "ETag 일치, 본문 없음")
+	ResponseEntity<byte[]> getFileById(
+		@PathVariable("fileId") String fileId,
+		@RequestParam(value = "variant", required = false) String variant,
+		@RequestParam(value = "width", required = false) Integer width,
+		@RequestParam(value = "format", required = false) String format,
+		@RequestHeader(value = HttpHeaders.IF_NONE_MATCH, required = false) String ifNoneMatch);
 
 	@Operation(summary = "파일 조회 API", description = "파일 경로를 통해 파일을 조회합니다.")
 	@ApiResponse(responseCode = "200", description = "파일 조회 성공")
+	@ApiResponse(responseCode = "304", description = "ETag 일치, 본문 없음")
 	ResponseEntity<byte[]> getFile(
 		@RequestParam(value = "type") String type,
-		@RequestParam(value = "filename") String filename);
+		@RequestParam(value = "filename") String filename,
+		@RequestHeader(value = HttpHeaders.IF_NONE_MATCH, required = false) String ifNoneMatch);
 
 	@Tag(name = "Depot API", description = "파일 관련 API")
 	interface DepotControllerDocs extends FileFacade {

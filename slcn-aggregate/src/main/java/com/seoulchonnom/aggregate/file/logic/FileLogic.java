@@ -1,10 +1,14 @@
 package com.seoulchonnom.aggregate.file.logic;
 
+import static com.seoulchonnom.spec.file.constant.FileConstant.*;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -17,10 +21,14 @@ import com.seoulchonnom.aggregate.file.exception.FileUploadException;
 import com.seoulchonnom.aggregate.file.store.FileAssetStore;
 import com.seoulchonnom.aggregate.file.util.FileUtils;
 import com.seoulchonnom.spec.file.entity.FileAsset;
+import com.seoulchonnom.spec.file.entity.vo.FileVariant;
+import com.seoulchonnom.spec.file.entity.vo.ImageVariant;
 import com.seoulchonnom.spec.file.facade.sdo.ImageFileRdo;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class FileLogic {
@@ -45,28 +53,58 @@ public class FileLogic {
 
 	public FileAsset uploadFileAsset(MultipartFile file, String type) {
 		try {
-			return fileAssetStore.save(fileUtils.saveImageAsset(file, type));
+			FileAsset fileAsset = fileUtils.saveImageAsset(file, type);
+			FileUtils.ImageProfile profile = fileUtils.writeVariants(fileAsset);
+			fileAsset.setWidth(profile.width());
+			fileAsset.setHeight(profile.height());
+			fileAsset.setVariants(new ArrayList<>(profile.variants()));
+			return fileAssetStore.save(fileAsset);
 		} catch (IOException e) {
 			throw new FileUploadException();
 		}
 	}
 
 	public ImageFileRdo getImageFile(String type, String filename) {
+		return readImageFile(type, filename, ORIGINAL_VARIANT_TAG, null);
+	}
+
+	public ImageFileRdo getImageFileById(String fileId) {
+		return getImageFileById(fileId, null);
+	}
+
+	/**
+	 * 요청한 파생본이 없거나 아직 생성되지 않았으면 원본을 그대로 응답한다.
+	 * 홈 화면이 파생본 하나 때문에 표지를 통째로 잃는 편보다 원본을 받는 편이 낫다.
+	 */
+	public ImageFileRdo getImageFileById(String fileId, ImageVariant variant) {
+		FileAsset fileAsset = fileAssetStore.findById(fileId);
+		String type = fileAsset.getType().getValue();
+
+		Optional<FileVariant> fileVariant = fileAsset.findVariant(variant);
+		if (fileVariant.isPresent()) {
+			FileVariant resolved = fileVariant.get();
+			if (fileUtils.existsFileRef(type, resolved.getFilename())) {
+				return readImageFile(type, resolved.getFilename(), resolved.getVariant(), resolved.getMimeType());
+			}
+			log.warn("Variant recorded but missing on disk, serving original. fileId={}, variant={}",
+				fileId, resolved.getVariant());
+		}
+
+		return readImageFile(type, fileAsset.getStoredFilename(), ORIGINAL_VARIANT_TAG, null);
+	}
+
+	private ImageFileRdo readImageFile(String type, String filename, String variantTag, String mimeType) {
 		fileUtils.isValidFileRef(type, filename);
 
 		try {
 			Path filePath = Paths.get(directory).resolve(type).resolve(filename).normalize();
 			return ImageFileRdo.builder()
 				.image(Files.readAllBytes(filePath))
-				.mimeType(Files.probeContentType(filePath))
+				.mimeType(mimeType != null ? mimeType : Files.probeContentType(filePath))
+				.variant(variantTag)
 				.build();
 		} catch (IOException e) {
 			throw new FilePathInvalidException();
 		}
-	}
-
-	public ImageFileRdo getImageFileById(String fileId) {
-		FileAsset fileAsset = fileAssetStore.findById(fileId);
-		return getImageFile(fileAsset.getType().getValue(), fileAsset.getStoredFilename());
 	}
 }
