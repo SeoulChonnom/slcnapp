@@ -11,4 +11,7 @@ dependencies {
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:${rootProject.ext.springdocVersion}"
+
+    // 시큐리티 체인 테스트에서 JwtTokenProvider를 스텁하려면 Claims 시그니처가 필요하다.
+    testImplementation "io.jsonwebtoken:jjwt-api:${rootProject.ext.jjwtVersion}"
 }
