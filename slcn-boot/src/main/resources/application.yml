@@ -60,7 +60,7 @@ slcn:
 cookie:
   expire:
     time: 1209600
-  secure: false
+  secure: true
   sameSite: Lax
 login:
   fail:
@@ -75,6 +75,10 @@ spring:
   config:
     activate:
       on-profile: dev
+
+
+cookie:
+  secure: false
 
 springdoc:
   swagger-ui:
