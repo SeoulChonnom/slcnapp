@@ -37,17 +37,23 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/users")
 @RequiredArgsConstructor
 public class UserResource implements UserFacade {
+	private static final String ROOT_COOKIE_PATH = "/";
+	/** 이 컨트롤러의 @RequestMapping과 같아야 한다. 리프레시 토큰 쿠키를 이 하위로만 내보낸다. */
+	private static final String REFRESH_TOKEN_COOKIE_PATH_SUFFIX = "/users";
 
 	private final UserFlow userFlow;
 
 	@Value("${cookie.expire.time}")
 	private long refreshCookieMaxAge;
 
-	@Value("${cookie.secure:false}")
+	@Value("${cookie.secure:true}")
 	private boolean refreshCookieSecure;
 
 	@Value("${cookie.sameSite:Lax}")
 	private String refreshCookieSameSite;
+
+	@Value("${server.servlet.context-path:}")
+	private String contextPath;
 
 	@Override
 	@PostMapping("/register")
@@ -85,8 +91,8 @@ public class UserResource implements UserFacade {
 		HttpServletResponse response
 	) {
 		userFlow.logout(sessionId);
-		expireCookie(response, AuthConstant.REFRESH_TOKEN_COOKIE_NAME);
-		expireCookie(response, AuthConstant.SESSION_ID_COOKIE_NAME);
+		expireRefreshTokenCookie(response);
+		expireSessionIdCookie(response);
 		return new ResponseEntity<>(HttpStatus.NO_CONTENT);
 	}
 
@@ -122,39 +128,65 @@ public class UserResource implements UserFacade {
 
 		HttpHeaders headers = new HttpHeaders();
 		headers.add(HttpHeaders.SET_COOKIE, refreshTokenCookie(tokenSessionVo.tokenRdo().getRefreshToken()).toString());
+		headers.add(HttpHeaders.SET_COOKIE, legacyRefreshTokenCookie().toString());
 		headers.add(HttpHeaders.SET_COOKIE, sessionIdCookie(tokenSessionVo.sessionId()).toString());
 		return new ResponseEntity<>(userProfileSessionVo.userProfileRdo(), headers, HttpStatus.OK);
 	}
 
 	private void addRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
 		response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenCookie(refreshToken).toString());
+		response.addHeader(HttpHeaders.SET_COOKIE, legacyRefreshTokenCookie().toString());
 	}
 
 	private void addSessionIdCookie(HttpServletResponse response, String sessionId) {
 		response.addHeader(HttpHeaders.SET_COOKIE, sessionIdCookie(sessionId).toString());
 	}
 
+	/**
+	 * 리프레시 토큰은 재발급/로그아웃에서만 쓰므로 쿠키 경로를 /users 하위로 좁힌다.
+	 * path=/로 두면 이미지 조회를 포함한 모든 요청에 14일짜리 토큰이 함께 실려 나간다.
+	 */
 	private ResponseCookie refreshTokenCookie(String refreshToken) {
-		return buildCookie(AuthConstant.REFRESH_TOKEN_COOKIE_NAME, refreshToken, refreshCookieMaxAge);
+		return buildCookie(AuthConstant.REFRESH_TOKEN_COOKIE_NAME, refreshToken, refreshCookieMaxAge,
+			refreshTokenCookiePath());
 	}
 
+	/**
+	 * 과거에 path=/로 발급해둔 리프레시 토큰 쿠키를 만료시킨다.
+	 * 지우지 않으면 좁힌 쿠키와 함께 전송되어 경로를 좁힌 효과가 사라진다.
+	 * 기존 쿠키 수명(cookie.expire.time)이 모두 지난 뒤에는 제거해도 된다.
+	 */
+	private ResponseCookie legacyRefreshTokenCookie() {
+		return buildCookie(AuthConstant.REFRESH_TOKEN_COOKIE_NAME, "", 0, ROOT_COOKIE_PATH);
+	}
+
+	/**
+	 * sessionId는 이미지 조회(/assets/**)에서도 필요하므로 경로를 좁히지 않는다.
+	 */
 	private ResponseCookie sessionIdCookie(String sessionId) {
-		return buildCookie(AuthConstant.SESSION_ID_COOKIE_NAME, sessionId, refreshCookieMaxAge);
+		return buildCookie(AuthConstant.SESSION_ID_COOKIE_NAME, sessionId, refreshCookieMaxAge, ROOT_COOKIE_PATH);
 	}
 
-	private void expireCookie(HttpServletResponse response, String cookieName) {
-		response.addHeader(HttpHeaders.SET_COOKIE, expiredCookie(cookieName).toString());
+	private void expireRefreshTokenCookie(HttpServletResponse response) {
+		response.addHeader(HttpHeaders.SET_COOKIE,
+			buildCookie(AuthConstant.REFRESH_TOKEN_COOKIE_NAME, "", 0, refreshTokenCookiePath()).toString());
+		response.addHeader(HttpHeaders.SET_COOKIE, legacyRefreshTokenCookie().toString());
 	}
 
-	private ResponseCookie expiredCookie(String cookieName) {
-		return buildCookie(cookieName, "", 0);
+	private void expireSessionIdCookie(HttpServletResponse response) {
+		response.addHeader(HttpHeaders.SET_COOKIE,
+			buildCookie(AuthConstant.SESSION_ID_COOKIE_NAME, "", 0, ROOT_COOKIE_PATH).toString());
 	}
 
-	private ResponseCookie buildCookie(String name, String value, long maxAge) {
+	private String refreshTokenCookiePath() {
+		return (contextPath == null ? "" : contextPath) + REFRESH_TOKEN_COOKIE_PATH_SUFFIX;
+	}
+
+	private ResponseCookie buildCookie(String name, String value, long maxAge, String path) {
 		return ResponseCookie.from(name, value)
 			.httpOnly(true)
 			.secure(refreshCookieSecure)
-			.path("/")
+			.path(path)
 			.sameSite(refreshCookieSameSite)
 			.maxAge(maxAge)
 			.build();

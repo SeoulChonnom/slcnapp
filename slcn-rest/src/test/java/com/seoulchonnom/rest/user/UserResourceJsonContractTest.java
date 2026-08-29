@@ -43,6 +43,7 @@ class UserResourceJsonContractTest {
 		ReflectionTestUtils.setField(userResource, "refreshCookieMaxAge", 1209600L);
 		ReflectionTestUtils.setField(userResource, "refreshCookieSecure", false);
 		ReflectionTestUtils.setField(userResource, "refreshCookieSameSite", "Lax");
+		ReflectionTestUtils.setField(userResource, "contextPath", "/api");
 		validator = new LocalValidatorFactoryBean();
 		validator.afterPropertiesSet();
 		mockMvc = MockMvcBuilders.standaloneSetup(userResource)

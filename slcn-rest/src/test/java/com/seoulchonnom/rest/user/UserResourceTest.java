@@ -37,9 +37,13 @@ class UserResourceTest {
 		assertEquals(HttpStatus.OK, entity.getStatusCode());
 		assertEquals("access-token", entity.getBody().getAccessToken());
 		List<String> setCookies = response.getHeaders(HttpHeaders.SET_COOKIE);
-		assertEquals(2, setCookies.size());
-		assertTrue(setCookies.stream().anyMatch(cookie -> cookie.contains("refreshToken=refresh-token")));
-		assertTrue(setCookies.stream().anyMatch(cookie -> cookie.contains("sessionId=session-1")));
+		assertEquals(3, setCookies.size());
+		assertTrue(setCookies.stream().anyMatch(cookie ->
+			cookie.contains("refreshToken=refresh-token") && cookie.contains("Path=/api/users")));
+		assertTrue(setCookies.stream().anyMatch(cookie ->
+			cookie.contains("sessionId=session-1") && cookie.contains("Path=/")));
+		assertTrue(setCookies.stream().anyMatch(cookie ->
+			cookie.contains("refreshToken=;") && cookie.contains("Path=/") && cookie.contains("Max-Age=0")));
 	}
 
 	@Test
@@ -60,9 +64,11 @@ class UserResourceTest {
 		assertEquals(HttpStatus.OK, entity.getStatusCode());
 		verify(userFlow).reissue("refresh-token", "session-1");
 		List<String> setCookies = response.getHeaders(HttpHeaders.SET_COOKIE);
-		assertEquals(2, setCookies.size());
-		assertTrue(setCookies.stream().anyMatch(cookie -> cookie.contains("refreshToken=rotated-refresh")));
-		assertTrue(setCookies.stream().anyMatch(cookie -> cookie.contains("sessionId=session-1")));
+		assertEquals(3, setCookies.size());
+		assertTrue(setCookies.stream().anyMatch(cookie ->
+			cookie.contains("refreshToken=rotated-refresh") && cookie.contains("Path=/api/users")));
+		assertTrue(setCookies.stream().anyMatch(cookie ->
+			cookie.contains("sessionId=session-1") && cookie.contains("Path=/")));
 	}
 
 	@Test
@@ -77,13 +83,15 @@ class UserResourceTest {
 		assertEquals(HttpStatus.NO_CONTENT, entity.getStatusCode());
 		verify(userFlow).logout("session-1");
 		List<String> setCookies = response.getHeaders(HttpHeaders.SET_COOKIE);
-		assertEquals(2, setCookies.size());
+		assertEquals(3, setCookies.size());
 		assertTrue(setCookies.stream().allMatch(cookie -> cookie.contains("Max-Age=0")));
+		assertTrue(setCookies.stream().anyMatch(cookie -> cookie.contains("Path=/api/users")));
 	}
 
 	private void configureCookieProperties(UserResource userResource) {
 		ReflectionTestUtils.setField(userResource, "refreshCookieMaxAge", 1209600L);
 		ReflectionTestUtils.setField(userResource, "refreshCookieSecure", false);
 		ReflectionTestUtils.setField(userResource, "refreshCookieSameSite", "Lax");
+		ReflectionTestUtils.setField(userResource, "contextPath", "/api");
 	}
 }
