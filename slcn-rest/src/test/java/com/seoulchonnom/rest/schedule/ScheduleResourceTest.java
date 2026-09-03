@@ -43,6 +43,7 @@ class ScheduleResourceTest {
 
 		assertEquals(HttpStatus.OK, response.getStatusCode());
 		assertEquals(scheduleRdo, response.getBody());
+		verify(scheduleLogic).registerSchedule(scheduleCdo);
 	}
 
 	@Test
@@ -57,6 +58,7 @@ class ScheduleResourceTest {
 
 		assertEquals(HttpStatus.OK, response.getStatusCode());
 		assertEquals(scheduleRdo, response.getBody());
+		verify(scheduleLogic).modifySchedule(scheduleUdo);
 	}
 
 	@Test
