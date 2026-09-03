@@ -20,20 +20,26 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
+import com.seoulchonnom.aggregate.schedule.feed.flow.ScheduleFeedFlow;
 import com.seoulchonnom.aggregate.schedule.feed.logic.ScheduleFeedTokenLogic;
 import com.seoulchonnom.rest.common.handler.CommonExceptionHandler;
 import com.seoulchonnom.spec.schedule.feed.entity.ScheduleFeedToken;
 
 class ScheduleFeedResourceTest {
 	private ScheduleFeedTokenLogic scheduleFeedTokenLogic;
+	private ScheduleFeedFlow scheduleFeedFlow;
+	private ScheduleIcsRenderer scheduleIcsRenderer;
 	private MockMvc mockMvc;
 
 	@BeforeEach
 	void setUp() {
 		scheduleFeedTokenLogic = mock(ScheduleFeedTokenLogic.class);
+		scheduleFeedFlow = mock(ScheduleFeedFlow.class);
+		scheduleIcsRenderer = mock(ScheduleIcsRenderer.class);
 		LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
 		validator.afterPropertiesSet();
-		mockMvc = MockMvcBuilders.standaloneSetup(new ScheduleFeedResource(scheduleFeedTokenLogic))
+		mockMvc = MockMvcBuilders.standaloneSetup(new ScheduleFeedResource(
+			scheduleFeedTokenLogic, scheduleFeedFlow, scheduleIcsRenderer))
 			.setControllerAdvice(new CommonExceptionHandler())
 			.setValidator(validator)
 			.build();
