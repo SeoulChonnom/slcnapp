@@ -2,6 +2,7 @@ package com.seoulchonnom.rest.file;
 
 import static com.seoulchonnom.spec.file.constant.FileConstant.*;
 
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -67,6 +68,10 @@ public class FileResource implements FileFacade {
 		}
 
 		ImageFileRdo imageFileRdo = fileLogic.getImageFileById(fileId, requestedVariant);
+		if (StringUtils.hasText(imageFileRdo.getRedirectUrl())) {
+			return redirectResponse(imageFileRdo.getRedirectUrl());
+		}
+
 		return toImageResponse(imageFileRdo, etagOf(fileId, imageFileRdo.getVariant()));
 	}
 
@@ -83,7 +88,11 @@ public class FileResource implements FileFacade {
 			return notModified(etag);
 		}
 
-		ImageFileRdo imageFileRdo = fileLogic.getImageFileById(fileId, requestedVariant);
+		ImageFileRdo imageFileRdo = fileLogic.downloadImageFileById(fileId, requestedVariant);
+		if (StringUtils.hasText(imageFileRdo.getRedirectUrl())) {
+			return redirectResponse(imageFileRdo.getRedirectUrl());
+		}
+
 		return toImageResponse(imageFileRdo, downloadEtagOf(fileId, imageFileRdo.getVariant()),
 			attachmentDisposition(imageFileRdo.getDownloadFilename()));
 	}
@@ -97,7 +106,12 @@ public class FileResource implements FileFacade {
 			return notModified(etag);
 		}
 
-		return toImageResponse(fileLogic.getImageFile(type, filename), etag);
+		ImageFileRdo imageFileRdo = fileLogic.getImageFile(type, filename);
+		if (StringUtils.hasText(imageFileRdo.getRedirectUrl())) {
+			return redirectResponse(imageFileRdo.getRedirectUrl());
+		}
+
+		return toImageResponse(imageFileRdo, etag);
 	}
 
 	/**
@@ -211,5 +225,16 @@ public class FileResource implements FileFacade {
 	 */
 	private CacheControl imageCacheControl() {
 		return CacheControl.maxAge(IMAGE_CACHE_MAX_AGE_SECONDS, TimeUnit.SECONDS).cachePrivate();
+	}
+
+	/**
+	 * 서명 URL은 만료되므로 캐시하면 안 되고, ETag를 붙이면 만료된 URL이 재사용된다.
+	 * 바이트 자체는 불변이라 클라이언트가 이전에 받은 200 응답의 캐시는 그대로 유효하다.
+	 */
+	private ResponseEntity<byte[]> redirectResponse(String redirectUrl) {
+		return ResponseEntity.status(HttpStatus.FOUND)
+			.location(URI.create(redirectUrl))
+			.cacheControl(CacheControl.noStore())
+			.build();
 	}
 }

@@ -37,6 +37,9 @@ spring:
   servlet:
     multipart:
       max-file-size: 10MB
+      # 미설정 시 Spring Boot 기본값 10MB가 요청 전체에 적용되어 다중 업로드가 첫 파일에서 막힌다.
+      # 파일당 제한(10MB)은 그대로 두고 요청 총량만 연다.
+      max-request-size: 60MB
 
 logging:
   level:
@@ -55,7 +58,23 @@ springdoc:
 slcn:
   domain: "${SLCN_DOMAIN_LIST:http://localhost:9090}"
   upload:
+    # local 프로바이더의 기준 디렉터리이자, R2 백필의 원본 위치다.
     path: "${SLCN_UPLOAD_PATH}"
+  storage:
+    # local | r2. r2가 아니면 로컬 디스크에 저장하고 바이트를 직접 서빙한다.
+    provider: "${SLCN_STORAGE_PROVIDER:local}"
+    # presigned URL 만료. 만료는 요청 시작 시점에만 검사되므로 짧게 잡아도 대용량 전송이 끊기지 않는다.
+    presigned-ttl-seconds: "${SLCN_STORAGE_PRESIGNED_TTL:300}"
+    r2:
+      endpoint: "${SLCN_R2_ENDPOINT:}"
+      region: "${SLCN_R2_REGION:auto}"
+      bucket: "${SLCN_R2_BUCKET:}"
+      access-key: "${SLCN_R2_ACCESS_KEY:}"
+      secret-key: "${SLCN_R2_SECRET_KEY:}"
+    migration:
+      # 기존 로컬 파일을 오브젝트 스토리지로 옮긴다. 배포 1회만 켜고 다시 내린다.
+      enabled: "${SLCN_STORAGE_MIGRATION_ENABLED:false}"
+      batch-size: "${SLCN_STORAGE_MIGRATION_BATCH_SIZE:100}"
 
 cookie:
   expire:

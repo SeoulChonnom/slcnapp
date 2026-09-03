@@ -26,6 +26,13 @@ public class FileConstant {
 		UUID_REGEX_STRING + VARIANT_SUFFIX_REGEX_STRING + "\\.(" + STORED_EXT_REGEX_STRING + ")";
 	public static final String FILE_PATH_REGEX_STRING = "(" + AVAILABLE_PATH + ")/" + FILE_NAME_REGEX_STRING;
 
+	/**
+	 * 파생본 저장 파일명. 원본과 달리 {uuid}_{variant} 접미사를 반드시 갖는다.
+	 * 파일명만 받는 경로 기반 조회에서 원본과 파생본의 저장 prefix를 갈라야 하므로 별도로 둔다.
+	 */
+	public static final String VARIANT_FILE_NAME_REGEX_STRING =
+		UUID_REGEX_STRING + "_[a-z][a-z0-9-]{1,30}\\.(" + STORED_EXT_REGEX_STRING + ")";
+
 	public static final float VARIANT_COMPRESSION_QUALITY = 0.82f;
 
 	/**
