@@ -37,6 +37,9 @@ spring:
   servlet:
     multipart:
       max-file-size: 10MB
+      # 미설정 시 Spring Boot 기본값 10MB가 요청 전체에 적용되어 다중 업로드가 첫 파일에서 막힌다.
+      # 파일당 제한(10MB)은 그대로 두고 요청 총량만 연다.
+      max-request-size: 60MB
 
 logging:
   level:
