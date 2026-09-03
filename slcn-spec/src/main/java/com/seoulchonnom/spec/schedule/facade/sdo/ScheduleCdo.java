@@ -27,4 +27,16 @@ public class ScheduleCdo {
 	private String location;
 	@Schema(description = "반복 규칙", example = "FREQ=DAILY;COUNT=3")
 	private String recurrenceRule;
+
+	public ScheduleCdo(
+		String calendarId,
+		String title,
+		String body,
+		String start,
+		String end,
+		boolean allDay,
+		String location
+	) {
+		this(calendarId, title, body, start, end, allDay, location, null);
+	}
 }

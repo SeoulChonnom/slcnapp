@@ -34,6 +34,19 @@ public class Schedule extends DomainEntity {
 
 	private boolean hidden;
 
+	public Schedule(
+		String calendarId,
+		String title,
+		String body,
+		boolean allDay,
+		LocalDateTime start,
+		LocalDateTime end,
+		String location,
+		boolean hidden
+	) {
+		this(calendarId, title, body, allDay, start, end, location, null, hidden);
+	}
+
 	public void hideSchedule() {
 		this.hidden = true;
 	}

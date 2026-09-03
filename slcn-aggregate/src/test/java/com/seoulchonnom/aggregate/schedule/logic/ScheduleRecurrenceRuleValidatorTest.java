@@ -26,6 +26,8 @@ class ScheduleRecurrenceRuleValidatorTest {
 		"FREQ=DAILY;COUNT=3",
 		"FREQ=WEEKLY;BYDAY=MO,WE,FR",
 		"FREQ=MONTHLY;BYMONTHDAY=1;UNTIL=20261231T145959Z",
+		"FREQ=MONTHLY;BYDAY=2TU",
+		"FREQ=YEARLY;BYDAY=-1SU",
 		"FREQ=DAILY;BYMONTHDAY=+1",
 		"FREQ=YEARLY"
 	})
@@ -57,6 +59,15 @@ class ScheduleRecurrenceRuleValidatorTest {
 		"RRULE:FREQ=DAILY"
 	})
 	void validate_shouldRejectUnsupportedParts(String rule) {
+		assertInvalid(rule, false);
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {
+		"FREQ=DAILY;BYDAY=2TU",
+		"FREQ=WEEKLY;BYDAY=-1SU"
+	})
+	void validate_shouldRejectOrdinalByDayForDailyAndWeeklyRules(String rule) {
 		assertInvalid(rule, false);
 	}
 

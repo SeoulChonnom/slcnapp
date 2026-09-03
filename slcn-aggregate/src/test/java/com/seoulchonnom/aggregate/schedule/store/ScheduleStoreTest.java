@@ -27,11 +27,16 @@ class ScheduleStoreTest {
 			LocalDateTime.of(2026, 9, 2, 9, 0),
 			LocalDateTime.of(2026, 9, 2, 10, 0),
 			null);
-		ScheduleJpo sharedCandidate = scheduleJpo(
+		ScheduleJpo sharedOneTimeCandidate = scheduleJpo(
 			"schedule-002",
 			LocalDateTime.of(2026, 9, 3, 9, 0),
 			LocalDateTime.of(2026, 9, 3, 10, 0),
 			null);
+		ScheduleJpo sharedRecurringCandidate = scheduleJpo(
+			"schedule-002",
+			LocalDateTime.of(2026, 9, 3, 9, 0),
+			LocalDateTime.of(2026, 9, 3, 10, 0),
+			"FREQ=DAILY;COUNT=1");
 		ScheduleJpo recurringMaster = scheduleJpo(
 			"schedule-003",
 			LocalDateTime.of(2026, 1, 6, 19, 0),
@@ -39,15 +44,15 @@ class ScheduleStoreTest {
 			"FREQ=WEEKLY;BYDAY=TU");
 
 		when(repository.findAllByStartBeforeAndEndAfterAndHiddenFalseAndRecurrenceRuleIsNull(rangeEnd, rangeStart))
-			.thenReturn(List.of(oneTimeFirst, sharedCandidate));
+			.thenReturn(List.of(oneTimeFirst, sharedOneTimeCandidate));
 		when(repository.findAllByStartBeforeAndHiddenFalseAndRecurrenceRuleIsNotNull(rangeEnd))
-			.thenReturn(List.of(recurringMaster, sharedCandidate));
+			.thenReturn(List.of(recurringMaster, sharedRecurringCandidate));
 
 		Schedule oneTimeFirstDomain = schedule(oneTimeFirst.getId());
-		Schedule sharedDomain = schedule(sharedCandidate.getId());
+		Schedule sharedDomain = schedule(sharedRecurringCandidate.getId());
 		Schedule recurringMasterDomain = schedule(recurringMaster.getId());
 		when(scheduleJpoMapper.toDomain(oneTimeFirst)).thenReturn(oneTimeFirstDomain);
-		when(scheduleJpoMapper.toDomain(sharedCandidate)).thenReturn(sharedDomain);
+		when(scheduleJpoMapper.toDomain(sharedRecurringCandidate)).thenReturn(sharedDomain);
 		when(scheduleJpoMapper.toDomain(recurringMaster)).thenReturn(recurringMasterDomain);
 
 		List<Schedule> result = scheduleStore.findCandidatesByDateRange(rangeStart, rangeEnd);
@@ -57,7 +62,7 @@ class ScheduleStoreTest {
 		verify(repository).findAllByStartBeforeAndEndAfterAndHiddenFalseAndRecurrenceRuleIsNull(rangeEnd, rangeStart);
 		verify(repository).findAllByStartBeforeAndHiddenFalseAndRecurrenceRuleIsNotNull(rangeEnd);
 		verify(scheduleJpoMapper).toDomain(oneTimeFirst);
-		verify(scheduleJpoMapper).toDomain(sharedCandidate);
+		verify(scheduleJpoMapper).toDomain(sharedRecurringCandidate);
 		verify(scheduleJpoMapper).toDomain(recurringMaster);
 		verifyNoMoreInteractions(repository, scheduleJpoMapper);
 	}

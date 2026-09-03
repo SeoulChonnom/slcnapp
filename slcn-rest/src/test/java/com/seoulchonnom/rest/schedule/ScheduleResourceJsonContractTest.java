@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -54,7 +55,7 @@ class ScheduleResourceJsonContractTest {
 			.andExpect(jsonPath("$.allDay").value(false))
 			.andExpect(jsonPath("$.location").value(""))
 			.andExpect(jsonPath("$.recurrenceRule").value(RECURRENCE_RULE))
-			.andExpect(jsonPath("$.occurrenceId").value("SCHEDULE-0001/2026-09-01T19:00:00+09:00"));
+			.andExpect(jsonPath("$.occurrenceId").value(nullValue()));
 
 		ArgumentCaptor<ScheduleCdo> captor = ArgumentCaptor.forClass(ScheduleCdo.class);
 		verify(scheduleLogic).registerSchedule(captor.capture());
@@ -85,7 +86,7 @@ class ScheduleResourceJsonContractTest {
 			.andExpect(jsonPath("$.allDay").value(false))
 			.andExpect(jsonPath("$.location").value(""))
 			.andExpect(jsonPath("$.recurrenceRule").value(RECURRENCE_RULE))
-			.andExpect(jsonPath("$.occurrenceId").value("SCHEDULE-0001/2026-09-01T19:00:00+09:00"));
+			.andExpect(jsonPath("$.occurrenceId").value(nullValue()));
 
 		ArgumentCaptor<ScheduleUdo> captor = ArgumentCaptor.forClass(ScheduleUdo.class);
 		verify(scheduleLogic).modifySchedule(captor.capture());
@@ -110,7 +111,6 @@ class ScheduleResourceJsonContractTest {
 		response.setAllDay(false);
 		response.setLocation("");
 		response.setRecurrenceRule(RECURRENCE_RULE);
-		response.setOccurrenceId("SCHEDULE-0001/2026-09-01T19:00:00+09:00");
 		return response;
 	}
 

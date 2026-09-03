@@ -29,4 +29,17 @@ public class ScheduleUdo {
 	private String location;
 	@Schema(description = "반복 규칙", example = "FREQ=DAILY;COUNT=3")
 	private String recurrenceRule;
+
+	public ScheduleUdo(
+		String id,
+		String calendarId,
+		String title,
+		String body,
+		String start,
+		String end,
+		boolean allDay,
+		String location
+	) {
+		this(id, calendarId, title, body, start, end, allDay, location, null);
+	}
 }

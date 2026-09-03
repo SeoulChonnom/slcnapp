@@ -35,7 +35,7 @@
 }
 ```
 
-응답에는 기존 필드를 유지하면서 다음 nullable 필드를 추가한다.
+등록·수정 mutation 응답에는 기존 필드를 유지하면서 다음 nullable 필드를 추가한다. mutation은 Schedule master를 반환하므로 `occurrenceId`는 `null`이다.
 
 ```json
 {
@@ -47,6 +47,18 @@
   "end": "2026-09-01T20:00:00+09:00",
   "allDay": false,
   "location": "",
+  "recurrenceRule": "FREQ=WEEKLY;BYDAY=TU",
+  "occurrenceId": null
+}
+```
+
+기간 조회에서 서버가 계산한 반복 occurrence 응답에는 master ID를 유지하면서 `occurrenceId`가 채워진다.
+
+```json
+{
+  "id": "SCHEDULE-0001",
+  "start": "2026-09-01T19:00:00+09:00",
+  "end": "2026-09-01T20:00:00+09:00",
   "recurrenceRule": "FREQ=WEEKLY;BYDAY=TU",
   "occurrenceId": "SCHEDULE-0001/2026-09-01T19:00:00+09:00"
 }
@@ -63,8 +75,8 @@
 | `FREQ` | `DAILY`, `WEEKLY`, `MONTHLY`, `YEARLY` |
 | `COUNT` | 1 이상의 양의 정수. `UNTIL`과 동시에 사용할 수 없음 |
 | `UNTIL` | `allDay=true`는 `YYYYMMDD`, 시간 일정은 UTC `YYYYMMDDTHHMMSSZ` |
-| `BYDAY` | `MO`~`SU`, 쉼표로 여러 요일 지정. RFC ordinal(예: `-1SU`, `2TU`)도 지원 |
-| `BYMONTHDAY` | `1`~`31` 또는 `-1`에서 `-31` 사이, 쉼표로 여러 값 지정 |
+| `BYDAY` | `MO`~`SU`, 쉼표로 여러 요일 지정. RFC ordinal(예: `-1SU`, `2TU`)은 `MONTHLY`·`YEARLY`에서만 지원 |
+| `BYMONTHDAY` | `1`~`31`, RFC leading-plus 형식인 `+1`~`+31`, 또는 `-1`에서 `-31` 사이, 쉼표로 여러 값 지정 |
 
 `COUNT`와 `UNTIL`을 생략하면 반복은 무기한으로 간주하지만, 조회는 기존과 동일하게 최대 1개월 범위 안에서만 확장한다. 반복 계산과 occurrence ID의 시간대는 `Asia/Seoul`이다.
 

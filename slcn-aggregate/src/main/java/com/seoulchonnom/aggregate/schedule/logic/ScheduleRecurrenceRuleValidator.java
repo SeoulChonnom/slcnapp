@@ -132,7 +132,7 @@ public class ScheduleRecurrenceRuleValidator {
 			validateUntil(parts.get("UNTIL"), allDay);
 		}
 		if (parts.containsKey("BYDAY")) {
-			validateByDay(parts.get("BYDAY"));
+			validateByDay(parts.get("BYDAY"), frequency);
 		}
 		if (parts.containsKey("BYMONTHDAY")) {
 			validateByMonthDay(parts.get("BYMONTHDAY"));
@@ -173,18 +173,21 @@ public class ScheduleRecurrenceRuleValidator {
 		}
 	}
 
-	private void validateByDay(String byDay) {
+	private void validateByDay(String byDay, String frequency) {
 		Arrays.stream(byDay.split(",", -1))
-			.forEach(this::validateByDayToken);
+			.forEach(token -> validateByDayToken(token, frequency));
 	}
 
-	private void validateByDayToken(String token) {
+	private void validateByDayToken(String token, String frequency) {
 		if (!BYDAY_TOKEN_PATTERN.matcher(token).matches()) {
 			throw new InvalidScheduleRecurrenceException();
 		}
 		String ordinal = token.substring(0, Math.max(0, token.length() - 2));
 		if (ordinal.isEmpty()) {
 			return;
+		}
+		if (frequency.equals("DAILY") || frequency.equals("WEEKLY")) {
+			throw new InvalidScheduleRecurrenceException();
 		}
 		try {
 			int value = Integer.parseInt(ordinal);
