@@ -740,7 +740,7 @@ Place the rule before the default `anyRequest().hasAuthority("USER")`:
 
 ```java
 .requestMatchers(HttpMethod.GET, "/schedule/feeds/*/calendar.ics").permitAll()
-.requestMatchers("/schedule/feeds", "/schedule/feeds/*").hasAuthority("ADMIN")
+.requestMatchers("/schedule/feeds", "/schedule/feeds/*").hasAuthority(ADMIN_AUTHORITY)
 ```
 
 Do not permit `/schedule/feeds/**` for every method. The existing JWT filter already lets requests without a token continue to the authorization layer, so leave `JwtAuthenticationFilter` unchanged.
