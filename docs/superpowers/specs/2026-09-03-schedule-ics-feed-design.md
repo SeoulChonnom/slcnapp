@@ -19,7 +19,7 @@ SLCN을 일정의 원본 시스템으로 유지하면서 Apple Calendar와 Googl
 - Google/Apple 공급자별 SDK, OAuth, webhook, sync token은 사용하지 않는다.
 - 즉시 동기화는 보장하지 않는다. 수정·숨김·삭제는 외부 Calendar의 다음 피드 갱신 이후 반영된다.
 - 여러 feed token을 발급할 수 있고, token별로 독립적으로 폐기할 수 있다.
-- Calendar 이름은 각 외부 일정의 설명과 카테고리에 포함한다.
+- Calendar 이름은 각 외부 일정의 제목 prefix와 카테고리에 포함한다.
 
 ## 3. 범위 밖
 
@@ -175,26 +175,24 @@ Calendar 이름을 안정적으로 제공하기 위해 Schedule이 연결된 Cal
 | SLCN | iCalendar |
 |---|---|
 | Schedule UUID | `UID:{scheduleId}@slcn` |
-| title | `SUMMARY` |
-| body + Calendar name | `DESCRIPTION` |
+| Calendar name + title | `SUMMARY:[{calendar.name}] {schedule.title}` |
+| body | `DESCRIPTION` |
 | Calendar name | `CATEGORIES` |
 | location | `LOCATION` |
 | timed start/end | `DTSTART/DTEND;TZID=Asia/Seoul` |
 | all-day start/end | `DTSTART/DTEND;VALUE=DATE` |
 | recurrenceRule | `RRULE` |
 | entityVersion | `SEQUENCE` |
-| modifiedTime | `LAST-MODIFIED` |
+| Schedule/Calendar modifiedTime 중 최신 값 | `LAST-MODIFIED` |
 | feed 생성 시각 | `DTSTAMP` |
 
-`DESCRIPTION`은 다음 형식을 사용한다.
+`SUMMARY`는 다음 형식을 사용한다.
 
 ```text
-캘린더: {calendar.name}
-
-{schedule.body}
+[{calendar.name}] {schedule.title}
 ```
 
-body가 없으면 Calendar 줄만 출력한다.
+`DESCRIPTION`에는 Schedule body만 출력한다. Calendar 이름은 `SUMMARY`와 `CATEGORIES`에 이미 있으므로 중복하지 않는다. body가 없으면 `DESCRIPTION`을 생략한다.
 
 `UID`의 `@slcn` suffix는 설정값이나 배포 도메인 변경에 영향받지 않는 고정 제품 식별자로 취급한다.
 
@@ -215,6 +213,7 @@ body가 없으면 Calendar 줄만 출력한다.
 - JPA `entityVersion` 증가값을 ICS `SEQUENCE`로 사용한다.
 - Schedule 수정 시 `modifiedTime`을 현재 시각으로 갱신한다.
 - 변경된 title/body/location/start/end/Calendar/recurrenceRule은 다음 feed 조회에서 반영된다.
+- Calendar 이름 수정 시 Calendar의 `modifiedTime`을 갱신한다. 해당 Calendar에 속한 VEVENT의 `SUMMARY`, `CATEGORIES`, `LAST-MODIFIED`와 전체 feed ETag가 함께 변경된다.
 
 ### 8.2 숨김
 
@@ -339,7 +338,7 @@ Resource는 HTTP 책임만 가지고, token 검증과 Schedule/Calendar 조합�
 - 수정 후 동일 UID, 증가한 SEQUENCE, 갱신된 LAST-MODIFIED
 - hide/delete 후 VEVENT 제외
 - timed/all-day 및 RRULE
-- Calendar 이름이 DESCRIPTION/CATEGORIES에 포함
+- Calendar 이름이 SUMMARY prefix와 CATEGORIES에 포함되고 DESCRIPTION에는 중복되지 않음
 - 한글 UTF-8, escape, CRLF, 75-octet folding
 - 생성 결과를 iCalendar parser로 다시 읽는 round-trip
 
