@@ -6,6 +6,8 @@ dependencies {
     implementation project(':slcn-rest')
     implementation project(':slcn-auth')
 
+    testImplementation project(':slcn-aggregate')
+
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     developmentOnly 'org.springframework.boot:spring-boot-devtools'

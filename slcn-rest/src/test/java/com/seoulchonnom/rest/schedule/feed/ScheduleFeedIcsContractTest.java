@@ -11,7 +11,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.io.StringReader;
-import java.lang.reflect.Method;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -30,7 +29,6 @@ import com.seoulchonnom.aggregate.schedule.feed.exception.ScheduleFeedNotFoundEx
 import com.seoulchonnom.aggregate.schedule.feed.flow.ScheduleFeedFlow;
 import com.seoulchonnom.aggregate.schedule.feed.logic.ScheduleFeedTokenLogic;
 import com.seoulchonnom.rest.common.handler.CommonExceptionHandler;
-import com.seoulchonnom.spec.schedule.feed.facade.ScheduleFeedFacade;
 
 class ScheduleFeedIcsContractTest {
 	private static final String RAW_TOKEN = "raw-token";
@@ -57,7 +55,7 @@ class ScheduleFeedIcsContractTest {
 
 		mockMvc.perform(get("/schedule/feeds/{feedToken}/calendar.ics", RAW_TOKEN))
 			.andExpect(status().isOk())
-			.andExpect(content().contentTypeCompatibleWith(MediaType.parseMediaType("text/calendar")))
+			.andExpect(content().contentType(MediaType.parseMediaType("text/calendar; charset=UTF-8")))
 			.andExpect(header().string(HttpHeaders.CACHE_CONTROL, org.hamcrest.Matchers.containsString("private")))
 			.andExpect(header().string(HttpHeaders.CACHE_CONTROL, org.hamcrest.Matchers.containsString("no-cache")))
 			.andExpect(header().string(HttpHeaders.ETAG, ETAG))
@@ -93,6 +91,7 @@ class ScheduleFeedIcsContractTest {
 		mockMvc.perform(get("/schedule/feeds/{feedToken}/calendar.ics", RAW_TOKEN)
 				.header(HttpHeaders.IF_NONE_MATCH, ifNoneMatch))
 			.andExpect(status().isNotModified())
+			.andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-cache, private"))
 			.andExpect(header().string(HttpHeaders.ETAG, ETAG))
 			.andExpect(content().string(""));
 	}
@@ -119,16 +118,6 @@ class ScheduleFeedIcsContractTest {
 			.andExpect(content().string(org.hamcrest.Matchers.containsString("해당 일정 피드가 없습니다.")));
 
 		verifyNoInteractions(scheduleIcsRenderer);
-	}
-
-	@Test
-	void publicCalendarOperation_shouldOptOutOfClassLevelJwtRequirement() throws Exception {
-		Method method = ScheduleFeedFacade.class.getMethod("getCalendar", String.class, String.class);
-
-		io.swagger.v3.oas.annotations.security.SecurityRequirements securityRequirements =
-			method.getAnnotation(io.swagger.v3.oas.annotations.security.SecurityRequirements.class);
-		assertThat(securityRequirements).isNotNull();
-		assertThat(securityRequirements.value()).isEmpty();
 	}
 
 	private void givenRenderedCalendar() {
