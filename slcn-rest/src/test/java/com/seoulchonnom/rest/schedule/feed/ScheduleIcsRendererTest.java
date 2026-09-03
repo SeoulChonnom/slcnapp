@@ -4,9 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
+import java.util.HexFormat;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -14,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import net.fortuna.ical4j.data.CalendarBuilder;
 import net.fortuna.ical4j.model.Component;
 import net.fortuna.ical4j.model.Property;
+import net.fortuna.ical4j.model.TimeZoneUpdater;
 import net.fortuna.ical4j.model.component.VEvent;
 import net.fortuna.ical4j.model.component.VTimeZone;
 import net.fortuna.ical4j.model.property.Categories;
@@ -23,6 +26,9 @@ import com.seoulchonnom.spec.schedule.entity.Schedule;
 import com.seoulchonnom.spec.schedule.feed.entity.ScheduleFeedEvent;
 
 class ScheduleIcsRendererTest {
+	private static final String ORGANIZER_URI = "https://github.com/SeoulChonnom/slcnapp";
+	private static final String TIMEZONE_UPDATE_PROPERTY = "net.fortuna.ical4j.timezone.update.enabled";
+
 	private final ScheduleIcsRenderer renderer = new ScheduleIcsRenderer();
 
 	@Test
@@ -62,7 +68,20 @@ class ScheduleIcsRendererTest {
 		assertThat(property(event, Property.CATEGORIES)).isEqualTo("데이트");
 		assertThat(property(event, Property.LOCATION)).isEqualTo("성수동");
 		assertThat(property(event, Property.SEQUENCE)).isEqualTo("4");
+		assertThat(property(event, Property.ORGANIZER)).isEqualTo(ORGANIZER_URI);
+		assertThat(property(event, Property.DTSTAMP)).isEqualTo("20250904T153320Z");
+		assertThat(property(event, Property.LAST_MODIFIED)).isEqualTo("20250904T153320Z");
+		assertThat(calendar.validate().hasErrors()).isFalse();
 		assertThat(rendered.etag()).matches("\"[0-9a-f]{64}\"");
+		String expectedEtag = "\"" + HexFormat.of().formatHex(
+			MessageDigest.getInstance("SHA-256").digest(rendered.body().getBytes(StandardCharsets.UTF_8))) + "\"";
+		assertThat(rendered.etag()).isEqualTo(expectedEtag);
+	}
+
+	@Test
+	void renderer_shouldDisableIcal4jTimezoneUpdatesBeforeRegistryCreation() {
+		assertThat(System.getProperty(TIMEZONE_UPDATE_PROPERTY)).isEqualTo("false");
+		assertThat(new TimeZoneUpdater().isEnabled()).isFalse();
 	}
 
 	@Test
@@ -163,7 +182,7 @@ class ScheduleIcsRendererTest {
 
 	@Test
 	void render_shouldEscapeTextFoldUtf8WithoutSplittingCharactersAndUseCrLf() throws Exception {
-		String longText = "쉼표,세미콜론;역슬래시\\줄\n바꿈-" + "한글".repeat(40);
+		String longText = "쉼표,세미콜론;역슬래시\\줄\r\n바꿈-\r" + "한글".repeat(40);
 		ScheduleFeedRendererFixture fixture = fixture(
 			"SCHEDULE-0005",
 			"긴 캘린더",
@@ -193,9 +212,56 @@ class ScheduleIcsRendererTest {
 			.map(VEvent.class::cast)
 			.findFirst()
 			.orElseThrow();
-		assertThat(property(parsed, Property.SUMMARY)).isEqualTo("[긴 캘린더] " + longText);
-		assertThat(property(parsed, Property.DESCRIPTION)).isEqualTo(longText);
-		assertThat(property(parsed, Property.LOCATION)).isEqualTo(longText);
+		String normalizedText = longText.replace("\r\n", "\n").replace('\r', '\n');
+		assertThat(property(parsed, Property.SUMMARY)).isEqualTo("[긴 캘린더] " + normalizedText);
+		assertThat(property(parsed, Property.DESCRIPTION)).isEqualTo(normalizedText);
+		assertThat(property(parsed, Property.LOCATION)).isEqualTo(normalizedText);
+	}
+
+	@Test
+	void render_shouldNormalizeLoneCarriageReturnsInEveryTextProperty() throws Exception {
+		String calendarName = "캘린더\r\n이름\r끝";
+		String title = "제목\r\n다음\r끝";
+		String body = "본문\r\n다음\r끝";
+		String location = "장소\r\n다음\r끝";
+		ScheduleIcsRenderer.RenderedCalendar rendered = renderer.render(List.of(fixture(
+			"SCHEDULE-0009",
+			calendarName,
+			title,
+			body,
+			false,
+			LocalDateTime.of(2026, 9, 3, 9, 0),
+			LocalDateTime.of(2026, 9, 3, 10, 0),
+			location,
+			null,
+			0,
+			1_757_000_000_000L,
+			1_757_000_000_000L).event()));
+
+		assertThat(rendered.body().replace("\r\n", "")).doesNotContain("\r");
+		VEvent parsed = parse(rendered.body()).getComponents(Component.VEVENT).stream()
+			.map(VEvent.class::cast)
+			.findFirst()
+			.orElseThrow();
+		String normalizedCalendarName = "캘린더\n이름\n끝";
+		assertThat(property(parsed, Property.SUMMARY)).isEqualTo("[" + normalizedCalendarName + "] 제목\n다음\n끝");
+		assertThat(property(parsed, Property.DESCRIPTION)).isEqualTo("본문\n다음\n끝");
+		assertThat(property(parsed, Property.LOCATION)).isEqualTo("장소\n다음\n끝");
+		Categories categories = parsed.getPropertyList().<Categories>getProperty(Property.CATEGORIES).orElseThrow();
+		assertThat(categories.getCategories().getTexts()).containsExactly(normalizedCalendarName);
+	}
+
+	@Test
+	void render_shouldReturnValidEmptyCalendarWithStableEtag() throws Exception {
+		ScheduleIcsRenderer.RenderedCalendar rendered = renderer.render(List.of());
+		net.fortuna.ical4j.model.Calendar calendar = parse(rendered.body());
+
+		assertThat(calendar.getComponents(Component.VEVENT)).isEmpty();
+		assertThat(calendar.getComponents(Component.VTIMEZONE)).hasSize(1);
+		assertThat(calendar.validate().hasErrors()).isFalse();
+		String expectedEtag = "\"" + HexFormat.of().formatHex(
+			MessageDigest.getInstance("SHA-256").digest(rendered.body().getBytes(StandardCharsets.UTF_8))) + "\"";
+		assertThat(rendered.etag()).isEqualTo(expectedEtag);
 	}
 
 	@Test

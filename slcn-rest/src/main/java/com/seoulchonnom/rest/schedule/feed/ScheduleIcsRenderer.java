@@ -4,6 +4,7 @@ import static com.seoulchonnom.spec.schedule.constant.ScheduleConstant.SCHEDULE_
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -33,6 +34,7 @@ import net.fortuna.ical4j.model.property.DtStart;
 import net.fortuna.ical4j.model.property.LastModified;
 import net.fortuna.ical4j.model.property.Location;
 import net.fortuna.ical4j.model.property.Method;
+import net.fortuna.ical4j.model.property.Organizer;
 import net.fortuna.ical4j.model.property.ProdId;
 import net.fortuna.ical4j.model.property.RRule;
 import net.fortuna.ical4j.model.property.Sequence;
@@ -46,10 +48,17 @@ import com.seoulchonnom.spec.schedule.feed.entity.ScheduleFeedEvent;
 @Component
 public class ScheduleIcsRenderer {
 	private static final String PROD_ID = "-//SLCN//Schedule Feed//KO";
+	private static final URI ORGANIZER_URI = URI.create("https://github.com/SeoulChonnom/slcnapp");
+	private static final String TIMEZONE_UPDATE_PROPERTY = "net.fortuna.ical4j.timezone.update.enabled";
 	private static final int RFC5545_FOLD_LENGTH = 75;
+
+	static {
+		disableTimeZoneUpdates();
+	}
 
 	public RenderedCalendar render(List<ScheduleFeedEvent> events) {
 		Objects.requireNonNull(events, "events");
+		disableTimeZoneUpdates();
 		TimeZoneRegistry timeZoneRegistry = TimeZoneRegistryFactory.getInstance().createRegistry();
 		net.fortuna.ical4j.model.TimeZone seoulTimeZone = timeZoneRegistry.getTimeZone(SCHEDULE_ZONE_ID.getId());
 		if (seoulTimeZone == null) {
@@ -88,6 +97,7 @@ public class ScheduleIcsRenderer {
 
 		VEvent event = new VEvent(false);
 		event.add(new Uid(uid));
+		event.add(new Organizer(ORGANIZER_URI));
 		event.add(new DtStamp(modifiedInstant));
 		event.add(new LastModified(modifiedInstant));
 		event.add(new Sequence(Math.toIntExact(schedule.getEntityVersion())));
@@ -96,13 +106,14 @@ public class ScheduleIcsRenderer {
 		} else {
 			addTimedDates(event, schedule, timeZoneRegistry);
 		}
-		event.add(new Summary("[" + feedEvent.calendar().getName() + "] " + schedule.getTitle()));
+		String calendarName = normalizeText(feedEvent.calendar().getName());
+		event.add(new Summary("[" + calendarName + "] " + normalizeText(schedule.getTitle())));
 		if (hasText(schedule.getBody())) {
-			event.add(new Description(schedule.getBody()));
+			event.add(new Description(normalizeText(schedule.getBody())));
 		}
-		event.add(new Categories(new TextList(List.of(feedEvent.calendar().getName()))));
+		event.add(new Categories(new TextList(List.of(calendarName))));
 		if (hasText(schedule.getLocation())) {
-			event.add(new Location(schedule.getLocation()));
+			event.add(new Location(normalizeText(schedule.getLocation())));
 		}
 		if (hasText(schedule.getRecurrenceRule())) {
 			event.add(new RawRRuleProperty(schedule.getRecurrenceRule()));
@@ -207,6 +218,14 @@ public class ScheduleIcsRenderer {
 
 	private boolean hasText(String value) {
 		return value != null && !value.isBlank();
+	}
+
+	private String normalizeText(String value) {
+		return value == null ? null : value.replace("\r\n", "\n").replace('\r', '\n');
+	}
+
+	private static void disableTimeZoneUpdates() {
+		System.setProperty(TIMEZONE_UPDATE_PROPERTY, "false");
 	}
 
 	public record RenderedCalendar(String body, String etag) {
