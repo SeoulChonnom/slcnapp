@@ -4,6 +4,7 @@ import static com.seoulchonnom.spec.calendar.constant.CalendarConstant.*;
 import static com.seoulchonnom.spec.client.constant.ClientConstant.*;
 import static com.seoulchonnom.spec.file.constant.FileConstant.*;
 import static com.seoulchonnom.spec.schedule.constant.ScheduleConstant.*;
+import static com.seoulchonnom.spec.schedule.feed.constant.ScheduleFeedConstant.*;
 import static com.seoulchonnom.spec.travel.constant.TravelConstant.*;
 import static com.seoulchonnom.spec.trip.constant.TripConstant.*;
 import static com.seoulchonnom.spec.user.constant.UserConstant.*;
@@ -34,6 +35,7 @@ public enum ErrorCode {
 	INVALID_SCHEDULE_DATE(HttpStatus.BAD_REQUEST, INVALID_DATE_ERROR_MESSAGE),
 	INVALID_SCHEDULE_RECURRENCE(HttpStatus.BAD_REQUEST, INVALID_RECURRENCE_RULE_ERROR_MESSAGE),
 	SCHEDULE_NOT_FOUND(HttpStatus.BAD_REQUEST, SCHEDULE_NOT_FOND_ERROR_MESSAGE),
+	SCHEDULE_FEED_NOT_FOUND(HttpStatus.NOT_FOUND, SCHEDULE_FEED_NOT_FOUND_ERROR_MESSAGE),
 	CALENDAR_NOT_FOUND(HttpStatus.BAD_REQUEST, CALENDAR_NOT_FOUND_ERROR_MESSAGE),
 	TRIP_NOT_FOUND(HttpStatus.BAD_REQUEST, TRIP_NOT_FOUND_ERROR_MESSAGE),
 	TRAVEL_NOT_FOUND(HttpStatus.BAD_REQUEST, TRAVEL_NOT_FOUND_ERROR_MESSAGE),
