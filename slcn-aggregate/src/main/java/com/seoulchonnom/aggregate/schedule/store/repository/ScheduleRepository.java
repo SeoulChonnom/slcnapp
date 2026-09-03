@@ -12,4 +12,11 @@ public interface ScheduleRepository extends JpaRepository<ScheduleJpo, String> {
 	Optional<ScheduleJpo> findById(String id);
 
 	List<ScheduleJpo> findAllByStartBeforeAndEndAfterAndHiddenFalse(LocalDateTime rangeEnd, LocalDateTime rangeStart);
+
+	List<ScheduleJpo> findAllByStartBeforeAndEndAfterAndHiddenFalseAndRecurrenceRuleIsNull(
+		LocalDateTime rangeEnd,
+		LocalDateTime rangeStart
+	);
+
+	List<ScheduleJpo> findAllByStartBeforeAndHiddenFalseAndRecurrenceRuleIsNotNull(LocalDateTime rangeEnd);
 }
