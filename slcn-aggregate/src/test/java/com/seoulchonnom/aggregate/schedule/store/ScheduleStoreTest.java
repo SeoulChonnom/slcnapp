@@ -67,6 +67,43 @@ class ScheduleStoreTest {
 		verifyNoMoreInteractions(repository, scheduleJpoMapper);
 	}
 
+	@Test
+	void findAllNonHiddenForFeed_shouldMapRepositoryOrderedFullDataset() {
+		ScheduleJpo oldOneTime = scheduleJpo(
+			"schedule-001",
+			LocalDateTime.of(2025, 1, 1, 9, 0),
+			LocalDateTime.of(2025, 1, 1, 10, 0),
+			null);
+		ScheduleJpo recurrenceMaster = scheduleJpo(
+			"schedule-002",
+			LocalDateTime.of(2026, 9, 1, 9, 0),
+			LocalDateTime.of(2026, 9, 1, 10, 0),
+			"FREQ=WEEKLY;BYDAY=TU");
+		Schedule oldOneTimeDomain = schedule(oldOneTime.getId());
+		Schedule recurrenceMasterDomain = schedule(recurrenceMaster.getId());
+		when(repository.findAllByHiddenFalseOrderByStartAscIdAsc()).thenReturn(List.of(oldOneTime, recurrenceMaster));
+		when(scheduleJpoMapper.toDomain(oldOneTime)).thenReturn(oldOneTimeDomain);
+		when(scheduleJpoMapper.toDomain(recurrenceMaster)).thenReturn(recurrenceMasterDomain);
+
+		List<Schedule> result = scheduleStore.findAllNonHiddenForFeed();
+
+		assertThat(result).containsExactly(oldOneTimeDomain, recurrenceMasterDomain);
+		verify(repository).findAllByHiddenFalseOrderByStartAscIdAsc();
+		verify(scheduleJpoMapper).toDomain(oldOneTime);
+		verify(scheduleJpoMapper).toDomain(recurrenceMaster);
+		verifyNoMoreInteractions(repository, scheduleJpoMapper);
+	}
+
+	@Test
+	void existsByCalendarId_shouldDelegateToRepository() {
+		when(repository.existsByCalendarId("calendar-001")).thenReturn(true);
+
+		assertThat(scheduleStore.existsByCalendarId("calendar-001")).isTrue();
+
+		verify(repository).existsByCalendarId("calendar-001");
+		verifyNoMoreInteractions(repository, scheduleJpoMapper);
+	}
+
 	private ScheduleJpo scheduleJpo(String id, LocalDateTime start, LocalDateTime end, String recurrenceRule) {
 		ScheduleJpo scheduleJpo = new ScheduleJpo();
 		scheduleJpo.setId(id);

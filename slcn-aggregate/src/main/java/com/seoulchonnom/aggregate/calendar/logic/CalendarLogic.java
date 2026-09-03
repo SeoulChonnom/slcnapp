@@ -8,9 +8,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import com.seoulchonnom.aggregate.calendar.exception.CalendarScheduleConflictException;
 import com.seoulchonnom.aggregate.calendar.store.CalendarStore;
 import com.seoulchonnom.aggregate.common.exception.BadRequestException;
 import com.seoulchonnom.aggregate.common.generator.store.entity.SequenceName;
+import com.seoulchonnom.aggregate.schedule.store.ScheduleStore;
 import com.seoulchonnom.spec.calendar.entity.Calendar;
 import com.seoulchonnom.spec.calendar.facade.sdo.CalendarCdo;
 import com.seoulchonnom.spec.calendar.facade.sdo.CalendarRdo;
@@ -25,6 +27,7 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class CalendarLogic {
 	private final CalendarStore calendarStore;
+	private final ScheduleStore scheduleStore;
 	private final IdGenerator idGenerator;
 	private final CalendarMapper calendarMapper;
 
@@ -56,6 +59,7 @@ public class CalendarLogic {
 
 		Calendar calendar = calendarStore.findById(calendarUdo.getId());
 		calendarMapper.updateCalendar(calendarUdo, calendar);
+		calendar.touchModifiedTime();
 		calendarStore.save(calendar);
 		return calendarMapper.toCalendarRdo(calendar);
 	}
@@ -70,6 +74,9 @@ public class CalendarLogic {
 	@Transactional
 	public void deleteCalendar(String calendarId) {
 		Calendar calendar = calendarStore.findById(calendarId);
+		if (scheduleStore.existsByCalendarId(calendarId)) {
+			throw new CalendarScheduleConflictException();
+		}
 		calendarStore.delete(calendar);
 	}
 

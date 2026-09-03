@@ -1,6 +1,9 @@
 package com.seoulchonnom.aggregate.calendar.store;
 
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +41,14 @@ public class CalendarStore {
 			.stream()
 			.map(calendarJpoMapper::toDomain)
 			.toList();
+	}
+
+	public Map<String, Calendar> findAllByIds(Collection<String> ids) {
+		Map<String, Calendar> calendars = new LinkedHashMap<>();
+		calendarRepository.findAllByIdIn(ids).stream()
+			.map(calendarJpoMapper::toDomain)
+			.forEach(calendar -> calendars.put(calendar.getId(), calendar));
+		return calendars;
 	}
 
 	public boolean existsVisibleById(String id) {

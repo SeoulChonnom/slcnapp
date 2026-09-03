@@ -49,4 +49,14 @@ public class ScheduleStore {
 			.toList();
 	}
 
+	public List<Schedule> findAllNonHiddenForFeed() {
+		return scheduleRepository.findAllByHiddenFalseOrderByStartAscIdAsc().stream()
+			.map(scheduleJpoMapper::toDomain)
+			.toList();
+	}
+
+	public boolean existsByCalendarId(String calendarId) {
+		return scheduleRepository.existsByCalendarId(calendarId);
+	}
+
 }

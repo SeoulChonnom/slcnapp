@@ -19,4 +19,8 @@ public interface ScheduleRepository extends JpaRepository<ScheduleJpo, String> {
 	);
 
 	List<ScheduleJpo> findAllByStartBeforeAndHiddenFalseAndRecurrenceRuleIsNotNull(LocalDateTime rangeEnd);
+
+	List<ScheduleJpo> findAllByHiddenFalseOrderByStartAscIdAsc();
+
+	boolean existsByCalendarId(String calendarId);
 }

@@ -1,5 +1,6 @@
 package com.seoulchonnom.aggregate.calendar.store.repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -11,6 +12,8 @@ public interface CalendarRepository extends JpaRepository<CalendarJpo, String> {
 	Optional<CalendarJpo> findById(String id);
 
 	List<CalendarJpo> findAllByVisibleTrueOrderBySortOrderAscRegisteredTimeAsc();
+
+	List<CalendarJpo> findAllByIdIn(Collection<String> ids);
 
 	boolean existsByIdAndVisibleTrue(String id);
 }
