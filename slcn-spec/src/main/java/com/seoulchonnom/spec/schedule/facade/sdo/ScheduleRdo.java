@@ -16,4 +16,6 @@ public class ScheduleRdo {
 	private String end;
 	private boolean allDay;
 	private String location;
+	private String recurrenceRule;
+	private String occurrenceId;
 }

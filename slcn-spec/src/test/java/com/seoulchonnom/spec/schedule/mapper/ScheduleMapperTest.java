@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
 
 import com.seoulchonnom.spec.schedule.entity.Schedule;
+import com.seoulchonnom.spec.schedule.facade.sdo.ScheduleCdo;
 import com.seoulchonnom.spec.schedule.facade.sdo.ScheduleRdo;
 
 class ScheduleMapperTest {
@@ -23,6 +24,7 @@ class ScheduleMapperTest {
 			.start(LocalDateTime.of(2026, 3, 31, 10, 0, 0))
 			.end(LocalDateTime.of(2026, 3, 31, 11, 0, 0))
 			.location("Seoul")
+			.recurrenceRule("FREQ=DAILY;COUNT=3")
 			.build();
 		schedule.setId("schedule-1");
 
@@ -33,6 +35,36 @@ class ScheduleMapperTest {
 		assertThat(scheduleRdo.getEnd()).isEqualTo("2026-03-31T11:00:00+09:00");
 		assertThat(scheduleRdo.isAllDay()).isFalse();
 		assertThat(scheduleRdo.getLocation()).isEqualTo("Seoul");
+		assertThat(scheduleRdo.getRecurrenceRule()).isEqualTo("FREQ=DAILY;COUNT=3");
+		assertThat(scheduleRdo.getOccurrenceId()).isNull();
+	}
+
+	@Test
+	void toSchedule_shouldPreserveRecurrenceRuleFromCdo() {
+		ScheduleCdo scheduleCdo = new ScheduleCdo();
+		scheduleCdo.setCalendarId("calendar-1");
+		scheduleCdo.setTitle("Meeting");
+		scheduleCdo.setStart("2026-03-31T10:00:00+09:00");
+		scheduleCdo.setEnd("2026-03-31T11:00:00+09:00");
+		scheduleCdo.setRecurrenceRule("FREQ=DAILY;COUNT=3");
+
+		Schedule schedule = scheduleMapper.toSchedule(scheduleCdo);
+
+		assertThat(schedule.getRecurrenceRule()).isEqualTo("FREQ=DAILY;COUNT=3");
+	}
+
+	@Test
+	void toScheduleRdo_shouldLeaveRecurrenceFieldsNullForNonRecurringSchedule() {
+		Schedule schedule = Schedule.builder()
+			.title("One-time")
+			.start(LocalDateTime.of(2026, 4, 1, 10, 0, 0))
+			.end(LocalDateTime.of(2026, 4, 1, 11, 0, 0))
+			.build();
+
+		ScheduleRdo scheduleRdo = scheduleMapper.toScheduleRdo(schedule);
+
+		assertThat(scheduleRdo.getRecurrenceRule()).isNull();
+		assertThat(scheduleRdo.getOccurrenceId()).isNull();
 	}
 
 	@Test

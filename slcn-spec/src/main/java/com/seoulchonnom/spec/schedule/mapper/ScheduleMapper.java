@@ -19,6 +19,7 @@ import com.seoulchonnom.spec.schedule.facade.sdo.ScheduleUdo;
 public interface ScheduleMapper {
 	@Mapping(target = "start", expression = "java(formatDateTime(schedule.getStart(), schedule.isAllDay()))")
 	@Mapping(target = "end", expression = "java(formatDateTime(schedule.getEnd(), schedule.isAllDay()))")
+	@Mapping(target = "occurrenceId", ignore = true)
 	ScheduleRdo toScheduleRdo(Schedule schedule);
 
 	@Mapping(target = "id", ignore = true)

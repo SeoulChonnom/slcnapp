@@ -36,5 +36,8 @@ public class ScheduleJpo extends DomainEntityJpo {
 
 	private String location;
 
+	@Column(name = "recurrence_rule", columnDefinition = "text")
+	private String recurrenceRule;
+
 	private boolean hidden;
 }

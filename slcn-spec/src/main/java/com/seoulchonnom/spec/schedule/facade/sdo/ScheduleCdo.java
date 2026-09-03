@@ -25,4 +25,6 @@ public class ScheduleCdo {
 	private boolean allDay;
 	@Schema(description = "장소", example = "location")
 	private String location;
+	@Schema(description = "반복 규칙", example = "FREQ=DAILY;COUNT=3")
+	private String recurrenceRule;
 }

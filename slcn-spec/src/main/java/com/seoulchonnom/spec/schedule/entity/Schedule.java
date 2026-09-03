@@ -30,6 +30,8 @@ public class Schedule extends DomainEntity {
 
 	private String location;
 
+	private String recurrenceRule;
+
 	private boolean hidden;
 
 	public void hideSchedule() {
