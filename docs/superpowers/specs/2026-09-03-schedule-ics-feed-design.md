@@ -184,7 +184,7 @@ Calendar 이름을 안정적으로 제공하기 위해 Schedule이 연결된 Cal
 | recurrenceRule | `RRULE` |
 | entityVersion | `SEQUENCE` |
 | Schedule/Calendar modifiedTime 중 최신 값 | `LAST-MODIFIED` |
-| feed 생성 시각 | `DTSTAMP` |
+| Schedule/Calendar modifiedTime 중 최신 값 | `DTSTAMP` |
 
 `SUMMARY`는 다음 형식을 사용한다.
 
@@ -202,8 +202,9 @@ Calendar 이름을 안정적으로 제공하기 위해 Schedule이 연결된 Cal
 - text의 역슬래시, 쉼표, 세미콜론, 줄바꿈을 escape한다.
 - content line은 UTF-8 기준 75 octet 규칙으로 folding한다.
 - Calendar/Schedule 정렬을 고정해 같은 데이터는 같은 canonical body와 ETag를 만든다.
+- 요청 시각을 ICS 본문에 넣지 않는다. `DTSTAMP`도 이벤트의 최신 수정 시각에서 계산해 데이터가 바뀌지 않으면 canonical body와 ETag가 유지되게 한다.
 - 종일 `DTEND`는 exclusive 날짜를 유지한다.
-- VCALENDAR에는 `VERSION:2.0`, 고정 `PRODID`, `CALSCALE:GREGORIAN`, `METHOD:PUBLISH`를 포함한다.
+- VCALENDAR에는 `VERSION:2.0`, 고정 `PRODID`, `CALSCALE:GREGORIAN`, `METHOD:PUBLISH`와 `Asia/Seoul` VTIMEZONE을 포함한다.
 
 ## 8. 수정·숨김·삭제 동작
 
@@ -303,7 +304,7 @@ Resource는 HTTP 책임만 가지고, token 검증과 Schedule/Calendar 조합�
 - 잘못된 feed token: `404`
 - feed 관리 ID 없음: `404`
 - 잘못된 RRULE: 기존 BusinessException 규칙에 맞춘 `400`
-- 연결된 Schedule이 있는 Calendar 삭제: 기존 BusinessException 처리 규칙에 맞춘 `400`
+- 연결된 Schedule이 있는 Calendar 삭제: `CalendarScheduleConflictException`과 `ErrorCode.CALENDAR_SCHEDULE_CONFLICT`를 통한 `409`
 - 유효한 token이지만 일정 없음: `200` + 빈 VCALENDAR
 - ICS 생성 중 예상하지 못한 오류: `500`, token과 Schedule 본문은 로그에 출력하지 않음
 
