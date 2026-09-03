@@ -3,6 +3,7 @@ package com.seoulchonnom.aggregate.file.logic;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -13,6 +14,8 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.seoulchonnom.aggregate.common.exception.BadRequestException;
+import com.seoulchonnom.aggregate.file.exception.FileUploadException;
+import com.seoulchonnom.aggregate.file.storage.ObjectStorage;
 import com.seoulchonnom.aggregate.file.store.FileAssetStore;
 import com.seoulchonnom.aggregate.file.util.FileUtils;
 import com.seoulchonnom.spec.file.entity.FileAsset;
@@ -23,7 +26,8 @@ import com.seoulchonnom.spec.file.entity.vo.ImageVariant;
 class FileLogicTest {
 	private final FileUtils fileUtils = mock(FileUtils.class);
 	private final FileAssetStore fileAssetStore = mock(FileAssetStore.class);
-	private final FileLogic fileLogic = new FileLogic(fileUtils, fileAssetStore);
+	private final ObjectStorage objectStorage = mock(ObjectStorage.class);
+	private final FileLogic fileLogic = new FileLogic(fileUtils, fileAssetStore, objectStorage);
 
 	@TempDir
 	Path tempDir;
@@ -32,8 +36,12 @@ class FileLogicTest {
 	void uploadFiles_shouldSaveAssetsAndReturnStoredMetadata() throws Exception {
 		MockMultipartFile file = new MockMultipartFile("files", "travel.png", "image/png", new byte[] {1});
 		FileAsset fileAsset = new FileAsset(FileType.TRAVEL, "travel.png", "stored.png", "image/png", 1L);
-		when(fileUtils.saveImageAsset(file, "travel")).thenReturn(fileAsset);
-		when(fileUtils.writeVariants(fileAsset)).thenReturn(new FileUtils.ImageProfile(1600, 900,
+		Path staging = tempDir.resolve("staging");
+		Files.createDirectories(staging);
+		Path original = Files.write(staging.resolve("stored.png"), new byte[] {1});
+		when(fileUtils.stageUpload(file, "travel"))
+			.thenReturn(new FileUtils.StagedUpload(fileAsset, staging, original));
+		when(fileUtils.writeVariants(fileAsset, original)).thenReturn(new FileUtils.ImageProfile(1600, 900,
 			List.of(new FileVariant("home-thumb", "stored_home-thumb.webp", "image/webp"))));
 		when(fileAssetStore.save(fileAsset)).thenReturn(fileAsset);
 
@@ -44,6 +52,64 @@ class FileLogicTest {
 		assertThat(fileAsset.getHeight()).isEqualTo(900);
 		assertThat(fileAsset.variantNames()).containsExactly("home-thumb");
 		verify(fileAssetStore).save(fileAsset);
+	}
+
+	@Test
+	void uploadFiles_shouldPutOriginalAndVariantsUnderTheirOwnPrefixes() throws Exception {
+		MockMultipartFile file = new MockMultipartFile("files", "travel.png", "image/png", new byte[] {1});
+		FileAsset fileAsset = new FileAsset(FileType.TRAVEL, "travel.png", "stored.png", "image/png", 1L);
+		Path staging = tempDir.resolve("staging");
+		Files.createDirectories(staging);
+		Path original = Files.write(staging.resolve("stored.png"), new byte[] {1});
+		Path variant = Files.write(staging.resolve("stored_home-thumb.webp"), new byte[] {2});
+		when(fileUtils.stageUpload(file, "travel"))
+			.thenReturn(new FileUtils.StagedUpload(fileAsset, staging, original));
+		when(fileUtils.writeVariants(fileAsset, original)).thenReturn(new FileUtils.ImageProfile(1600, 900,
+			List.of(new FileVariant("home-thumb", "stored_home-thumb.webp", "image/webp"))));
+		when(fileAssetStore.save(fileAsset)).thenReturn(fileAsset);
+
+		fileLogic.uploadFiles(List.of(file), "travel");
+
+		verify(objectStorage).put("originals/travel/stored.png", original, "image/png");
+		verify(objectStorage).put("derived/travel/stored_home-thumb.webp", variant, "image/webp");
+	}
+
+	@Test
+	void uploadFiles_shouldNotSaveMetadataWhenTheObjectUploadFails() throws Exception {
+		MockMultipartFile file = new MockMultipartFile("files", "travel.png", "image/png", new byte[] {1});
+		FileAsset fileAsset = new FileAsset(FileType.TRAVEL, "travel.png", "stored.png", "image/png", 1L);
+		Path staging = tempDir.resolve("staging");
+		Files.createDirectories(staging);
+		Path original = Files.write(staging.resolve("stored.png"), new byte[] {1});
+		when(fileUtils.stageUpload(file, "travel"))
+			.thenReturn(new FileUtils.StagedUpload(fileAsset, staging, original));
+		when(fileUtils.writeVariants(fileAsset, original))
+			.thenReturn(new FileUtils.ImageProfile(1600, 900, List.of()));
+		doThrow(new IOException("boom")).when(objectStorage)
+			.put("originals/travel/stored.png", original, "image/png");
+
+		assertThatThrownBy(() -> fileLogic.uploadFiles(List.of(file), "travel"))
+			.isInstanceOf(FileUploadException.class);
+		verify(fileAssetStore, never()).save(any());
+	}
+
+	@Test
+	void uploadFiles_shouldAlwaysCleanTheStagingDirectory() throws Exception {
+		MockMultipartFile file = new MockMultipartFile("files", "travel.png", "image/png", new byte[] {1});
+		FileAsset fileAsset = new FileAsset(FileType.TRAVEL, "travel.png", "stored.png", "image/png", 1L);
+		Path staging = tempDir.resolve("staging");
+		Files.createDirectories(staging);
+		Path original = Files.write(staging.resolve("stored.png"), new byte[] {1});
+		when(fileUtils.stageUpload(file, "travel"))
+			.thenReturn(new FileUtils.StagedUpload(fileAsset, staging, original));
+		when(fileUtils.writeVariants(fileAsset, original))
+			.thenReturn(new FileUtils.ImageProfile(1600, 900, List.of()));
+		doThrow(new IOException("boom")).when(objectStorage)
+			.put("originals/travel/stored.png", original, "image/png");
+
+		assertThatThrownBy(() -> fileLogic.uploadFiles(List.of(file), "travel"))
+			.isInstanceOf(FileUploadException.class);
+		verify(fileUtils).deleteStaging(staging);
 	}
 
 	@Test

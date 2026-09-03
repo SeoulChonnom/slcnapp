@@ -18,6 +18,8 @@ import org.springframework.web.multipart.MultipartFile;
 import com.seoulchonnom.aggregate.common.exception.BadRequestException;
 import com.seoulchonnom.aggregate.file.exception.FilePathInvalidException;
 import com.seoulchonnom.aggregate.file.exception.FileUploadException;
+import com.seoulchonnom.aggregate.file.storage.ObjectKeys;
+import com.seoulchonnom.aggregate.file.storage.ObjectStorage;
 import com.seoulchonnom.aggregate.file.store.FileAssetStore;
 import com.seoulchonnom.aggregate.file.util.FileUtils;
 import com.seoulchonnom.spec.file.entity.FileAsset;
@@ -34,6 +36,7 @@ import lombok.extern.slf4j.Slf4j;
 public class FileLogic {
 	private final FileUtils fileUtils;
 	private final FileAssetStore fileAssetStore;
+	private final ObjectStorage objectStorage;
 
 	@Value("${slcn.upload.path}")
 	private String directory;
@@ -51,16 +54,35 @@ public class FileLogic {
 			.toList();
 	}
 
+	/**
+	 * 원본을 임시 디렉터리에 받아 파생본을 만든 뒤, 오브젝트 업로드가 모두 끝난 다음에 메타데이터를 저장한다.
+	 * 순서를 뒤집으면 객체가 없는 메타데이터가 생겨 조회가 깨진다. 반대 방향의 고아 객체는 조회에 영향을 주지 않는다.
+	 */
 	public FileAsset uploadFileAsset(MultipartFile file, String type) {
+		FileUtils.StagedUpload staged = null;
 		try {
-			FileAsset fileAsset = fileUtils.saveImageAsset(file, type);
-			FileUtils.ImageProfile profile = fileUtils.writeVariants(fileAsset);
+			staged = fileUtils.stageUpload(file, type);
+			FileAsset fileAsset = staged.fileAsset();
+			String assetType = fileAsset.getType().getValue();
+			FileUtils.ImageProfile profile = fileUtils.writeVariants(fileAsset, staged.originalPath());
+
+			objectStorage.put(ObjectKeys.original(assetType, fileAsset.getStoredFilename()),
+				staged.originalPath(), fileAsset.getMimeType());
+			for (FileVariant variant : profile.variants()) {
+				objectStorage.put(ObjectKeys.derived(assetType, variant.getFilename()),
+					staged.stagingDirectory().resolve(variant.getFilename()), variant.getMimeType());
+			}
+
 			fileAsset.setWidth(profile.width());
 			fileAsset.setHeight(profile.height());
 			fileAsset.setVariants(new ArrayList<>(profile.variants()));
 			return fileAssetStore.save(fileAsset);
 		} catch (IOException e) {
 			throw new FileUploadException();
+		} finally {
+			if (staged != null) {
+				fileUtils.deleteStaging(staged.stagingDirectory());
+			}
 		}
 	}
 

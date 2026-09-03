@@ -28,7 +28,6 @@ import com.seoulchonnom.aggregate.file.exception.FileExtException;
 import com.seoulchonnom.aggregate.file.exception.FilePathInvalidException;
 import com.seoulchonnom.spec.file.entity.FileAsset;
 import com.seoulchonnom.spec.file.entity.vo.FileVariant;
-import com.seoulchonnom.spec.file.entity.vo.FileReference;
 import com.seoulchonnom.spec.file.entity.vo.FileType;
 
 class FileUtilsTest {
@@ -48,58 +47,65 @@ class FileUtilsTest {
 	}
 
 	@Test
-	void saveImages_shouldAcceptUppercaseImageExtensionWhenContentIsValid() throws Exception {
-		MockMultipartFile file = new MockMultipartFile("file", "image.PNG", "image/png", PNG_BYTES);
-
-		FileReference fileReference = fileUtils.saveImages(file, "logo");
-
-		assertThat(fileReference.getType()).isEqualTo(FileType.LOGO);
-		assertThat(fileReference.getFilename()).endsWith(".png");
-	}
-
-	@Test
-	void saveImageAsset_shouldCreateTravelDirectoryAndReturnFileAsset() throws Exception {
+	void stageUpload_shouldWriteTheOriginalToATemporaryDirectory() throws Exception {
 		MockMultipartFile file = new MockMultipartFile("file", "travel.PNG", "image/png", PNG_BYTES);
 
-		var fileAsset = fileUtils.saveImageAsset(file, "travel");
+		var staged = fileUtils.stageUpload(file, "travel");
 
-		assertThat(fileAsset.getType()).isEqualTo(FileType.TRAVEL);
-		assertThat(fileAsset.getOriginalFilename()).isEqualTo("travel.PNG");
-		assertThat(fileAsset.getStoredFilename()).endsWith(".png");
-		assertThat(fileAsset.getPath()).isEqualTo("travel/" + fileAsset.getStoredFilename());
-		assertThat(Files.exists(tempDir.resolve(fileAsset.getPath()))).isTrue();
+		assertThat(staged.fileAsset().getType()).isEqualTo(FileType.TRAVEL);
+		assertThat(staged.fileAsset().getOriginalFilename()).isEqualTo("travel.PNG");
+		assertThat(staged.fileAsset().getStoredFilename()).endsWith(".png");
+		assertThat(staged.fileAsset().getPath())
+			.isEqualTo("travel/" + staged.fileAsset().getStoredFilename());
+		assertThat(staged.originalPath()).exists();
+		assertThat(staged.originalPath().getFileName().toString())
+			.isEqualTo(staged.fileAsset().getStoredFilename());
+		assertThat(staged.originalPath().getParent()).isEqualTo(staged.stagingDirectory());
+
+		fileUtils.deleteStaging(staged.stagingDirectory());
 	}
 
 	@Test
-	void saveImages_shouldRejectFileWhenContentTypeIsNotImage() {
+	void deleteStaging_shouldRemoveTheDirectoryAndItsContents() throws Exception {
+		MockMultipartFile file = new MockMultipartFile("file", "travel.png", "image/png", PNG_BYTES);
+		var staged = fileUtils.stageUpload(file, "travel");
+
+		fileUtils.deleteStaging(staged.stagingDirectory());
+
+		assertThat(staged.stagingDirectory()).doesNotExist();
+	}
+
+	@Test
+	void stageUpload_shouldRejectFileWhenContentTypeIsNotImage() {
 		MockMultipartFile file = new MockMultipartFile("file", "image.png", "text/plain", PNG_BYTES);
 
-		assertThatThrownBy(() -> fileUtils.saveImages(file, "logo"))
+		assertThatThrownBy(() -> fileUtils.stageUpload(file, "logo"))
 			.isInstanceOf(FileExtException.class);
 	}
 
 	@Test
-	void saveImages_shouldRejectFileWhenBytesAreNotImage() {
+	void stageUpload_shouldRejectFileWhenBytesAreNotImage() {
 		MockMultipartFile file = new MockMultipartFile("file", "image.png", "image/png", "not-image".getBytes());
 
-		assertThatThrownBy(() -> fileUtils.saveImages(file, "logo"))
+		assertThatThrownBy(() -> fileUtils.stageUpload(file, "logo"))
 			.isInstanceOf(FileExtException.class);
 	}
 
 	@Test
 	void writeVariants_shouldGenerateSmallerVariantsAndReportOriginalDimensions() throws Exception {
 		MockMultipartFile file = new MockMultipartFile("file", "cover.png", "image/png", pngBytes(1600, 900));
-		var fileAsset = fileUtils.saveImageAsset(file, "travel");
+		var staged = fileUtils.stageUpload(file, "travel");
+		var fileAsset = staged.fileAsset();
 
-		var profile = fileUtils.writeVariants(fileAsset);
+		var profile = fileUtils.writeVariants(fileAsset, staged.originalPath());
 
 		assertThat(profile.width()).isEqualTo(1600);
 		assertThat(profile.height()).isEqualTo(900);
 		assertThat(profile.variants()).extracting(FileVariant::getVariant)
 			.containsExactly("home-feature", "home-thumb");
 
-		Path feature = variantPath(profile, "home-feature");
-		Path thumb = variantPath(profile, "home-thumb");
+		Path feature = variantPath(profile, "home-feature", staged.stagingDirectory());
+		Path thumb = variantPath(profile, "home-thumb", staged.stagingDirectory());
 		assertThat(Files.exists(feature)).isTrue();
 		assertThat(Files.exists(thumb)).isTrue();
 
@@ -115,9 +121,10 @@ class FileUtilsTest {
 	@Test
 	void writeVariants_shouldRecordMimeTypeMatchingTheFileItActuallyWrote() throws Exception {
 		MockMultipartFile file = new MockMultipartFile("file", "cover.png", "image/png", pngBytes(1600, 900));
-		var fileAsset = fileUtils.saveImageAsset(file, "travel");
+		var staged = fileUtils.stageUpload(file, "travel");
+		var fileAsset = staged.fileAsset();
 
-		var profile = fileUtils.writeVariants(fileAsset);
+		var profile = fileUtils.writeVariants(fileAsset, staged.originalPath());
 
 		assertThat(profile.variants()).allSatisfy(variant -> {
 			String extension = variant.getFilename().substring(variant.getFilename().lastIndexOf('.') + 1);
@@ -129,9 +136,10 @@ class FileUtilsTest {
 	void writeVariants_shouldPreferWebpWhenTheEncoderIsAvailable() throws Exception {
 		assumeTrue(ImageIO.getImageWritersByFormatName("webp").hasNext(), "WebP writer not registered");
 		MockMultipartFile file = new MockMultipartFile("file", "cover.png", "image/png", pngBytes(1600, 900));
-		var fileAsset = fileUtils.saveImageAsset(file, "travel");
+		var staged = fileUtils.stageUpload(file, "travel");
+		var fileAsset = staged.fileAsset();
 
-		var profile = fileUtils.writeVariants(fileAsset);
+		var profile = fileUtils.writeVariants(fileAsset, staged.originalPath());
 
 		assertThat(profile.variants()).allSatisfy(variant -> {
 			assertThat(variant.getFilename()).endsWith(".webp");
@@ -142,13 +150,14 @@ class FileUtilsTest {
 	@Test
 	void writeVariants_shouldFallBackToJpegWhenWebpEncoderIsUnavailable() throws Exception {
 		MockMultipartFile file = new MockMultipartFile("file", "cover.png", "image/png", pngBytes(1600, 900));
-		var fileAsset = fileUtils.saveImageAsset(file, "travel");
+		var staged = fileUtils.stageUpload(file, "travel");
+		var fileAsset = staged.fileAsset();
 
 		List<ImageWriterSpi> removed = deregisterWebpWriters();
 		try {
 			assertThat(ImageIO.getImageWritersByFormatName("webp").hasNext()).isFalse();
 
-			var profile = fileUtils.writeVariants(fileAsset);
+			var profile = fileUtils.writeVariants(fileAsset, staged.originalPath());
 
 			assertThat(profile.variants()).isNotEmpty();
 			assertThat(profile.variants()).allSatisfy(variant -> {
@@ -156,21 +165,21 @@ class FileUtilsTest {
 				assertThat(variant.getMimeType()).isEqualTo("image/jpeg");
 			});
 			// 실패한 WebP 시도가 빈 파일을 남기지 않아야 한다.
-			assertThat(Files.exists(variantPath(profile, "home-thumb"))).isTrue();
+			assertThat(Files.exists(variantPath(profile, "home-thumb", staged.stagingDirectory()))).isTrue();
 			String base = fileAsset.getStoredFilename().replace(".png", "");
-			assertThat(Files.exists(tempDir.resolve("travel").resolve(base + "_home-thumb.webp"))).isFalse();
+			assertThat(Files.exists(staged.stagingDirectory().resolve(base + "_home-thumb.webp"))).isFalse();
 		} finally {
 			removed.forEach(IIORegistry.getDefaultInstance()::registerServiceProvider);
 		}
 	}
 
-	private Path variantPath(FileUtils.ImageProfile profile, String variantName) {
+	private Path variantPath(FileUtils.ImageProfile profile, String variantName, Path stagingDirectory) {
 		String filename = profile.variants().stream()
 			.filter(variant -> variantName.equals(variant.getVariant()))
 			.map(FileVariant::getFilename)
 			.findFirst()
 			.orElseThrow();
-		return tempDir.resolve("travel").resolve(filename);
+		return stagingDirectory.resolve(filename);
 	}
 
 	private static List<ImageWriterSpi> deregisterWebpWriters() {
@@ -191,9 +200,10 @@ class FileUtilsTest {
 	@Test
 	void writeVariants_shouldSkipVariantsThatWouldUpscaleTheOriginal() throws Exception {
 		MockMultipartFile file = new MockMultipartFile("file", "small.png", "image/png", pngBytes(400, 300));
-		var fileAsset = fileUtils.saveImageAsset(file, "travel");
+		var staged = fileUtils.stageUpload(file, "travel");
+		var fileAsset = staged.fileAsset();
 
-		var profile = fileUtils.writeVariants(fileAsset);
+		var profile = fileUtils.writeVariants(fileAsset, staged.originalPath());
 
 		assertThat(profile.width()).isEqualTo(400);
 		assertThat(profile.variants()).extracting(FileVariant::getVariant).containsExactly("home-thumb");
@@ -201,11 +211,10 @@ class FileUtilsTest {
 
 	@Test
 	void writeVariants_shouldReturnEmptyProfileInsteadOfFailingWhenImageIsUnreadable() throws Exception {
-		Files.createDirectories(tempDir.resolve("travel"));
-		Files.writeString(tempDir.resolve("travel/broken.svg"), "<svg></svg>");
+		Path broken = Files.writeString(tempDir.resolve("broken.svg"), "<svg></svg>");
 		FileAsset fileAsset = new FileAsset(FileType.TRAVEL, "broken.svg", "broken.svg", "image/svg+xml", 11L);
 
-		var profile = fileUtils.writeVariants(fileAsset);
+		var profile = fileUtils.writeVariants(fileAsset, broken);
 
 		assertThat(profile.width()).isZero();
 		assertThat(profile.variants()).isEmpty();
