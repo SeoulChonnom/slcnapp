@@ -11,7 +11,6 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Iterator;
@@ -27,7 +26,6 @@ import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
 import javax.imageio.stream.ImageOutputStream;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -46,9 +44,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Component
 public class FileUtils {
-	@Value("${slcn.upload.path}")
-	private String directory;
-
 	/**
 	 * 원본을 임시 디렉터리에 받아둔다. 최종 저장 위치가 서버 디스크가 아니므로 업로드 경로에 바로 쓰지 않는다.
 	 * 임시 디렉터리는 오브젝트 업로드가 끝난 뒤 호출자가 deleteStaging으로 지운다.
@@ -132,14 +127,6 @@ public class FileUtils {
 			filename == null || filename.isEmpty() || !filename.matches(FILE_NAME_REGEX_STRING)) {
 			throw new FilePathInvalidException();
 		}
-	}
-
-	public boolean existsFileRef(String type, String filename) {
-		return Files.exists(resolvePath(type, filename));
-	}
-
-	private Path resolvePath(String type, String filename) {
-		return Paths.get(directory).resolve(type).resolve(filename).normalize();
 	}
 
 	private BufferedImage readImage(Path path) {

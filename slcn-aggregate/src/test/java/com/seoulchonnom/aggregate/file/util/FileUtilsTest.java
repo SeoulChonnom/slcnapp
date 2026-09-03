@@ -18,11 +18,9 @@ import javax.imageio.ImageIO;
 import javax.imageio.spi.IIORegistry;
 import javax.imageio.spi.ImageWriterSpi;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.mock.web.MockMultipartFile;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import com.seoulchonnom.aggregate.file.exception.FileExtException;
 import com.seoulchonnom.aggregate.file.exception.FilePathInvalidException;
@@ -38,13 +36,6 @@ class FileUtilsTest {
 
 	@TempDir
 	Path tempDir;
-
-	@BeforeEach
-	void setUp() throws Exception {
-		Files.createDirectories(tempDir.resolve("logo"));
-		Files.createDirectories(tempDir.resolve("travel"));
-		ReflectionTestUtils.setField(fileUtils, "directory", tempDir + "/");
-	}
 
 	@Test
 	void stageUpload_shouldWriteTheOriginalToATemporaryDirectory() throws Exception {
@@ -218,15 +209,6 @@ class FileUtilsTest {
 
 		assertThat(profile.width()).isZero();
 		assertThat(profile.variants()).isEmpty();
-	}
-
-	@Test
-	void existsFileRef_shouldReflectFilePresence() throws Exception {
-		Files.createDirectories(tempDir.resolve("travel"));
-		Files.write(tempDir.resolve("travel/present.png"), PNG_BYTES);
-
-		assertThat(fileUtils.existsFileRef("travel", "present.png")).isTrue();
-		assertThat(fileUtils.existsFileRef("travel", "absent.png")).isFalse();
 	}
 
 	@Test

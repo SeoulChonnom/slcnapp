@@ -3,21 +3,23 @@ package com.seoulchonnom.aggregate.file.logic;
 import static com.seoulchonnom.spec.file.constant.FileConstant.*;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ContentDisposition;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.seoulchonnom.aggregate.common.exception.BadRequestException;
 import com.seoulchonnom.aggregate.file.exception.FilePathInvalidException;
 import com.seoulchonnom.aggregate.file.exception.FileUploadException;
+import com.seoulchonnom.aggregate.file.storage.MimeTypes;
 import com.seoulchonnom.aggregate.file.storage.ObjectKeys;
 import com.seoulchonnom.aggregate.file.storage.ObjectStorage;
 import com.seoulchonnom.aggregate.file.store.FileAssetStore;
@@ -38,8 +40,8 @@ public class FileLogic {
 	private final FileAssetStore fileAssetStore;
 	private final ObjectStorage objectStorage;
 
-	@Value("${slcn.upload.path}")
-	private String directory;
+	@Value("${slcn.storage.presigned-ttl-seconds:300}")
+	private long presignedTtlSeconds;
 
 	public FileAsset uploadFile(MultipartFile file, String type) {
 		return uploadFileAsset(file, type);
@@ -86,8 +88,26 @@ public class FileLogic {
 		}
 	}
 
+	/**
+	 * 경로 기반 조회. 파일명만 받으므로 접미사로 원본/파생본을 가른다.
+	 */
 	public ImageFileRdo getImageFile(String type, String filename) {
-		return readImageFile(type, filename, ORIGINAL_VARIANT_TAG, null, filename);
+		fileUtils.isValidFileRef(type, filename);
+
+		String key = ObjectKeys.of(type, filename);
+		if (!ObjectKeys.isDerived(key)) {
+			Optional<ImageFileRdo> redirect = presignedRdo(key, ORIGINAL_VARIANT_TAG, filename, null);
+			if (redirect.isPresent()) {
+				return redirect.get();
+			}
+		}
+
+		return ImageFileRdo.builder()
+			.image(readBytes(key))
+			.mimeType(MimeTypes.ofFilename(filename))
+			.variant(ORIGINAL_VARIANT_TAG)
+			.downloadFilename(filename)
+			.build();
 	}
 
 	public ImageFileRdo getImageFileById(String fileId) {
@@ -95,42 +115,107 @@ public class FileLogic {
 	}
 
 	/**
-	 * 요청한 파생본이 없거나 아직 생성되지 않았으면 원본을 그대로 응답한다.
+	 * 요청한 파생본이 없거나 읽히지 않으면 원본을 응답한다.
 	 * 홈 화면이 파생본 하나 때문에 표지를 통째로 잃는 편보다 원본을 받는 편이 낫다.
 	 */
 	public ImageFileRdo getImageFileById(String fileId, ImageVariant variant) {
+		return readImageFileById(fileId, variant, false);
+	}
+
+	/**
+	 * 조회와 같은 자산을 첨부 파일로 내려준다.
+	 * 원본은 리다이렉트로 나가므로 Content-Disposition을 서명 URL에 실어야 하고, 그래서 조회와 진입점을 나눈다.
+	 */
+	public ImageFileRdo downloadImageFileById(String fileId, ImageVariant variant) {
+		return readImageFileById(fileId, variant, true);
+	}
+
+	private ImageFileRdo readImageFileById(String fileId, ImageVariant variant, boolean attachment) {
 		FileAsset fileAsset = fileAssetStore.findById(fileId);
 		String type = fileAsset.getType().getValue();
 
 		Optional<FileVariant> fileVariant = fileAsset.findVariant(variant);
 		if (fileVariant.isPresent()) {
 			FileVariant resolved = fileVariant.get();
-			if (fileUtils.existsFileRef(type, resolved.getFilename())) {
-				return readImageFile(type, resolved.getFilename(), resolved.getVariant(), resolved.getMimeType(),
-					fileAsset.downloadFilename(resolved));
+			Optional<ImageFileRdo> derived = readDerived(type, fileAsset, resolved);
+			if (derived.isPresent()) {
+				return derived.get();
 			}
-			log.warn("Variant recorded but missing on disk, serving original. fileId={}, variant={}",
+			log.warn("Variant recorded but unreadable, serving original. fileId={}, variant={}",
 				fileId, resolved.getVariant());
 		}
 
-		return readImageFile(type, fileAsset.getStoredFilename(), ORIGINAL_VARIANT_TAG, null,
-			fileAsset.downloadFilename(null));
+		return readOriginal(type, fileAsset, attachment);
 	}
 
-	private ImageFileRdo readImageFile(String type, String filename, String variantTag, String mimeType,
-		String downloadFilename) {
-		fileUtils.isValidFileRef(type, filename);
+	/**
+	 * 파생본은 작고 재사용률이 높다. 서명 URL은 서명할 때마다 값이 바뀌어 캐시가 매번 빗나가므로 계속 바이트로 서빙한다.
+	 * 존재 확인을 따로 하지 않는 것은 요청마다 HeadObject 왕복이 하나 더 붙기 때문이다. 읽어 보고 실패하면 원본으로 폴백한다.
+	 */
+	private Optional<ImageFileRdo> readDerived(String type, FileAsset fileAsset, FileVariant resolved) {
+		fileUtils.isValidFileRef(type, resolved.getFilename());
 
 		try {
-			Path filePath = Paths.get(directory).resolve(type).resolve(filename).normalize();
-			return ImageFileRdo.builder()
-				.image(Files.readAllBytes(filePath))
-				.mimeType(mimeType != null ? mimeType : Files.probeContentType(filePath))
+			return Optional.of(ImageFileRdo.builder()
+				.image(objectStorage.getBytes(ObjectKeys.derived(type, resolved.getFilename())))
+				.mimeType(resolved.getMimeType())
+				.variant(resolved.getVariant())
+				.downloadFilename(fileAsset.downloadFilename(resolved))
+				.build());
+		} catch (IOException e) {
+			return Optional.empty();
+		}
+	}
+
+	/**
+	 * 원본은 100 MB에 이를 수 있어 서버 힙에 올리지 않는다. 서명할 수 있으면 클라이언트를 저장소로 직접 보낸다.
+	 */
+	private ImageFileRdo readOriginal(String type, FileAsset fileAsset, boolean attachment) {
+		String filename = fileAsset.getStoredFilename();
+		fileUtils.isValidFileRef(type, filename);
+
+		String key = ObjectKeys.original(type, filename);
+		String downloadFilename = fileAsset.downloadFilename(null);
+		Optional<ImageFileRdo> redirect = presignedRdo(key, ORIGINAL_VARIANT_TAG, downloadFilename,
+			attachment ? attachmentDisposition(downloadFilename) : null);
+		if (redirect.isPresent()) {
+			return redirect.get();
+		}
+
+		return ImageFileRdo.builder()
+			.image(readBytes(key))
+			.mimeType(fileAsset.getMimeType())
+			.variant(ORIGINAL_VARIANT_TAG)
+			.downloadFilename(downloadFilename)
+			.build();
+	}
+
+	private Optional<ImageFileRdo> presignedRdo(String key, String variantTag, String downloadFilename,
+		String contentDisposition) {
+		return objectStorage.presignedGetUrl(key, Duration.ofSeconds(presignedTtlSeconds), contentDisposition)
+			.map(url -> ImageFileRdo.builder()
+				.redirectUrl(url)
 				.variant(variantTag)
 				.downloadFilename(downloadFilename)
-				.build();
+				.build());
+	}
+
+	private byte[] readBytes(String key) {
+		try {
+			return objectStorage.getBytes(key);
 		} catch (IOException e) {
 			throw new FilePathInvalidException();
 		}
+	}
+
+	/**
+	 * 서명 URL에 실어 보낼 Content-Disposition. 한글 파일명이 들어올 수 있으므로 RFC 5987로 인코딩한다.
+	 */
+	private String attachmentDisposition(String filename) {
+		String safeFilename = StringUtils.hasText(filename) ? filename : "download";
+		return ContentDisposition.attachment()
+			.filename(safeFilename, StandardCharsets.UTF_8)
+			.build()
+			.toString();
 	}
 }
