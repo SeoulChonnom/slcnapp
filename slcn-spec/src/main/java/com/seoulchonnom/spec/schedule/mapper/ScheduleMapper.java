@@ -11,6 +11,7 @@ import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 
 import com.seoulchonnom.spec.schedule.entity.Schedule;
+import com.seoulchonnom.spec.schedule.entity.ScheduleOccurrence;
 import com.seoulchonnom.spec.schedule.facade.sdo.ScheduleCdo;
 import com.seoulchonnom.spec.schedule.facade.sdo.ScheduleRdo;
 import com.seoulchonnom.spec.schedule.facade.sdo.ScheduleUdo;
@@ -21,6 +22,15 @@ public interface ScheduleMapper {
 	@Mapping(target = "end", expression = "java(formatDateTime(schedule.getEnd(), schedule.isAllDay()))")
 	@Mapping(target = "occurrenceId", ignore = true)
 	ScheduleRdo toScheduleRdo(Schedule schedule);
+
+	default ScheduleRdo toScheduleRdo(ScheduleOccurrence occurrence) {
+		Schedule schedule = occurrence.schedule();
+		ScheduleRdo scheduleRdo = toScheduleRdo(schedule);
+		scheduleRdo.setStart(formatDateTime(occurrence.start(), schedule.isAllDay()));
+		scheduleRdo.setEnd(formatDateTime(occurrence.end(), schedule.isAllDay()));
+		scheduleRdo.setOccurrenceId(occurrence.occurrenceId());
+		return scheduleRdo;
+	}
 
 	@Mapping(target = "id", ignore = true)
 	@Mapping(target = "entityVersion", ignore = true)

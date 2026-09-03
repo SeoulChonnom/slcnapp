@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
 
 import com.seoulchonnom.spec.schedule.entity.Schedule;
+import com.seoulchonnom.spec.schedule.entity.ScheduleOccurrence;
 import com.seoulchonnom.spec.schedule.facade.sdo.ScheduleCdo;
 import com.seoulchonnom.spec.schedule.facade.sdo.ScheduleRdo;
 
@@ -80,5 +81,37 @@ class ScheduleMapperTest {
 
 		assertThat(scheduleRdo.getStart()).isEqualTo("2026-04-01");
 		assertThat(scheduleRdo.getEnd()).isEqualTo("2026-04-02");
+	}
+
+	@Test
+	void toScheduleRdo_shouldMapOccurrenceDatesWithoutMutatingMasterSchedule() {
+		Schedule schedule = Schedule.builder()
+			.calendarId("calendar-1")
+			.title("Recurring meeting")
+			.body("Body")
+			.allDay(false)
+			.start(LocalDateTime.of(2026, 1, 6, 19, 0))
+			.end(LocalDateTime.of(2026, 1, 6, 20, 0))
+			.location("Seoul")
+			.recurrenceRule("FREQ=WEEKLY;BYDAY=TU")
+			.build();
+		schedule.setId("schedule-1");
+		ScheduleOccurrence occurrence = new ScheduleOccurrence(
+			schedule,
+			LocalDateTime.of(2026, 9, 1, 19, 0),
+			LocalDateTime.of(2026, 9, 1, 20, 0),
+			"schedule-1/2026-09-01T19:00:00+09:00");
+
+		ScheduleRdo scheduleRdo = scheduleMapper.toScheduleRdo(occurrence);
+
+		assertThat(scheduleRdo.getId()).isEqualTo("schedule-1");
+		assertThat(scheduleRdo.getCalendarId()).isEqualTo("calendar-1");
+		assertThat(scheduleRdo.getTitle()).isEqualTo("Recurring meeting");
+		assertThat(scheduleRdo.getStart()).isEqualTo("2026-09-01T19:00:00+09:00");
+		assertThat(scheduleRdo.getEnd()).isEqualTo("2026-09-01T20:00:00+09:00");
+		assertThat(scheduleRdo.getRecurrenceRule()).isEqualTo("FREQ=WEEKLY;BYDAY=TU");
+		assertThat(scheduleRdo.getOccurrenceId()).isEqualTo("schedule-1/2026-09-01T19:00:00+09:00");
+		assertThat(schedule.getStart()).isEqualTo(LocalDateTime.of(2026, 1, 6, 19, 0));
+		assertThat(schedule.getEnd()).isEqualTo(LocalDateTime.of(2026, 1, 6, 20, 0));
 	}
 }
