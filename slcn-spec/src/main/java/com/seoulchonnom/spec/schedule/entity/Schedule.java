@@ -37,4 +37,8 @@ public class Schedule extends DomainEntity {
 	public void hideSchedule() {
 		this.hidden = true;
 	}
+
+	public void touchModifiedTime() {
+		this.modifiedTime = System.currentTimeMillis();
+	}
 }

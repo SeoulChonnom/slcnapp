@@ -1,6 +1,7 @@
 package com.seoulchonnom.aggregate.schedule.logic;
 
 import static com.seoulchonnom.spec.schedule.constant.ScheduleConstant.*;
+import static java.util.Comparator.comparing;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
@@ -16,6 +17,7 @@ import com.seoulchonnom.aggregate.schedule.exception.InvalidScheduleDateExceptio
 import com.seoulchonnom.aggregate.schedule.exception.InvalidScheduleRegisterRequestException;
 import com.seoulchonnom.aggregate.schedule.store.ScheduleStore;
 import com.seoulchonnom.spec.schedule.entity.Schedule;
+import com.seoulchonnom.spec.schedule.entity.ScheduleOccurrence;
 import com.seoulchonnom.spec.schedule.facade.sdo.ScheduleCdo;
 import com.seoulchonnom.spec.schedule.facade.sdo.ScheduleRdo;
 import com.seoulchonnom.spec.schedule.facade.sdo.ScheduleSearchSdo;
@@ -31,6 +33,8 @@ public class ScheduleLogic {
 	private final CalendarStore calendarStore;
 	private final ScheduleStore scheduleStore;
 	private final ScheduleMapper scheduleMapper;
+	private final ScheduleRecurrenceRuleValidator recurrenceRuleValidator;
+	private final ScheduleRecurrenceExpander recurrenceExpander;
 
 	public List<ScheduleRdo> getSchedulesForNow() {
 		LocalDateTime now = LocalDateTime.now(SCHEDULE_ZONE_ID);
@@ -60,11 +64,7 @@ public class ScheduleLogic {
 		LocalDateTime startDate = LocalDateTime.of(year, month, 1, 0, 0, 0);
 		LocalDateTime endDate = startDate.plusMonths(1);
 
-		List<Schedule> scheduleList = scheduleStore.findAllByDateRange(startDate, endDate);
-
-		return scheduleList.stream()
-			.map(scheduleMapper::toScheduleRdo)
-			.toList();
+		return getSchedules(startDate, endDate);
 	}
 
 	public List<ScheduleRdo> getSchedulesForRange(String start, String end) {
@@ -79,19 +79,16 @@ public class ScheduleLogic {
 			throw new InvalidScheduleDateException();
 		}
 
-		List<Schedule> scheduleList = scheduleStore.findAllByDateRange(startDateTime, endDateTime);
-
-		return scheduleList.stream()
-			.map(scheduleMapper::toScheduleRdo)
-			.toList();
+		return getSchedules(startDateTime, endDateTime);
 	}
 
 	@Transactional
 	public ScheduleRdo registerSchedule(ScheduleCdo scheduleCdo) {
-		validateScheduleMutation(scheduleCdo.getCalendarId(), scheduleCdo.getTitle(), scheduleCdo.isAllDay(),
-			scheduleCdo.getStart(), scheduleCdo.getEnd());
+		String recurrenceRule = validateScheduleMutation(scheduleCdo.getCalendarId(), scheduleCdo.getTitle(),
+			scheduleCdo.isAllDay(), scheduleCdo.getStart(), scheduleCdo.getEnd(), scheduleCdo.getRecurrenceRule());
 
 		Schedule schedule = scheduleMapper.toSchedule(scheduleCdo);
+		schedule.setRecurrenceRule(recurrenceRule);
 
 		scheduleStore.save(schedule);
 		return scheduleMapper.toScheduleRdo(schedule);
@@ -99,11 +96,13 @@ public class ScheduleLogic {
 
 	@Transactional
 	public ScheduleRdo modifySchedule(ScheduleUdo scheduleUdo) {
-		validateScheduleMutation(scheduleUdo.getCalendarId(), scheduleUdo.getTitle(), scheduleUdo.isAllDay(),
-			scheduleUdo.getStart(), scheduleUdo.getEnd());
+		String recurrenceRule = validateScheduleMutation(scheduleUdo.getCalendarId(), scheduleUdo.getTitle(),
+			scheduleUdo.isAllDay(), scheduleUdo.getStart(), scheduleUdo.getEnd(), scheduleUdo.getRecurrenceRule());
 
 		Schedule schedule = scheduleStore.findById(scheduleUdo.getId());
 		scheduleMapper.updateSchedule(scheduleUdo, schedule);
+		schedule.setRecurrenceRule(recurrenceRule);
+		schedule.touchModifiedTime();
 
 		scheduleStore.save(schedule);
 		return scheduleMapper.toScheduleRdo(schedule);
@@ -113,6 +112,7 @@ public class ScheduleLogic {
 	public void hideSchedule(String scheduleId) {
 		Schedule schedule = scheduleStore.findById(scheduleId);
 		schedule.hideSchedule();
+		schedule.touchModifiedTime();
 		scheduleStore.save(schedule);
 	}
 
@@ -120,6 +120,17 @@ public class ScheduleLogic {
 	public void deleteSchedule(String scheduleId) {
 		Schedule schedule = scheduleStore.findById(scheduleId);
 		scheduleStore.delete(schedule);
+	}
+
+	private List<ScheduleRdo> getSchedules(LocalDateTime rangeStart, LocalDateTime rangeEnd) {
+		return scheduleStore.findCandidatesByDateRange(rangeStart, rangeEnd).stream()
+			.flatMap(schedule -> recurrenceExpander.expand(schedule, rangeStart, rangeEnd).stream())
+			.sorted(comparing(ScheduleOccurrence::start)
+				.thenComparing(value -> value.occurrenceId() == null
+					? value.schedule().getId()
+					: value.occurrenceId()))
+			.map(scheduleMapper::toScheduleRdo)
+			.toList();
 	}
 
 	private boolean isValidDate(int year, int month) {
@@ -146,7 +157,14 @@ public class ScheduleLogic {
 		}
 	}
 
-	private void validateScheduleMutation(String calendarId, String title, boolean allDay, String start, String end) {
+	private String validateScheduleMutation(
+		String calendarId,
+		String title,
+		boolean allDay,
+		String start,
+		String end,
+		String recurrenceRule
+	) {
 		if (!StringUtils.hasText(calendarId)) {
 			throw new BadRequestException("calendarId는 필수입니다.");
 		}
@@ -165,5 +183,7 @@ public class ScheduleLogic {
 		if (startDateTime.isAfter(endDateTime)) {
 			throw new BadRequestException("start는 end보다 빨라야 합니다.");
 		}
+
+		return recurrenceRuleValidator.validateAndNormalize(recurrenceRule, allDay);
 	}
 }
