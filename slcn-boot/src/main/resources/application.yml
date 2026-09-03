@@ -55,7 +55,19 @@ springdoc:
 slcn:
   domain: "${SLCN_DOMAIN_LIST:http://localhost:9090}"
   upload:
+    # local 프로바이더의 기준 디렉터리이자, R2 백필의 원본 위치다.
     path: "${SLCN_UPLOAD_PATH}"
+  storage:
+    # local | r2. r2가 아니면 로컬 디스크에 저장하고 바이트를 직접 서빙한다.
+    provider: "${SLCN_STORAGE_PROVIDER:local}"
+    # presigned URL 만료. 만료는 요청 시작 시점에만 검사되므로 짧게 잡아도 대용량 전송이 끊기지 않는다.
+    presigned-ttl-seconds: "${SLCN_STORAGE_PRESIGNED_TTL:300}"
+    r2:
+      endpoint: "${SLCN_R2_ENDPOINT:}"
+      region: "${SLCN_R2_REGION:auto}"
+      bucket: "${SLCN_R2_BUCKET:}"
+      access-key: "${SLCN_R2_ACCESS_KEY:}"
+      secret-key: "${SLCN_R2_SECRET_KEY:}"
 
 cookie:
   expire:
