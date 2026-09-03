@@ -15,6 +15,10 @@ dependencies {
     implementation platform('software.amazon.awssdk:bom:2.54.11')
     implementation 'software.amazon.awssdk:s3'
 
+    // 백필 러너를 설정 플래그로 켜고 끄기 위한 ApplicationRunner와 @ConditionalOnProperty.
+    implementation 'org.springframework.boot:spring-boot'
+    implementation 'org.springframework.boot:spring-boot-autoconfigure'
+
     // Map Struct
     implementation 'org.mapstruct:mapstruct:1.5.3.Final'
     annotationProcessor 'org.mapstruct:mapstruct-processor:1.5.3.Final'
