@@ -180,7 +180,7 @@ public class ScheduleLogic {
 		LocalDateTime startDateTime = parseMutationRequestDateTime(start, allDay);
 		LocalDateTime endDateTime = parseMutationRequestDateTime(end, allDay);
 
-		if (startDateTime.isAfter(endDateTime)) {
+		if (!startDateTime.isBefore(endDateTime)) {
 			throw new BadRequestException("start는 end보다 빨라야 합니다.");
 		}
 

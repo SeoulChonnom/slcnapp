@@ -165,6 +165,21 @@ class ScheduleLogicTest {
 	}
 
 	@Test
+	void registerSchedule_shouldRejectEqualStartAndEnd() {
+		ScheduleCdo scheduleCdo = new ScheduleCdo();
+		scheduleCdo.setCalendarId("cal1");
+		scheduleCdo.setTitle("Zero duration");
+		scheduleCdo.setStart("2026-04-01T09:00:00+09:00");
+		scheduleCdo.setEnd("2026-04-01T09:00:00+09:00");
+		when(calendarStore.existsVisibleById("cal1")).thenReturn(true);
+
+		assertThatThrownBy(() -> scheduleLogic.registerSchedule(scheduleCdo))
+			.isInstanceOf(BadRequestException.class)
+			.hasMessage("start는 end보다 빨라야 합니다.");
+		verify(scheduleStore, never()).save(any(Schedule.class));
+	}
+
+	@Test
 	void registerSchedule_shouldRejectHiddenOrMissingCalendar() {
 		ScheduleCdo scheduleCdo = new ScheduleCdo();
 		scheduleCdo.setCalendarId("cal1");

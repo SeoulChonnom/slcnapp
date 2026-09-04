@@ -1,6 +1,7 @@
 package com.seoulchonnom.rest.schedule.feed;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
@@ -12,6 +13,8 @@ import java.util.HexFormat;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import net.fortuna.ical4j.data.CalendarBuilder;
 import net.fortuna.ical4j.model.Component;
@@ -149,6 +152,29 @@ class ScheduleIcsRendererTest {
 		assertThat(event.getEndDate().orElseThrow().getDate()).isEqualTo(LocalDate.of(2026, 9, 4));
 		assertThat(event.getStartDate().orElseThrow().getParameter("VALUE").orElseThrow().getValue()).isEqualTo("DATE");
 		assertThat(event.getEndDate().orElseThrow().getParameter("VALUE").orElseThrow().getValue()).isEqualTo("DATE");
+	}
+
+	@ParameterizedTest
+	@ValueSource(booleans = {false, true})
+	void render_shouldRejectNonPositiveDurationInsteadOfEmittingInvalidDtEnd(boolean allDay) {
+		LocalDateTime start = LocalDateTime.of(2026, 9, 3, 9, 0);
+		ScheduleFeedRendererFixture fixture = fixture(
+			"SCHEDULE-0010",
+			"잘못된 일정",
+			"동일 시각",
+			null,
+			allDay,
+			start,
+			start,
+			null,
+			null,
+			0,
+			1_757_000_000_000L,
+			1_757_000_000_000L);
+
+		assertThatThrownBy(() -> renderer.render(List.of(fixture.event())))
+			.isInstanceOf(IllegalStateException.class)
+			.hasMessage("Schedule start must be before end");
 	}
 
 	@Test

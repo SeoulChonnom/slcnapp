@@ -91,6 +91,7 @@ public class ScheduleIcsRenderer {
 
 	private VEvent toVEvent(ScheduleFeedEvent feedEvent, TimeZoneRegistry timeZoneRegistry) {
 		Schedule schedule = feedEvent.schedule();
+		validateDateRange(schedule);
 		String uid = schedule.getId() + "@slcn";
 		long modifiedTime = Math.max(schedule.getModifiedTime(), feedEvent.calendar().getModifiedTime());
 		Instant modifiedInstant = Instant.ofEpochMilli(modifiedTime);
@@ -119,6 +120,13 @@ public class ScheduleIcsRenderer {
 			event.add(new RawRRuleProperty(schedule.getRecurrenceRule()));
 		}
 		return event;
+	}
+
+	private void validateDateRange(Schedule schedule) {
+		if (schedule.getStart() == null || schedule.getEnd() == null
+			|| !schedule.getStart().isBefore(schedule.getEnd())) {
+			throw new IllegalStateException("Schedule start must be before end");
+		}
 	}
 
 	private void addTimedDates(VEvent event, Schedule schedule, TimeZoneRegistry timeZoneRegistry) {
