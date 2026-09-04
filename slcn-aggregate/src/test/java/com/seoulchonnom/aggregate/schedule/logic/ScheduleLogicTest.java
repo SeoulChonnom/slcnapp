@@ -9,12 +9,15 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
 import org.mockito.ArgumentCaptor;
+import org.springframework.http.HttpStatus;
 
 import com.seoulchonnom.aggregate.calendar.store.CalendarStore;
 import com.seoulchonnom.aggregate.common.exception.BadRequestException;
 import com.seoulchonnom.aggregate.schedule.exception.InvalidScheduleDateException;
 import com.seoulchonnom.aggregate.schedule.exception.InvalidScheduleRegisterRequestException;
 import com.seoulchonnom.aggregate.schedule.store.ScheduleStore;
+import com.seoulchonnom.spec.common.exception.BusinessException;
+import com.seoulchonnom.spec.common.exception.ErrorCode;
 import com.seoulchonnom.spec.schedule.entity.Schedule;
 import com.seoulchonnom.spec.schedule.facade.sdo.ScheduleCdo;
 import com.seoulchonnom.spec.schedule.facade.sdo.ScheduleRdo;
@@ -281,6 +284,26 @@ class ScheduleLogicTest {
 		assertThat(schedule.getRecurrenceRule()).isEqualTo(modifiedRule);
 		assertThat(schedule.getModifiedTime()).isGreaterThan(1L);
 		verify(scheduleStore).save(schedule);
+	}
+
+	@Test
+	void modifySchedule_shouldRejectEqualStartAndEndWithBadRequestContract() {
+		ScheduleUdo scheduleUdo = new ScheduleUdo();
+		scheduleUdo.setId("schedule-1");
+		scheduleUdo.setCalendarId("cal1");
+		scheduleUdo.setTitle("Zero duration");
+		scheduleUdo.setStart("2026-04-01T09:00:00+09:00");
+		scheduleUdo.setEnd("2026-04-01T09:00:00+09:00");
+		when(calendarStore.existsVisibleById("cal1")).thenReturn(true);
+
+		assertThatThrownBy(() -> scheduleLogic.modifySchedule(scheduleUdo))
+			.isInstanceOfSatisfying(BusinessException.class, exception -> {
+				assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.BAD_REQUEST);
+				assertThat(exception.getErrorCode().getHttpStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
+			})
+			.hasMessage("start는 end보다 빨라야 합니다.");
+		verify(scheduleStore, never()).findById(anyString());
+		verify(scheduleStore, never()).save(any(Schedule.class));
 	}
 
 	@Test

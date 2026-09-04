@@ -44,6 +44,7 @@ logging:
       hibernate: info
 
 server:
+  forward-headers-strategy: ${SLCN_FORWARD_HEADERS_STRATEGY:none}
   servlet:
     context-path: /api
 

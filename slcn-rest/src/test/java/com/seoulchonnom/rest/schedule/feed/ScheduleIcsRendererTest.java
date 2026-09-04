@@ -124,6 +124,7 @@ class ScheduleIcsRendererTest {
 			.isEqualTo(LocalDateTime.of(2026, 9, 3, 10, 0));
 		assertThat(event.getStartDate().orElseThrow().getParameter(Property.TZID).orElseThrow().getValue())
 			.isEqualTo("Asia/Seoul");
+		assertThat(calendar.validate().hasErrors()).isFalse();
 	}
 
 	@Test
@@ -142,7 +143,8 @@ class ScheduleIcsRendererTest {
 			1_757_000_000_000L,
 			1_757_000_000_000L);
 
-		VEvent event = parse(renderer.render(List.of(fixture.event())).body())
+		net.fortuna.ical4j.model.Calendar calendar = parse(renderer.render(List.of(fixture.event())).body());
+		VEvent event = calendar
 			.getComponents(Component.VEVENT).stream()
 			.map(VEvent.class::cast)
 			.findFirst()
@@ -152,6 +154,29 @@ class ScheduleIcsRendererTest {
 		assertThat(event.getEndDate().orElseThrow().getDate()).isEqualTo(LocalDate.of(2026, 9, 4));
 		assertThat(event.getStartDate().orElseThrow().getParameter("VALUE").orElseThrow().getValue()).isEqualTo("DATE");
 		assertThat(event.getEndDate().orElseThrow().getParameter("VALUE").orElseThrow().getValue()).isEqualTo("DATE");
+		assertThat(calendar.validate().hasErrors()).isFalse();
+	}
+
+	@Test
+	void render_shouldRejectAllDayRangeThatCollapsesToSameDate() {
+		LocalDateTime start = LocalDateTime.of(2026, 9, 3, 9, 0);
+		ScheduleFeedRendererFixture fixture = fixture(
+			"SCHEDULE-0011",
+			"종일 일정",
+			"같은 날짜",
+			null,
+			true,
+			start,
+			LocalDateTime.of(2026, 9, 3, 10, 0),
+			null,
+			null,
+			0,
+			1_757_000_000_000L,
+			1_757_000_000_000L);
+
+		assertThatThrownBy(() -> renderer.render(List.of(fixture.event())))
+			.isInstanceOf(IllegalStateException.class)
+			.hasMessage("Schedule start must be before end");
 	}
 
 	@ParameterizedTest
@@ -166,6 +191,76 @@ class ScheduleIcsRendererTest {
 			allDay,
 			start,
 			start,
+			null,
+			null,
+			0,
+			1_757_000_000_000L,
+			1_757_000_000_000L);
+
+		assertThatThrownBy(() -> renderer.render(List.of(fixture.event())))
+			.isInstanceOf(IllegalStateException.class)
+			.hasMessage("Schedule start must be before end");
+	}
+
+	@ParameterizedTest
+	@ValueSource(booleans = {false, true})
+	void render_shouldRejectReversedDateRangeInsteadOfEmittingInvalidDtEnd(boolean allDay) {
+		LocalDateTime start = allDay
+			? LocalDateTime.of(2026, 9, 4, 0, 0)
+			: LocalDateTime.of(2026, 9, 3, 10, 0);
+		LocalDateTime end = allDay
+			? LocalDateTime.of(2026, 9, 3, 0, 0)
+			: LocalDateTime.of(2026, 9, 3, 9, 0);
+		ScheduleFeedRendererFixture fixture = fixture(
+			"SCHEDULE-0012",
+			"잘못된 일정",
+			"역순 시각",
+			null,
+			allDay,
+			start,
+			end,
+			null,
+			null,
+			0,
+			1_757_000_000_000L,
+			1_757_000_000_000L);
+
+		assertThatThrownBy(() -> renderer.render(List.of(fixture.event())))
+			.isInstanceOf(IllegalStateException.class)
+			.hasMessage("Schedule start must be before end");
+	}
+
+	@Test
+	void render_shouldRejectNullStartInsteadOfEmittingIncompleteEvent() {
+		ScheduleFeedRendererFixture fixture = fixture(
+			"SCHEDULE-0013",
+			"잘못된 일정",
+			"시작 없음",
+			null,
+			false,
+			null,
+			LocalDateTime.of(2026, 9, 3, 10, 0),
+			null,
+			null,
+			0,
+			1_757_000_000_000L,
+			1_757_000_000_000L);
+
+		assertThatThrownBy(() -> renderer.render(List.of(fixture.event())))
+			.isInstanceOf(IllegalStateException.class)
+			.hasMessage("Schedule start must be before end");
+	}
+
+	@Test
+	void render_shouldRejectNullEndInsteadOfEmittingIncompleteEvent() {
+		ScheduleFeedRendererFixture fixture = fixture(
+			"SCHEDULE-0014",
+			"잘못된 일정",
+			"종료 없음",
+			null,
+			false,
+			LocalDateTime.of(2026, 9, 3, 9, 0),
+			null,
 			null,
 			null,
 			0,

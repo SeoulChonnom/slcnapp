@@ -123,8 +123,14 @@ public class ScheduleIcsRenderer {
 	}
 
 	private void validateDateRange(Schedule schedule) {
-		if (schedule.getStart() == null || schedule.getEnd() == null
-			|| !schedule.getStart().isBefore(schedule.getEnd())) {
+		if (schedule.getStart() == null || schedule.getEnd() == null) {
+			throw new IllegalStateException("Schedule start must be before end");
+		}
+
+		boolean valid = schedule.isAllDay()
+			? schedule.getStart().toLocalDate().isBefore(schedule.getEnd().toLocalDate())
+			: schedule.getStart().isBefore(schedule.getEnd());
+		if (!valid) {
 			throw new IllegalStateException("Schedule start must be before end");
 		}
 	}

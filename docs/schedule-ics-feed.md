@@ -24,6 +24,26 @@ SLCN의 변경 사항이 반영된다.
 - Google/Apple SDK, OAuth, webhook, sync token, CalDAV 또는 외부 이벤트 import는
   사용하지 않는다.
 
+### Forwarded header 설정
+
+`server.forward-headers-strategy`의 기본값은 `none`이다. 이 설정에서는 애플리케이션이
+클라이언트가 임의로 보낸 `X-Forwarded-Proto`, `X-Forwarded-Host`,
+`X-Forwarded-Prefix`를 신뢰하지 않으므로, 공격자가 feed 생성 응답의 scheme·host·path를
+위조할 수 없다.
+
+TLS를 신뢰할 수 있는 reverse proxy에서만 종료하는 운영 배포라면 다음처럼 환경변수로
+Spring Boot의 `framework` 전략을 선택할 수 있다.
+
+```text
+SLCN_FORWARD_HEADERS_STRATEGY=framework
+```
+
+`framework`는 proxy가 위 세 헤더를 외부 입력에서 제거한 뒤 실제 요청 값으로 덮어쓰고,
+애플리케이션이 proxy를 거치지 않은 직접 접근으로부터 격리되어 있을 때만 사용한다.
+인터넷에 직접 노출된 애플리케이션이나 헤더를 정규화하지 않는 proxy에서는 기본값
+`none`을 유지한다. Spring Boot의 `framework` 전략이 활성화되면 Resource가 신뢰된
+forwarded scheme/host/prefix를 반영해 `feedUrl`을 생성한다.
+
 ## 관리 API (ADMIN)
 
 ### Feed 생성
@@ -43,7 +63,7 @@ HTTP/1.1 201 Created
 Content-Type: application/json
 
 {
-  "id": "FEED-0001",
+  "id": "<feed-id>",
   "name": "Google Calendar",
   "feedUrl": "https://<host>/api/schedule/feeds/<one-time-token>/calendar.ics",
   "registeredTime": 1757000000000
@@ -67,7 +87,7 @@ Content-Type: application/json
 
 [
   {
-    "id": "FEED-0001",
+    "id": "<feed-id>",
     "name": "Google Calendar",
     "registeredTime": 1757000000000
   }
@@ -79,7 +99,7 @@ Content-Type: application/json
 ### Feed 폐기
 
 ```http
-DELETE https://<host>/api/schedule/feeds/FEED-0001
+DELETE https://<host>/api/schedule/feeds/<feed-id>
 Authorization: Bearer <SLCN-JWT>
 ```
 
@@ -231,8 +251,9 @@ exception message, 사용자 정의 audit event, debug log에 남기지 않는�
 
 2026-09-04 현재 이 로컬 worktree에는 외부에서 접근 가능한 HTTPS 배포 주소와 Apple/
 Google 계정이 없으므로 실제 macOS/iOS 또는 Google Calendar 구독을 수행하지 않았다.
-자동화된 iCal4j parser/round-trip, 한글·escape·folding, timed/all-day/반복, 수정·숨김·
-삭제, ETag/조건부 GET, token 보안 및 ADMIN 권한 계약은 저장소 테스트로 검증한다.
+자동화된 iCal4j renderer component/round-trip 및 HTTP contract 테스트가 한글·escape·
+folding, timed/all-day/반복, 수정·숨김·삭제, ETag/조건부 GET, token 보안 및 ADMIN 권한
+계약을 검증한다. 이는 외부 provider의 실제 동기화 성공을 의미하지 않는다.
 다음 표는 배포 후 실제 증거로 채운다. 실행하지 않은 검사를 통과로 표시하지 않는다.
 
 | 클라이언트 | 상태 | 배포 후 확인 항목 |
