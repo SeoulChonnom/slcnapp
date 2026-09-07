@@ -7,6 +7,8 @@ import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 
 import com.seoulchonnom.spec.schedule.entity.Schedule;
+import com.seoulchonnom.spec.schedule.facade.sdo.ScheduleCdo;
+import com.seoulchonnom.spec.schedule.facade.sdo.ScheduleUdo;
 
 class ScheduleConstructorCompatibilityTest {
 	@Test
@@ -37,5 +39,34 @@ class ScheduleConstructorCompatibilityTest {
 			"FREQ=WEEKLY");
 
 		assertThat(schedule.getRecurrenceRule()).isEqualTo("FREQ=WEEKLY");
+	}
+
+	@Test
+	void scheduleCdo_shouldKeepThePreRecurrencePositionalConstructor() {
+		ScheduleCdo scheduleCdo = new ScheduleCdo(
+			"calendar-1",
+			"Title",
+			"Body",
+			"2026-09-01T09:00:00+09:00",
+			"2026-09-01T10:00:00+09:00",
+			false,
+			"Seoul");
+
+		assertThat(scheduleCdo.getRecurrenceRule()).isNull();
+	}
+
+	@Test
+	void scheduleUdo_shouldKeepThePreRecurrencePositionalConstructor() {
+		ScheduleUdo scheduleUdo = new ScheduleUdo(
+			"schedule-1",
+			"calendar-1",
+			"Title",
+			"Body",
+			"2026-09-01T09:00:00+09:00",
+			"2026-09-01T10:00:00+09:00",
+			false,
+			"Seoul");
+
+		assertThat(scheduleUdo.getRecurrenceRule()).isNull();
 	}
 }
