@@ -109,14 +109,6 @@ public class ScheduleLogic {
 	}
 
 	@Transactional
-	public void hideSchedule(String scheduleId) {
-		Schedule schedule = scheduleStore.findById(scheduleId);
-		schedule.hideSchedule();
-		schedule.touchModifiedTime();
-		scheduleStore.save(schedule);
-	}
-
-	@Transactional
 	public void deleteSchedule(String scheduleId) {
 		Schedule schedule = scheduleStore.findById(scheduleId);
 		scheduleStore.delete(schedule);

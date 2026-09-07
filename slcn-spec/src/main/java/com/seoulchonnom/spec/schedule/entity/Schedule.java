@@ -32,8 +32,6 @@ public class Schedule extends DomainEntity {
 
 	private String recurrenceRule;
 
-	private boolean hidden;
-
 	public Schedule(
 		String calendarId,
 		String title,
@@ -41,14 +39,9 @@ public class Schedule extends DomainEntity {
 		boolean allDay,
 		LocalDateTime start,
 		LocalDateTime end,
-		String location,
-		boolean hidden
+		String location
 	) {
-		this(calendarId, title, body, allDay, start, end, location, null, hidden);
-	}
-
-	public void hideSchedule() {
-		this.hidden = true;
+		this(calendarId, title, body, allDay, start, end, location, null);
 	}
 
 	public void touchModifiedTime() {

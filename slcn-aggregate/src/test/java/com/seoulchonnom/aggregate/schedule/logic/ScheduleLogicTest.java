@@ -84,7 +84,6 @@ class ScheduleLogicTest {
 				"schedule-2/2026-09-22T19:00:00+09:00",
 				"schedule-2/2026-09-29T19:00:00+09:00");
 		verify(scheduleStore).findCandidatesByDateRange(rangeStart, rangeEnd);
-		verify(scheduleStore, never()).findAllByDateRange(any(), any());
 	}
 
 	@Test
@@ -109,7 +108,6 @@ class ScheduleLogicTest {
 				assertThat(scheduleRdo.getOccurrenceId()).isNull();
 			});
 		verify(scheduleStore).findCandidatesByDateRange(rangeStart, rangeEnd);
-		verify(scheduleStore, never()).findAllByDateRange(any(), any());
 	}
 
 	@Test
@@ -217,7 +215,6 @@ class ScheduleLogicTest {
 		assertThat(scheduleCaptor.getValue().getStart()).isEqualTo(LocalDateTime.of(2026, 4, 1, 0, 0));
 		assertThat(scheduleCaptor.getValue().getEnd()).isEqualTo(LocalDateTime.of(2026, 4, 2, 0, 0));
 		assertThat(scheduleCaptor.getValue().getLocation()).isEqualTo("Seoul");
-		assertThat(scheduleCaptor.getValue().isHidden()).isFalse();
 	}
 
 	@Test
@@ -304,22 +301,5 @@ class ScheduleLogicTest {
 			.hasMessage("start는 end보다 빨라야 합니다.");
 		verify(scheduleStore, never()).findById(anyString());
 		verify(scheduleStore, never()).save(any(Schedule.class));
-	}
-
-	@Test
-	void hideSchedule_shouldMarkScheduleAsHiddenAndTouchModifiedTime() {
-		Schedule schedule = Schedule.builder()
-			.calendarId("cal1")
-			.title("Hidden")
-			.hidden(false)
-			.build();
-		schedule.setModifiedTime(1L);
-		when(scheduleStore.findById("schedule-1")).thenReturn(schedule);
-
-		scheduleLogic.hideSchedule("schedule-1");
-
-		assertThat(schedule.isHidden()).isTrue();
-		assertThat(schedule.getModifiedTime()).isGreaterThan(1L);
-		verify(scheduleStore).save(schedule);
 	}
 }

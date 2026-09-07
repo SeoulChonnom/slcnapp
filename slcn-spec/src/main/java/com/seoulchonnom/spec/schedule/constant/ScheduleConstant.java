@@ -19,7 +19,6 @@ public class ScheduleConstant {
 	public static final String REGISTER_SCHEDULE_COMPLETE_MESSAGE = "일정 등록에 성공하였습니다.";
 	public static final String MODIFY_SCHEDULE_COMPLETE_MESSAGE = "일정 수정에 성공하였습니다.";
 	public static final String DELETE_SCHEDULE_COMPLETE_MESSAGE = "일정 삭제에 성공하였습니다.";
-	public static final String HARD_DELETE_SCHEDULE_COMPLETE_MESSAGE = "일정 데이터 삭제에 성공하였습니다.";
 
 	public static final String INVALID_DATE_ERROR_MESSAGE = "올바르지 않은 날짜입니다.";
 	public static final String INVALID_RECURRENCE_RULE_ERROR_MESSAGE = "올바르지 않은 반복 일정 규칙입니다.";

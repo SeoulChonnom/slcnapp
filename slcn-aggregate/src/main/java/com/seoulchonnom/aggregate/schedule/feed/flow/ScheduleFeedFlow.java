@@ -33,7 +33,7 @@ public class ScheduleFeedFlow {
 	public List<ScheduleFeedEvent> getFeedEvents(String rawToken) {
 		feedTokenLogic.validate(rawToken);
 
-		List<Schedule> schedules = scheduleStore.findAllNonHiddenForFeed();
+		List<Schedule> schedules = scheduleStore.findAllForFeed();
 		if (schedules.isEmpty()) {
 			return List.of();
 		}

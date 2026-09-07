@@ -38,14 +38,12 @@ public interface ScheduleMapper {
 	@Mapping(target = "modifiedTime", ignore = true)
 	@Mapping(target = "start", expression = "java(parseDateTime(scheduleCdo.getStart(), scheduleCdo.isAllDay()))")
 	@Mapping(target = "end", expression = "java(parseDateTime(scheduleCdo.getEnd(), scheduleCdo.isAllDay()))")
-	@Mapping(target = "hidden", constant = "false")
 	Schedule toSchedule(ScheduleCdo scheduleCdo);
 
 	@Mapping(target = "id", ignore = true)
 	@Mapping(target = "entityVersion", ignore = true)
 	@Mapping(target = "registeredTime", ignore = true)
 	@Mapping(target = "modifiedTime", ignore = true)
-	@Mapping(target = "hidden", ignore = true)
 	@Mapping(target = "start", expression = "java(parseDateTime(scheduleUdo.getStart(), scheduleUdo.isAllDay()))")
 	@Mapping(target = "end", expression = "java(parseDateTime(scheduleUdo.getEnd(), scheduleUdo.isAllDay()))")
 	void updateSchedule(ScheduleUdo scheduleUdo, @MappingTarget Schedule schedule);

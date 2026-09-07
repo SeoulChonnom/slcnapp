@@ -40,13 +40,13 @@ class ScheduleFeedFlowTest {
 	@Test
 	void getFeedEvents_shouldBulkLoadCalendarsDropOrphansIgnoreVisibilityAndSortByStartThenId() {
 		String rawToken = "valid-token";
-		Schedule later = schedule("schedule-002", "calendar-002", LocalDateTime.of(2026, 9, 3, 9, 0), false);
-		Schedule earlierWithHigherId = schedule("schedule-003", "calendar-001", LocalDateTime.of(2026, 9, 2, 9, 0), false);
-		Schedule earlierWithLowerId = schedule("schedule-001", "calendar-001", LocalDateTime.of(2026, 9, 2, 9, 0), false);
-		Schedule orphan = schedule("schedule-004", "calendar-missing", LocalDateTime.of(2026, 9, 1, 9, 0), false);
+		Schedule later = schedule("schedule-002", "calendar-002", LocalDateTime.of(2026, 9, 3, 9, 0));
+		Schedule earlierWithHigherId = schedule("schedule-003", "calendar-001", LocalDateTime.of(2026, 9, 2, 9, 0));
+		Schedule earlierWithLowerId = schedule("schedule-001", "calendar-001", LocalDateTime.of(2026, 9, 2, 9, 0));
+		Schedule orphan = schedule("schedule-004", "calendar-missing", LocalDateTime.of(2026, 9, 1, 9, 0));
 		Calendar invisibleCalendar = calendar("calendar-001", false);
 		Calendar visibleCalendar = calendar("calendar-002", true);
-		when(scheduleStore.findAllNonHiddenForFeed()).thenReturn(List.of(later, earlierWithHigherId, orphan, earlierWithLowerId));
+		when(scheduleStore.findAllForFeed()).thenReturn(List.of(later, earlierWithHigherId, orphan, earlierWithLowerId));
 		when(calendarStore.findAllByIds(Set.of("calendar-001", "calendar-002", "calendar-missing")))
 			.thenReturn(Map.of("calendar-001", invisibleCalendar, "calendar-002", visibleCalendar));
 
@@ -57,7 +57,7 @@ class ScheduleFeedFlowTest {
 		assertThat(result).extracting(ScheduleFeedEvent::calendar)
 			.containsExactly(invisibleCalendar, invisibleCalendar, visibleCalendar);
 		verify(feedTokenLogic).validate(rawToken);
-		verify(scheduleStore).findAllNonHiddenForFeed();
+		verify(scheduleStore).findAllForFeed();
 		verify(calendarStore).findAllByIds(Set.of("calendar-001", "calendar-002", "calendar-missing"));
 		verifyNoMoreInteractions(feedTokenLogic, scheduleStore, calendarStore);
 	}
@@ -65,22 +65,22 @@ class ScheduleFeedFlowTest {
 	@Test
 	void getFeedEvents_shouldReturnEmptyWithoutCalendarLookupWhenNoSchedulesExist() {
 		String rawToken = "valid-token";
-		when(scheduleStore.findAllNonHiddenForFeed()).thenReturn(List.of());
+		when(scheduleStore.findAllForFeed()).thenReturn(List.of());
 
 		assertThat(scheduleFeedFlow.getFeedEvents(rawToken)).isEmpty();
 
 		InOrder inOrder = inOrder(feedTokenLogic, scheduleStore);
 		inOrder.verify(feedTokenLogic).validate(rawToken);
-		inOrder.verify(scheduleStore).findAllNonHiddenForFeed();
+		inOrder.verify(scheduleStore).findAllForFeed();
 		verifyNoInteractions(calendarStore);
 	}
 
 	@Test
 	void getFeedEvents_shouldFilterNullCalendarIdsBeforeBulkLookupAndDropOrphans() {
 		String rawToken = "valid-token";
-		Schedule valid = schedule("schedule-001", "calendar-001", LocalDateTime.of(2026, 9, 2, 9, 0), false);
-		Schedule nullCalendar = schedule("schedule-002", null, LocalDateTime.of(2026, 9, 1, 9, 0), false);
-		when(scheduleStore.findAllNonHiddenForFeed()).thenReturn(List.of(nullCalendar, valid));
+		Schedule valid = schedule("schedule-001", "calendar-001", LocalDateTime.of(2026, 9, 2, 9, 0));
+		Schedule nullCalendar = schedule("schedule-002", null, LocalDateTime.of(2026, 9, 1, 9, 0));
+		when(scheduleStore.findAllForFeed()).thenReturn(List.of(nullCalendar, valid));
 		Calendar calendar = calendar("calendar-001", true);
 		when(calendarStore.findAllByIds(Set.of("calendar-001"))).thenReturn(Map.of("calendar-001", calendar));
 
@@ -92,12 +92,11 @@ class ScheduleFeedFlowTest {
 		verifyNoMoreInteractions(calendarStore);
 	}
 
-	private Schedule schedule(String id, String calendarId, LocalDateTime start, boolean hidden) {
+	private Schedule schedule(String id, String calendarId, LocalDateTime start) {
 		Schedule schedule = Schedule.builder()
 			.calendarId(calendarId)
 			.start(start)
 			.end(start.plusHours(1))
-			.hidden(hidden)
 			.build();
 		schedule.setId(id);
 		return schedule;

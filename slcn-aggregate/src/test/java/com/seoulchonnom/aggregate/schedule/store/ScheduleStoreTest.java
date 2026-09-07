@@ -43,9 +43,9 @@ class ScheduleStoreTest {
 			LocalDateTime.of(2026, 1, 6, 20, 0),
 			"FREQ=WEEKLY;BYDAY=TU");
 
-		when(repository.findAllByStartBeforeAndEndAfterAndHiddenFalseAndRecurrenceRuleIsNull(rangeEnd, rangeStart))
+		when(repository.findAllByStartBeforeAndEndAfterAndRecurrenceRuleIsNull(rangeEnd, rangeStart))
 			.thenReturn(List.of(oneTimeFirst, sharedOneTimeCandidate));
-		when(repository.findAllByStartBeforeAndHiddenFalseAndRecurrenceRuleIsNotNull(rangeEnd))
+		when(repository.findAllByStartBeforeAndRecurrenceRuleIsNotNull(rangeEnd))
 			.thenReturn(List.of(recurringMaster, sharedRecurringCandidate));
 
 		Schedule oneTimeFirstDomain = schedule(oneTimeFirst.getId());
@@ -59,8 +59,8 @@ class ScheduleStoreTest {
 
 		assertThat(result).extracting(Schedule::getId)
 			.containsExactly("schedule-001", "schedule-002", "schedule-003");
-		verify(repository).findAllByStartBeforeAndEndAfterAndHiddenFalseAndRecurrenceRuleIsNull(rangeEnd, rangeStart);
-		verify(repository).findAllByStartBeforeAndHiddenFalseAndRecurrenceRuleIsNotNull(rangeEnd);
+		verify(repository).findAllByStartBeforeAndEndAfterAndRecurrenceRuleIsNull(rangeEnd, rangeStart);
+		verify(repository).findAllByStartBeforeAndRecurrenceRuleIsNotNull(rangeEnd);
 		verify(scheduleJpoMapper).toDomain(oneTimeFirst);
 		verify(scheduleJpoMapper).toDomain(sharedRecurringCandidate);
 		verify(scheduleJpoMapper).toDomain(recurringMaster);
@@ -68,7 +68,7 @@ class ScheduleStoreTest {
 	}
 
 	@Test
-	void findAllNonHiddenForFeed_shouldMapRepositoryOrderedFullDataset() {
+	void findAllForFeed_shouldMapRepositoryOrderedFullDataset() {
 		ScheduleJpo oldOneTime = scheduleJpo(
 			"schedule-001",
 			LocalDateTime.of(2025, 1, 1, 9, 0),
@@ -81,14 +81,14 @@ class ScheduleStoreTest {
 			"FREQ=WEEKLY;BYDAY=TU");
 		Schedule oldOneTimeDomain = schedule(oldOneTime.getId());
 		Schedule recurrenceMasterDomain = schedule(recurrenceMaster.getId());
-		when(repository.findAllByHiddenFalseOrderByStartAscIdAsc()).thenReturn(List.of(oldOneTime, recurrenceMaster));
+		when(repository.findAllByOrderByStartAscIdAsc()).thenReturn(List.of(oldOneTime, recurrenceMaster));
 		when(scheduleJpoMapper.toDomain(oldOneTime)).thenReturn(oldOneTimeDomain);
 		when(scheduleJpoMapper.toDomain(recurrenceMaster)).thenReturn(recurrenceMasterDomain);
 
-		List<Schedule> result = scheduleStore.findAllNonHiddenForFeed();
+		List<Schedule> result = scheduleStore.findAllForFeed();
 
 		assertThat(result).containsExactly(oldOneTimeDomain, recurrenceMasterDomain);
-		verify(repository).findAllByHiddenFalseOrderByStartAscIdAsc();
+		verify(repository).findAllByOrderByStartAscIdAsc();
 		verify(scheduleJpoMapper).toDomain(oldOneTime);
 		verify(scheduleJpoMapper).toDomain(recurrenceMaster);
 		verifyNoMoreInteractions(repository, scheduleJpoMapper);

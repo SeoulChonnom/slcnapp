@@ -33,24 +33,19 @@ public class ScheduleStore {
 		return scheduleJpoMapper.toDomain(scheduleRepository.findById(id).orElseThrow(ScheduleNotFoundException::new));
 	}
 
-	public List<Schedule> findAllByDateRange(LocalDateTime startDate, LocalDateTime endDate) {
-		return scheduleRepository.findAllByStartBeforeAndEndAfterAndHiddenFalse(endDate, startDate)
-			.stream().map(scheduleJpoMapper::toDomain).toList();
-	}
-
 	public List<Schedule> findCandidatesByDateRange(LocalDateTime rangeStart, LocalDateTime rangeEnd) {
 		Map<String, ScheduleJpo> candidates = new LinkedHashMap<>();
-		scheduleRepository.findAllByStartBeforeAndEndAfterAndHiddenFalseAndRecurrenceRuleIsNull(rangeEnd, rangeStart)
+		scheduleRepository.findAllByStartBeforeAndEndAfterAndRecurrenceRuleIsNull(rangeEnd, rangeStart)
 			.forEach(scheduleJpo -> candidates.put(scheduleJpo.getId(), scheduleJpo));
-		scheduleRepository.findAllByStartBeforeAndHiddenFalseAndRecurrenceRuleIsNotNull(rangeEnd)
+		scheduleRepository.findAllByStartBeforeAndRecurrenceRuleIsNotNull(rangeEnd)
 			.forEach(scheduleJpo -> candidates.put(scheduleJpo.getId(), scheduleJpo));
 		return candidates.values().stream()
 			.map(scheduleJpoMapper::toDomain)
 			.toList();
 	}
 
-	public List<Schedule> findAllNonHiddenForFeed() {
-		return scheduleRepository.findAllByHiddenFalseOrderByStartAscIdAsc().stream()
+	public List<Schedule> findAllForFeed() {
+		return scheduleRepository.findAllByOrderByStartAscIdAsc().stream()
 			.map(scheduleJpoMapper::toDomain)
 			.toList();
 	}

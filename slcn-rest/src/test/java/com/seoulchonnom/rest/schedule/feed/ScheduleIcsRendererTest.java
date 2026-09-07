@@ -506,7 +506,6 @@ class ScheduleIcsRendererTest {
 			.end(end)
 			.location(location)
 			.recurrenceRule(recurrenceRule)
-			.hidden(false)
 			.build();
 		schedule.setId(scheduleId);
 		schedule.setEntityVersion(entityVersion);

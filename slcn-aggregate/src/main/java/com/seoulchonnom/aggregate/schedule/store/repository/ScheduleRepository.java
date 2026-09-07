@@ -11,16 +11,14 @@ import com.seoulchonnom.aggregate.schedule.store.jpo.ScheduleJpo;
 public interface ScheduleRepository extends JpaRepository<ScheduleJpo, String> {
 	Optional<ScheduleJpo> findById(String id);
 
-	List<ScheduleJpo> findAllByStartBeforeAndEndAfterAndHiddenFalse(LocalDateTime rangeEnd, LocalDateTime rangeStart);
-
-	List<ScheduleJpo> findAllByStartBeforeAndEndAfterAndHiddenFalseAndRecurrenceRuleIsNull(
+	List<ScheduleJpo> findAllByStartBeforeAndEndAfterAndRecurrenceRuleIsNull(
 		LocalDateTime rangeEnd,
 		LocalDateTime rangeStart
 	);
 
-	List<ScheduleJpo> findAllByStartBeforeAndHiddenFalseAndRecurrenceRuleIsNotNull(LocalDateTime rangeEnd);
+	List<ScheduleJpo> findAllByStartBeforeAndRecurrenceRuleIsNotNull(LocalDateTime rangeEnd);
 
-	List<ScheduleJpo> findAllByHiddenFalseOrderByStartAscIdAsc();
+	List<ScheduleJpo> findAllByOrderByStartAscIdAsc();
 
 	boolean existsByCalendarId(String calendarId);
 }

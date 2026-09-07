@@ -36,7 +36,6 @@ class ScheduleJpoMapperTest {
 		scheduleJpo.setStart(start);
 		scheduleJpo.setEnd(end);
 		scheduleJpo.setLocation("Seoul");
-		scheduleJpo.setHidden(true);
 		scheduleJpo.setRecurrenceRule("FREQ=DAILY;COUNT=3");
 
 		Schedule schedule = scheduleJpoMapper.toDomain(scheduleJpo);
@@ -51,7 +50,6 @@ class ScheduleJpoMapperTest {
 		assertThat(schedule.getStart()).isEqualTo(start);
 		assertThat(schedule.getEnd()).isEqualTo(end);
 		assertThat(schedule.getLocation()).isEqualTo("Seoul");
-		assertThat(schedule.isHidden()).isTrue();
 		assertThat(schedule.getRecurrenceRule()).isEqualTo("FREQ=DAILY;COUNT=3");
 	}
 
@@ -69,7 +67,6 @@ class ScheduleJpoMapperTest {
 			.end(end)
 			.location("Busan")
 			.recurrenceRule("FREQ=DAILY;COUNT=3")
-			.hidden(false)
 			.build();
 		schedule.setId("SCHEDULE-2");
 		schedule.setEntityVersion(7L);
@@ -89,7 +86,6 @@ class ScheduleJpoMapperTest {
 		assertThat(scheduleJpo.getStart()).isEqualTo(start);
 		assertThat(scheduleJpo.getEnd()).isEqualTo(end);
 		assertThat(scheduleJpo.getLocation()).isEqualTo("Busan");
-		assertThat(scheduleJpo.isHidden()).isFalse();
 		assertThat(scheduleJpo.getRecurrenceRule()).isEqualTo("FREQ=DAILY;COUNT=3");
 	}
 }
