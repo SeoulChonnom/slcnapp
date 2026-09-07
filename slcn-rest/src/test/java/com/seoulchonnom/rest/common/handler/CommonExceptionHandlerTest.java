@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
@@ -63,5 +64,17 @@ class CommonExceptionHandlerTest {
 		assertEquals(400, response.getStatusCode().value());
 		assertNotNull(response.getBody());
 		assertEquals("입력이 올바르지 않습니다.", response.getBody().getMessage());
+	}
+
+	@Test
+	void mapsDataIntegrityViolationExceptionToConflict() {
+		CommonExceptionHandler handler = new CommonExceptionHandler();
+
+		ResponseEntity<ErrorResponse> response = handler.dataIntegrityViolationException(
+			new DataIntegrityViolationException("fk_schedule_calendar"));
+
+		assertEquals(ErrorCode.CALENDAR_SCHEDULE_CONFLICT.getHttpStatus(), response.getStatusCode());
+		assertNotNull(response.getBody());
+		assertEquals(ErrorCode.CALENDAR_SCHEDULE_CONFLICT.getMessage(), response.getBody().getMessage());
 	}
 }
