@@ -2,6 +2,7 @@ package com.seoulchonnom.rest.schedule.feed;
 
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import com.seoulchonnom.aggregate.schedule.feed.flow.ScheduleFeedFlow;
 import com.seoulchonnom.aggregate.schedule.feed.logic.ScheduleFeedTokenLogic;
@@ -38,18 +40,28 @@ public class ScheduleFeedResource implements ScheduleFeedFacade {
 	private final ScheduleFeedFlow scheduleFeedFlow;
 	private final ScheduleIcsRenderer scheduleIcsRenderer;
 
+	@Value("${slcn.public-base-url:}")
+	private String publicBaseUrl;
+
 	@Override
 	@PostMapping
 	public ResponseEntity<ScheduleFeedCreatedRdo> createFeed(@RequestBody @Valid ScheduleFeedCdo scheduleFeedCdo) {
 		ScheduleFeedTokenLogic.CreatedFeedToken created = scheduleFeedTokenLogic.create(scheduleFeedCdo.getName());
-		String feedUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
-			.path("/schedule/feeds/{feedToken}/calendar.ics")
-			.buildAndExpand(created.rawToken())
-			.toUriString();
 
 		return ResponseEntity.status(HttpStatus.CREATED)
 			.cacheControl(CacheControl.noStore())
-			.body(ScheduleFeedCreatedRdo.from(created.feedToken(), feedUrl));
+			.body(ScheduleFeedCreatedRdo.from(created.feedToken(), feedUrl(created.rawToken())));
+	}
+
+	private String feedUrl(String rawToken) {
+		UriComponentsBuilder builder = publicBaseUrl == null || publicBaseUrl.isBlank()
+			? ServletUriComponentsBuilder.fromCurrentContextPath()
+			: UriComponentsBuilder.fromUriString(publicBaseUrl.stripTrailing().replaceAll("/+$", ""));
+
+		return builder
+			.path("/schedule/feeds/{feedToken}/calendar.ics")
+			.buildAndExpand(rawToken)
+			.toUriString();
 	}
 
 	@Override

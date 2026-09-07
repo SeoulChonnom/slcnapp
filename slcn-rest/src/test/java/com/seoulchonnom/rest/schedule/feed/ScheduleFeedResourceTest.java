@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
@@ -31,6 +33,7 @@ class ScheduleFeedResourceTest {
 	private ScheduleFeedTokenLogic scheduleFeedTokenLogic;
 	private ScheduleFeedFlow scheduleFeedFlow;
 	private ScheduleIcsRenderer scheduleIcsRenderer;
+	private ScheduleFeedResource scheduleFeedResource;
 	private MockMvc mockMvc;
 
 	@BeforeEach
@@ -38,10 +41,11 @@ class ScheduleFeedResourceTest {
 		scheduleFeedTokenLogic = mock(ScheduleFeedTokenLogic.class);
 		scheduleFeedFlow = mock(ScheduleFeedFlow.class);
 		scheduleIcsRenderer = mock(ScheduleIcsRenderer.class);
+		scheduleFeedResource = new ScheduleFeedResource(
+			scheduleFeedTokenLogic, scheduleFeedFlow, scheduleIcsRenderer);
 		LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
 		validator.afterPropertiesSet();
-		mockMvc = MockMvcBuilders.standaloneSetup(new ScheduleFeedResource(
-			scheduleFeedTokenLogic, scheduleFeedFlow, scheduleIcsRenderer))
+		mockMvc = MockMvcBuilders.standaloneSetup(scheduleFeedResource)
 			.setControllerAdvice(new CommonExceptionHandler())
 			.setValidator(validator)
 			.build();
@@ -64,6 +68,41 @@ class ScheduleFeedResourceTest {
 		ArgumentCaptor<String> nameCaptor = ArgumentCaptor.forClass(String.class);
 		verify(scheduleFeedTokenLogic).create(nameCaptor.capture());
 		assertThat(nameCaptor.getValue()).isEqualTo("Google Calendar");
+	}
+
+	@Test
+	void createFeed_whenPublicBaseUrlConfigured_shouldUseItForFeedUrl() throws Exception {
+		ReflectionTestUtils.setField(scheduleFeedResource, "publicBaseUrl", "https://slcn.example.com/api");
+		givenCreatedFeedToken();
+
+		mockMvc.perform(post("/schedule/feeds")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"name\":\"가족 캘린더\"}"))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.feedUrl")
+				.value("https://slcn.example.com/api/schedule/feeds/RAW-TOKEN/calendar.ics"));
+	}
+
+	@Test
+	void createFeed_whenPublicBaseUrlBlank_shouldFallBackToRequestUrl() throws Exception {
+		ReflectionTestUtils.setField(scheduleFeedResource, "publicBaseUrl", "");
+		givenCreatedFeedToken();
+
+		mockMvc.perform(post("/schedule/feeds")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"name\":\"가족 캘린더\"}"))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.feedUrl").value(containsString("/schedule/feeds/RAW-TOKEN/calendar.ics")));
+	}
+
+	private void givenCreatedFeedToken() {
+		ScheduleFeedToken token = ScheduleFeedToken.builder()
+			.name("가족 캘린더")
+			.tokenHash("HASH")
+			.build();
+		token.setId("FEED-0001");
+		when(scheduleFeedTokenLogic.create("가족 캘린더"))
+			.thenReturn(new ScheduleFeedTokenLogic.CreatedFeedToken(token, "RAW-TOKEN"));
 	}
 
 	@Test
