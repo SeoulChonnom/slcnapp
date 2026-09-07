@@ -29,6 +29,7 @@ import com.seoulchonnom.aggregate.schedule.feed.exception.ScheduleFeedNotFoundEx
 import com.seoulchonnom.aggregate.schedule.feed.flow.ScheduleFeedFlow;
 import com.seoulchonnom.aggregate.schedule.feed.logic.ScheduleFeedTokenLogic;
 import com.seoulchonnom.rest.common.handler.CommonExceptionHandler;
+import com.seoulchonnom.spec.schedule.feed.entity.ScheduleFeedContent;
 
 class ScheduleFeedIcsContractTest {
 	private static final String RAW_TOKEN = "raw-token";
@@ -61,16 +62,16 @@ class ScheduleFeedIcsContractTest {
 			.andExpect(header().string(HttpHeaders.ETAG, ETAG))
 			.andExpect(content().string(BODY));
 
-		verify(scheduleFeedFlow).getFeedEvents(RAW_TOKEN);
-		verify(scheduleIcsRenderer).render(List.of());
+		verify(scheduleFeedFlow).getFeedContent(RAW_TOKEN);
+		verify(scheduleIcsRenderer).render(new ScheduleFeedContent(null, List.of()));
 	}
 
 	@Test
 	void getCalendar_shouldReturnValidEmptyVCalendarWhenNoEventsExist() throws Exception {
 		ScheduleIcsRenderer realRenderer = new ScheduleIcsRenderer();
-		when(scheduleFeedFlow.getFeedEvents(RAW_TOKEN)).thenReturn(List.of());
-		ScheduleIcsRenderer.RenderedCalendar rendered = realRenderer.render(List.of());
-		when(scheduleIcsRenderer.render(List.of())).thenReturn(rendered);
+		when(scheduleFeedFlow.getFeedContent(RAW_TOKEN)).thenReturn(new ScheduleFeedContent(null, List.of()));
+		ScheduleIcsRenderer.RenderedCalendar rendered = realRenderer.render(new ScheduleFeedContent(null, List.of()));
+		when(scheduleIcsRenderer.render(new ScheduleFeedContent(null, List.of()))).thenReturn(rendered);
 
 		String body = mockMvc.perform(get("/schedule/feeds/{feedToken}/calendar.ics", RAW_TOKEN))
 			.andExpect(status().isOk())
@@ -109,7 +110,7 @@ class ScheduleFeedIcsContractTest {
 	@Test
 	void getCalendar_shouldReturnUniformNotFoundAndSkipRendererForInvalidToken() throws Exception {
 		String invalidToken = "deleted-token";
-		when(scheduleFeedFlow.getFeedEvents(invalidToken)).thenThrow(new ScheduleFeedNotFoundException());
+		when(scheduleFeedFlow.getFeedContent(invalidToken)).thenThrow(new ScheduleFeedNotFoundException());
 
 		mockMvc.perform(get("/schedule/feeds/{feedToken}/calendar.ics", invalidToken)
 				.header(HttpHeaders.IF_NONE_MATCH, ETAG))
@@ -121,8 +122,8 @@ class ScheduleFeedIcsContractTest {
 	}
 
 	private void givenRenderedCalendar() {
-		when(scheduleFeedFlow.getFeedEvents(RAW_TOKEN)).thenReturn(List.of());
-		when(scheduleIcsRenderer.render(List.of())).thenReturn(
+		when(scheduleFeedFlow.getFeedContent(RAW_TOKEN)).thenReturn(new ScheduleFeedContent(null, List.of()));
+		when(scheduleIcsRenderer.render(new ScheduleFeedContent(null, List.of()))).thenReturn(
 			new ScheduleIcsRenderer.RenderedCalendar(BODY, ETAG));
 	}
 }

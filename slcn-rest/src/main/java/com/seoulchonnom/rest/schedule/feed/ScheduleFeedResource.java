@@ -19,7 +19,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import com.seoulchonnom.aggregate.schedule.feed.flow.ScheduleFeedFlow;
 import com.seoulchonnom.aggregate.schedule.feed.logic.ScheduleFeedTokenLogic;
-import com.seoulchonnom.spec.schedule.feed.entity.ScheduleFeedEvent;
+import com.seoulchonnom.spec.schedule.feed.entity.ScheduleFeedContent;
 import com.seoulchonnom.spec.schedule.feed.facade.ScheduleFeedFacade;
 import com.seoulchonnom.spec.schedule.feed.facade.sdo.ScheduleFeedCdo;
 import com.seoulchonnom.spec.schedule.feed.facade.sdo.ScheduleFeedCreatedRdo;
@@ -74,8 +74,8 @@ public class ScheduleFeedResource implements ScheduleFeedFacade {
 	public ResponseEntity<String> getCalendar(
 		@PathVariable("feedToken") String feedToken,
 		@RequestHeader(value = HttpHeaders.IF_NONE_MATCH, required = false) String ifNoneMatch) {
-		List<ScheduleFeedEvent> events = scheduleFeedFlow.getFeedEvents(feedToken);
-		ScheduleIcsRenderer.RenderedCalendar rendered = scheduleIcsRenderer.render(events);
+		ScheduleFeedContent content = scheduleFeedFlow.getFeedContent(feedToken);
+		ScheduleIcsRenderer.RenderedCalendar rendered = scheduleIcsRenderer.render(content);
 		if (etagMatches(ifNoneMatch, rendered.etag())) {
 			return ResponseEntity.status(HttpStatus.NOT_MODIFIED)
 				.eTag(unquote(rendered.etag()))

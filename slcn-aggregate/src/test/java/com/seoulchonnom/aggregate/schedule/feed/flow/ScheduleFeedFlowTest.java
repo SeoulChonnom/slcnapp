@@ -19,7 +19,9 @@ import com.seoulchonnom.aggregate.schedule.feed.logic.ScheduleFeedTokenLogic;
 import com.seoulchonnom.aggregate.schedule.store.ScheduleStore;
 import com.seoulchonnom.spec.calendar.entity.Calendar;
 import com.seoulchonnom.spec.schedule.entity.Schedule;
+import com.seoulchonnom.spec.schedule.feed.entity.ScheduleFeedContent;
 import com.seoulchonnom.spec.schedule.feed.entity.ScheduleFeedEvent;
+import com.seoulchonnom.spec.schedule.feed.entity.ScheduleFeedToken;
 
 class ScheduleFeedFlowTest {
 	private final ScheduleFeedTokenLogic feedTokenLogic = mock(ScheduleFeedTokenLogic.class);
@@ -45,11 +47,11 @@ class ScheduleFeedFlowTest {
 	}
 
 	@Test
-	void getFeedEvents_shouldValidateBeforeLoadingSchedulesOrCalendars() {
+	void getFeedContent_shouldValidateBeforeLoadingSchedulesOrCalendars() {
 		String rawToken = "invalid-token";
 		doThrow(new RuntimeException("invalid token")).when(feedTokenLogic).validate(rawToken);
 
-		assertThatThrownBy(() -> scheduleFeedFlow.getFeedEvents(rawToken))
+		assertThatThrownBy(() -> scheduleFeedFlow.getFeedContent(rawToken))
 			.isInstanceOf(RuntimeException.class)
 			.hasMessage("invalid token");
 
@@ -58,8 +60,10 @@ class ScheduleFeedFlowTest {
 	}
 
 	@Test
-	void getFeedEvents_shouldBulkLoadCalendarsDropOrphansIgnoreVisibilityAndSortByStartThenId() {
+	void getFeedContent_shouldBulkLoadCalendarsDropOrphansIgnoreVisibilityAndSortByStartThenId() {
 		String rawToken = "valid-token";
+		ScheduleFeedToken feedToken = feedToken("가족 캘린더");
+		when(feedTokenLogic.validate(rawToken)).thenReturn(feedToken);
 		Schedule later = schedule("schedule-002", "calendar-002", LocalDateTime.of(2026, 9, 3, 9, 0));
 		Schedule earlierWithHigherId = schedule("schedule-003", "calendar-001", LocalDateTime.of(2026, 9, 2, 9, 0));
 		Schedule earlierWithLowerId = schedule("schedule-001", "calendar-001", LocalDateTime.of(2026, 9, 2, 9, 0));
@@ -70,11 +74,12 @@ class ScheduleFeedFlowTest {
 		when(calendarStore.findAllByIds(Set.of("calendar-001", "calendar-002", "calendar-missing")))
 			.thenReturn(Map.of("calendar-001", invisibleCalendar, "calendar-002", visibleCalendar));
 
-		List<ScheduleFeedEvent> result = scheduleFeedFlow.getFeedEvents(rawToken);
+		ScheduleFeedContent result = scheduleFeedFlow.getFeedContent(rawToken);
 
-		assertThat(result).extracting(event -> event.schedule().getId())
+		assertThat(result.feedName()).isEqualTo("가족 캘린더");
+		assertThat(result.events()).extracting(event -> event.schedule().getId())
 			.containsExactly("schedule-001", "schedule-003", "schedule-002");
-		assertThat(result).extracting(ScheduleFeedEvent::calendar)
+		assertThat(result.events()).extracting(ScheduleFeedEvent::calendar)
 			.containsExactly(invisibleCalendar, invisibleCalendar, visibleCalendar);
 		verify(feedTokenLogic).validate(rawToken);
 		verify(scheduleStore).findFeedCandidates(any(), any());
@@ -83,11 +88,15 @@ class ScheduleFeedFlowTest {
 	}
 
 	@Test
-	void getFeedEvents_shouldReturnEmptyWithoutCalendarLookupWhenNoSchedulesExist() {
+	void getFeedContent_shouldReturnEmptyWithoutCalendarLookupWhenNoSchedulesExist() {
 		String rawToken = "valid-token";
+		when(feedTokenLogic.validate(rawToken)).thenReturn(feedToken("가족 캘린더"));
 		when(scheduleStore.findFeedCandidates(any(), any())).thenReturn(List.of());
 
-		assertThat(scheduleFeedFlow.getFeedEvents(rawToken)).isEmpty();
+		ScheduleFeedContent result = scheduleFeedFlow.getFeedContent(rawToken);
+
+		assertThat(result.feedName()).isEqualTo("가족 캘린더");
+		assertThat(result.events()).isEmpty();
 
 		InOrder inOrder = inOrder(feedTokenLogic, scheduleStore);
 		inOrder.verify(feedTokenLogic).validate(rawToken);
@@ -96,20 +105,28 @@ class ScheduleFeedFlowTest {
 	}
 
 	@Test
-	void getFeedEvents_shouldFilterNullCalendarIdsBeforeBulkLookupAndDropOrphans() {
+	void getFeedContent_shouldFilterNullCalendarIdsBeforeBulkLookupAndDropOrphans() {
 		String rawToken = "valid-token";
+		when(feedTokenLogic.validate(rawToken)).thenReturn(feedToken("가족 캘린더"));
 		Schedule valid = schedule("schedule-001", "calendar-001", LocalDateTime.of(2026, 9, 2, 9, 0));
 		Schedule nullCalendar = schedule("schedule-002", null, LocalDateTime.of(2026, 9, 1, 9, 0));
 		when(scheduleStore.findFeedCandidates(any(), any())).thenReturn(List.of(nullCalendar, valid));
 		Calendar calendar = calendar("calendar-001", true);
 		when(calendarStore.findAllByIds(Set.of("calendar-001"))).thenReturn(Map.of("calendar-001", calendar));
 
-		assertThat(scheduleFeedFlow.getFeedEvents(rawToken))
+		assertThat(scheduleFeedFlow.getFeedContent(rawToken).events())
 			.extracting(event -> event.schedule().getId())
 			.containsExactly("schedule-001");
 
 		verify(calendarStore).findAllByIds(Set.of("calendar-001"));
 		verifyNoMoreInteractions(calendarStore);
+	}
+
+	private ScheduleFeedToken feedToken(String name) {
+		return ScheduleFeedToken.builder()
+			.name(name)
+			.tokenHash("HASH")
+			.build();
 	}
 
 	private Schedule schedule(String id, String calendarId, LocalDateTime start) {

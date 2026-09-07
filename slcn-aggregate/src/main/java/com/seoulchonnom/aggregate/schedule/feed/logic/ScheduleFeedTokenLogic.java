@@ -45,7 +45,7 @@ public class ScheduleFeedTokenLogic {
 		scheduleFeedTokenStore.deleteById(feedId);
 	}
 
-	public void validate(String rawToken) {
+	public ScheduleFeedToken validate(String rawToken) {
 		if (rawToken == null || rawToken.isBlank() || containsWhitespace(rawToken)) {
 			throw new ScheduleFeedNotFoundException();
 		}
@@ -56,9 +56,8 @@ public class ScheduleFeedTokenLogic {
 		} catch (IllegalArgumentException exception) {
 			throw new ScheduleFeedNotFoundException();
 		}
-		if (scheduleFeedTokenStore.findByTokenHash(tokenHash).isEmpty()) {
-			throw new ScheduleFeedNotFoundException();
-		}
+		return scheduleFeedTokenStore.findByTokenHash(tokenHash)
+			.orElseThrow(ScheduleFeedNotFoundException::new);
 	}
 
 	private void validateName(String name) {

@@ -26,6 +26,7 @@ import net.fortuna.ical4j.model.property.Categories;
 
 import com.seoulchonnom.spec.calendar.entity.Calendar;
 import com.seoulchonnom.spec.schedule.entity.Schedule;
+import com.seoulchonnom.spec.schedule.feed.entity.ScheduleFeedContent;
 import com.seoulchonnom.spec.schedule.feed.entity.ScheduleFeedEvent;
 
 class ScheduleIcsRendererTest {
@@ -50,7 +51,7 @@ class ScheduleIcsRendererTest {
 			1_757_000_000_000L,
 			1_756_000_000_000L);
 
-		ScheduleIcsRenderer.RenderedCalendar rendered = renderer.render(List.of(fixture.event()));
+		ScheduleIcsRenderer.RenderedCalendar rendered = renderer.render(new ScheduleFeedContent("테스트 캘린더", List.of(fixture.event())));
 		net.fortuna.ical4j.model.Calendar calendar = parse(rendered.body());
 		VEvent event = calendar.getComponents(Component.VEVENT).stream()
 			.map(VEvent.class::cast)
@@ -64,7 +65,8 @@ class ScheduleIcsRendererTest {
 		assertThat(calendar.getPropertyList().getProperty(Property.METHOD).orElseThrow().getValue()).isEqualTo("PUBLISH");
 		assertThat(rendered.body()).startsWith(
 			"BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//SLCN//Schedule Feed//KO\r\n"
-				+ "CALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\nBEGIN:VTIMEZONE\r\n");
+				+ "CALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\n"
+				+ "X-WR-CALNAME:테스트 캘린더\r\nX-WR-TIMEZONE:Asia/Seoul\r\nBEGIN:VTIMEZONE\r\n");
 		assertThat(property(event, Property.UID)).isEqualTo("SCHEDULE-0001@slcn");
 		assertThat(property(event, Property.SUMMARY)).isEqualTo("[데이트] 저녁 약속");
 		assertThat(property(event, Property.DESCRIPTION)).isEqualTo("성수동 식당 예약");
@@ -79,6 +81,35 @@ class ScheduleIcsRendererTest {
 		String expectedEtag = "\"" + HexFormat.of().formatHex(
 			MessageDigest.getInstance("SHA-256").digest(rendered.body().getBytes(StandardCharsets.UTF_8))) + "\"";
 		assertThat(rendered.etag()).isEqualTo(expectedEtag);
+	}
+
+	@Test
+	void render_shouldEmitCalendarNameAndTimeZoneProperties() throws Exception {
+		ScheduleFeedRendererFixture fixture = fixture(
+			"SCHEDULE-0001", "데이트", "저녁 약속", null, false,
+			LocalDateTime.of(2026, 9, 3, 19, 0),
+			LocalDateTime.of(2026, 9, 3, 20, 0),
+			null, null, 1, 1_757_000_000_000L, 1_756_000_000_000L);
+
+		ScheduleIcsRenderer.RenderedCalendar rendered = renderer.render(
+			new ScheduleFeedContent("가족 캘린더", List.of(fixture.event())));
+
+		assertThat(rendered.body()).contains("X-WR-CALNAME:가족 캘린더");
+		assertThat(rendered.body()).contains("X-WR-TIMEZONE:Asia/Seoul");
+	}
+
+	@Test
+	void render_shouldProduceDifferentEtagForDifferentFeedName() {
+		ScheduleFeedRendererFixture fixture = fixture(
+			"SCHEDULE-0001", "데이트", "저녁 약속", null, false,
+			LocalDateTime.of(2026, 9, 3, 19, 0),
+			LocalDateTime.of(2026, 9, 3, 20, 0),
+			null, null, 1, 1_757_000_000_000L, 1_756_000_000_000L);
+
+		String first = renderer.render(new ScheduleFeedContent("가족", List.of(fixture.event()))).etag();
+		String second = renderer.render(new ScheduleFeedContent("회사", List.of(fixture.event()))).etag();
+
+		assertThat(first).isNotEqualTo(second);
 	}
 
 	@Test
@@ -103,7 +134,7 @@ class ScheduleIcsRendererTest {
 			1_757_000_000_000L,
 			1_757_000_000_000L);
 
-		ScheduleIcsRenderer.RenderedCalendar rendered = renderer.render(List.of(fixture.event()));
+		ScheduleIcsRenderer.RenderedCalendar rendered = renderer.render(new ScheduleFeedContent("테스트 캘린더", List.of(fixture.event())));
 		net.fortuna.ical4j.model.Calendar calendar = parse(rendered.body());
 		VEvent event = calendar.getComponents(Component.VEVENT).stream()
 			.map(VEvent.class::cast)
@@ -143,7 +174,7 @@ class ScheduleIcsRendererTest {
 			1_757_000_000_000L,
 			1_757_000_000_000L);
 
-		net.fortuna.ical4j.model.Calendar calendar = parse(renderer.render(List.of(fixture.event())).body());
+		net.fortuna.ical4j.model.Calendar calendar = parse(renderer.render(new ScheduleFeedContent("테스트 캘린더", List.of(fixture.event()))).body());
 		VEvent event = calendar
 			.getComponents(Component.VEVENT).stream()
 			.map(VEvent.class::cast)
@@ -174,7 +205,7 @@ class ScheduleIcsRendererTest {
 			1_757_000_000_000L,
 			1_757_000_000_000L);
 
-		assertThatThrownBy(() -> renderer.render(List.of(fixture.event())))
+		assertThatThrownBy(() -> renderer.render(new ScheduleFeedContent("테스트 캘린더", List.of(fixture.event()))))
 			.isInstanceOf(IllegalStateException.class)
 			.hasMessage("Schedule start must be before end");
 	}
@@ -197,7 +228,7 @@ class ScheduleIcsRendererTest {
 			1_757_000_000_000L,
 			1_757_000_000_000L);
 
-		assertThatThrownBy(() -> renderer.render(List.of(fixture.event())))
+		assertThatThrownBy(() -> renderer.render(new ScheduleFeedContent("테스트 캘린더", List.of(fixture.event()))))
 			.isInstanceOf(IllegalStateException.class)
 			.hasMessage("Schedule start must be before end");
 	}
@@ -225,7 +256,7 @@ class ScheduleIcsRendererTest {
 			1_757_000_000_000L,
 			1_757_000_000_000L);
 
-		assertThatThrownBy(() -> renderer.render(List.of(fixture.event())))
+		assertThatThrownBy(() -> renderer.render(new ScheduleFeedContent("테스트 캘린더", List.of(fixture.event()))))
 			.isInstanceOf(IllegalStateException.class)
 			.hasMessage("Schedule start must be before end");
 	}
@@ -246,7 +277,7 @@ class ScheduleIcsRendererTest {
 			1_757_000_000_000L,
 			1_757_000_000_000L);
 
-		assertThatThrownBy(() -> renderer.render(List.of(fixture.event())))
+		assertThatThrownBy(() -> renderer.render(new ScheduleFeedContent("테스트 캘린더", List.of(fixture.event()))))
 			.isInstanceOf(IllegalStateException.class)
 			.hasMessage("Schedule start must be before end");
 	}
@@ -267,7 +298,7 @@ class ScheduleIcsRendererTest {
 			1_757_000_000_000L,
 			1_757_000_000_000L);
 
-		assertThatThrownBy(() -> renderer.render(List.of(fixture.event())))
+		assertThatThrownBy(() -> renderer.render(new ScheduleFeedContent("테스트 캘린더", List.of(fixture.event()))))
 			.isInstanceOf(IllegalStateException.class)
 			.hasMessage("Schedule start must be before end");
 	}
@@ -288,7 +319,7 @@ class ScheduleIcsRendererTest {
 			1_757_000_000_000L,
 			1_757_000_000_000L);
 
-		ScheduleIcsRenderer.RenderedCalendar rendered = renderer.render(List.of(fixture.event()));
+		ScheduleIcsRenderer.RenderedCalendar rendered = renderer.render(new ScheduleFeedContent("테스트 캘린더", List.of(fixture.event())));
 		net.fortuna.ical4j.model.Calendar calendar = parse(rendered.body());
 		VEvent event = calendar.getComponents(Component.VEVENT).stream()
 			.map(VEvent.class::cast)
@@ -323,7 +354,7 @@ class ScheduleIcsRendererTest {
 			1_757_000_000_000L,
 			1_757_000_000_000L);
 
-		assertThatThrownBy(() -> renderer.render(List.of(fixture.event())))
+		assertThatThrownBy(() -> renderer.render(new ScheduleFeedContent("테스트 캘린더", List.of(fixture.event()))))
 			.isInstanceOf(IllegalStateException.class)
 			.hasMessage("Invalid schedule recurrence rule");
 	}
@@ -345,7 +376,7 @@ class ScheduleIcsRendererTest {
 			1_757_000_000_000L,
 			1_757_000_000_000L);
 
-		String body = renderer.render(List.of(fixture.event())).body();
+		String body = renderer.render(new ScheduleFeedContent("테스트 캘린더", List.of(fixture.event()))).body();
 
 		assertThat(body).endsWith("\r\n");
 		assertThat(body.replace("\r\n", "")).doesNotContain("\r").doesNotContain("\n");
@@ -372,7 +403,7 @@ class ScheduleIcsRendererTest {
 		String title = "제목\r\n다음\r끝";
 		String body = "본문\r\n다음\r끝";
 		String location = "장소\r\n다음\r끝";
-		ScheduleIcsRenderer.RenderedCalendar rendered = renderer.render(List.of(fixture(
+		ScheduleIcsRenderer.RenderedCalendar rendered = renderer.render(new ScheduleFeedContent("테스트 캘린더", List.of(fixture(
 			"SCHEDULE-0009",
 			calendarName,
 			title,
@@ -384,7 +415,7 @@ class ScheduleIcsRendererTest {
 			null,
 			0,
 			1_757_000_000_000L,
-			1_757_000_000_000L).event()));
+			1_757_000_000_000L).event())));
 
 		assertThat(rendered.body().replace("\r\n", "")).doesNotContain("\r");
 		VEvent parsed = parse(rendered.body()).getComponents(Component.VEVENT).stream()
@@ -401,7 +432,7 @@ class ScheduleIcsRendererTest {
 
 	@Test
 	void render_shouldReturnValidEmptyCalendarWithStableEtag() throws Exception {
-		ScheduleIcsRenderer.RenderedCalendar rendered = renderer.render(List.of());
+		ScheduleIcsRenderer.RenderedCalendar rendered = renderer.render(new ScheduleFeedContent("테스트 캘린더", List.of()));
 		net.fortuna.ical4j.model.Calendar calendar = parse(rendered.body());
 
 		assertThat(calendar.getComponents(Component.VEVENT)).isEmpty();
@@ -429,7 +460,7 @@ class ScheduleIcsRendererTest {
 			1_757_000_000_000L,
 			1_757_000_000_000L);
 
-		VEvent parsed = parse(renderer.render(List.of(fixture.event())).body()).getComponents(Component.VEVENT).stream()
+		VEvent parsed = parse(renderer.render(new ScheduleFeedContent("테스트 캘린더", List.of(fixture.event()))).body()).getComponents(Component.VEVENT).stream()
 			.map(VEvent.class::cast)
 			.findFirst()
 			.orElseThrow();
@@ -468,8 +499,10 @@ class ScheduleIcsRendererTest {
 			1_757_000_000_000L,
 			1_756_000_000_000L);
 
-		ScheduleIcsRenderer.RenderedCalendar firstRendered = renderer.render(List.of(first.event(), second.event()));
-		ScheduleIcsRenderer.RenderedCalendar reordered = renderer.render(List.of(second.event(), first.event()));
+		ScheduleIcsRenderer.RenderedCalendar firstRendered = renderer.render(
+			new ScheduleFeedContent("테스트 캘린더", List.of(first.event(), second.event())));
+		ScheduleIcsRenderer.RenderedCalendar reordered = renderer.render(
+			new ScheduleFeedContent("테스트 캘린더", List.of(second.event(), first.event())));
 
 		assertThat(reordered.body()).isEqualTo(firstRendered.body());
 		assertThat(reordered.etag()).isEqualTo(firstRendered.etag());

@@ -43,8 +43,10 @@ import net.fortuna.ical4j.model.property.Sequence;
 import net.fortuna.ical4j.model.property.Summary;
 import net.fortuna.ical4j.model.property.Uid;
 import net.fortuna.ical4j.model.property.Version;
+import net.fortuna.ical4j.model.property.XProperty;
 
 import com.seoulchonnom.spec.schedule.entity.Schedule;
+import com.seoulchonnom.spec.schedule.feed.entity.ScheduleFeedContent;
 import com.seoulchonnom.spec.schedule.feed.entity.ScheduleFeedEvent;
 
 @Component
@@ -67,8 +69,9 @@ public class ScheduleIcsRenderer {
 		this.recurrenceRuleValidator = Objects.requireNonNull(recurrenceRuleValidator, "recurrenceRuleValidator");
 	}
 
-	public RenderedCalendar render(List<ScheduleFeedEvent> events) {
-		Objects.requireNonNull(events, "events");
+	public RenderedCalendar render(ScheduleFeedContent content) {
+		Objects.requireNonNull(content, "content");
+		List<ScheduleFeedEvent> events = content.events();
 		disableTimeZoneUpdates();
 		TimeZoneRegistry timeZoneRegistry = TimeZoneRegistryFactory.getInstance().createRegistry();
 		net.fortuna.ical4j.model.TimeZone seoulTimeZone = timeZoneRegistry.getTimeZone(SCHEDULE_ZONE_ID.getId());
@@ -84,6 +87,10 @@ public class ScheduleIcsRenderer {
 		calendar.add(new CalScale(CalScale.VALUE_GREGORIAN));
 		calendar.add(new Method(Method.VALUE_PUBLISH));
 		calendar.add(seoulTimeZone.getVTimeZone());
+		if (hasText(content.feedName())) {
+			calendar.add(new XProperty("X-WR-CALNAME", normalizeText(content.feedName())));
+		}
+		calendar.add(new XProperty("X-WR-TIMEZONE", SCHEDULE_ZONE_ID.getId()));
 
 		events.stream()
 			.sorted(eventComparator())

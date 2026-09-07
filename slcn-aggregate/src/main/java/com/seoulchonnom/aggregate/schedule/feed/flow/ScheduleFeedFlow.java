@@ -19,7 +19,9 @@ import com.seoulchonnom.aggregate.schedule.feed.logic.ScheduleFeedTokenLogic;
 import com.seoulchonnom.aggregate.schedule.store.ScheduleStore;
 import com.seoulchonnom.spec.calendar.entity.Calendar;
 import com.seoulchonnom.spec.schedule.entity.Schedule;
+import com.seoulchonnom.spec.schedule.feed.entity.ScheduleFeedContent;
 import com.seoulchonnom.spec.schedule.feed.entity.ScheduleFeedEvent;
+import com.seoulchonnom.spec.schedule.feed.entity.ScheduleFeedToken;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -52,14 +54,15 @@ public class ScheduleFeedFlow {
 	public record FeedWindow(LocalDateTime start, LocalDateTime end) {
 	}
 
-	public List<ScheduleFeedEvent> getFeedEvents(String rawToken) {
-		feedTokenLogic.validate(rawToken);
+	public ScheduleFeedContent getFeedContent(String rawToken) {
+		ScheduleFeedToken feedToken = feedTokenLogic.validate(rawToken);
 
 		FeedWindow window = feedWindow();
 		List<Schedule> schedules = scheduleStore.findFeedCandidates(window.start(), window.end());
 		if (schedules.isEmpty()) {
-			return List.of();
+			return new ScheduleFeedContent(feedToken.getName(), List.of());
 		}
+
 		Set<String> calendarIds = schedules.stream()
 			.map(Schedule::getCalendarId)
 			.filter(Objects::nonNull)
@@ -68,7 +71,7 @@ public class ScheduleFeedFlow {
 			? Map.of()
 			: calendarStore.findAllByIds(calendarIds);
 
-		return schedules.stream()
+		List<ScheduleFeedEvent> events = schedules.stream()
 			.filter(schedule -> {
 				String calendarId = schedule.getCalendarId();
 				if (calendarId != null && calendars.containsKey(calendarId)) {
@@ -85,5 +88,7 @@ public class ScheduleFeedFlow {
 			.sorted(comparing((ScheduleFeedEvent event) -> event.schedule().getStart())
 				.thenComparing(event -> event.schedule().getId()))
 			.toList();
+
+		return new ScheduleFeedContent(feedToken.getName(), events);
 	}
 }

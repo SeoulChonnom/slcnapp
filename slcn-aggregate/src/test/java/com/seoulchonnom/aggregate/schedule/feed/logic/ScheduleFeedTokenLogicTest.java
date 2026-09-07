@@ -125,6 +125,20 @@ class ScheduleFeedTokenLogicTest {
 	}
 
 	@Test
+	void validate_whenTokenExists_shouldReturnFeedToken() {
+		ScheduleFeedToken token = ScheduleFeedToken.builder()
+			.name("가족 캘린더")
+			.tokenHash("HASH")
+			.build();
+		when(hasher.hash("RAW-TOKEN")).thenReturn("HASH");
+		when(store.findByTokenHash("HASH")).thenReturn(Optional.of(token));
+
+		ScheduleFeedToken result = logic.validate("RAW-TOKEN");
+
+		assertThat(result.getName()).isEqualTo("가족 캘린더");
+	}
+
+	@Test
 	void validate_shouldHashBeforeLookingUpTheToken() {
 		String rawToken = "raw-token";
 		String tokenHash = "c".repeat(64);
