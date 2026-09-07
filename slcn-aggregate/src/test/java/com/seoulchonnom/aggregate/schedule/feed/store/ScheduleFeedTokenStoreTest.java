@@ -12,6 +12,7 @@ import com.seoulchonnom.aggregate.schedule.feed.exception.ScheduleFeedNotFoundEx
 import com.seoulchonnom.aggregate.schedule.feed.store.jpo.ScheduleFeedTokenJpo;
 import com.seoulchonnom.aggregate.schedule.feed.store.mapper.ScheduleFeedTokenJpoMapper;
 import com.seoulchonnom.aggregate.schedule.feed.store.repository.ScheduleFeedTokenRepository;
+import com.seoulchonnom.spec.common.exception.ErrorCode;
 import com.seoulchonnom.spec.schedule.feed.entity.ScheduleFeedToken;
 
 class ScheduleFeedTokenStoreTest {
@@ -103,6 +104,18 @@ class ScheduleFeedTokenStoreTest {
 
 		verify(scheduleFeedTokenRepository).findById("missing");
 		verify(scheduleFeedTokenRepository, never()).deleteById(anyString());
+	}
+
+	@Test
+	void deleteById_shouldUseUniformNotFoundErrorCodeForNullAndBlankIds() {
+		assertThatThrownBy(() -> scheduleFeedTokenStore.deleteById(null))
+			.isInstanceOf(ScheduleFeedNotFoundException.class)
+			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.SCHEDULE_FEED_NOT_FOUND);
+		assertThatThrownBy(() -> scheduleFeedTokenStore.deleteById(" "))
+			.isInstanceOf(ScheduleFeedNotFoundException.class)
+			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.SCHEDULE_FEED_NOT_FOUND);
+
+		verifyNoInteractions(scheduleFeedTokenRepository, scheduleFeedTokenJpoMapper);
 	}
 
 	private ScheduleFeedTokenJpo scheduleFeedTokenJpo(

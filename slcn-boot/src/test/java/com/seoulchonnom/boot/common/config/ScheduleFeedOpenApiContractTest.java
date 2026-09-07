@@ -63,6 +63,10 @@ class ScheduleFeedOpenApiContractTest {
 		assertThat(security(paths, "/schedule/feeds", "get")).containsExactly("X-AUTH-TOKEN");
 		assertThat(security(paths, "/schedule/feeds/{feedId}", "delete")).containsExactly("X-AUTH-TOKEN");
 		assertThat(security(paths, "/schedule/feeds/{feedToken}/calendar.ics", "get")).isEmpty();
+		assertThat(responseCodes(paths, "/schedule/feeds", "post")).contains("201");
+		assertThat(responseDescription(paths, "/schedule/feeds", "get", "200"))
+			.isEqualTo("일정 피드 목록 조회 성공");
+		assertThat(responseCodes(paths, "/schedule/feeds/{feedId}", "delete")).contains("204");
 	}
 
 	private List<String> security(JsonNode paths, String path, String method) {
@@ -74,5 +78,16 @@ class ScheduleFeedOpenApiContractTest {
 		List<String> names = new ArrayList<>();
 		security.forEach(requirement -> requirement.fieldNames().forEachRemaining(names::add));
 		return names;
+	}
+
+	private List<String> responseCodes(JsonNode paths, String path, String method) {
+		JsonNode responses = paths.path(path).path(method).path("responses");
+		List<String> codes = new ArrayList<>();
+		responses.fieldNames().forEachRemaining(codes::add);
+		return codes;
+	}
+
+	private String responseDescription(JsonNode paths, String path, String method, String statusCode) {
+		return paths.path(path).path(method).path("responses").path(statusCode).path("description").asText();
 	}
 }

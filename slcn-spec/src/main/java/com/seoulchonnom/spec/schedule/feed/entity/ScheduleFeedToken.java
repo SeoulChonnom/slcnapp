@@ -1,5 +1,6 @@
 package com.seoulchonnom.spec.schedule.feed.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.seoulchonnom.spec.common.entity.DomainEntity;
 
 import lombok.AllArgsConstructor;
@@ -15,5 +16,6 @@ import lombok.Setter;
 @Setter
 public class ScheduleFeedToken extends DomainEntity {
 	private String name;
+	@JsonIgnore
 	private String tokenHash;
 }

@@ -28,8 +28,10 @@ SLCN의 변경 사항이 반영된다.
 
 `server.forward-headers-strategy`의 기본값은 `none`이다. 이 설정에서는 애플리케이션이
 클라이언트가 임의로 보낸 `X-Forwarded-Proto`, `X-Forwarded-Host`,
-`X-Forwarded-Prefix`를 신뢰하지 않으므로, 공격자가 feed 생성 응답의 scheme·host·path를
-위조할 수 없다.
+`X-Forwarded-Prefix`를 무시한다. 다만 `none`은 inbound `Host`를 canonical 값으로
+만들어 주지 않으므로, trusted edge에서 허용된 Host를 제한하고 필요하면 canonical Host로
+덮어쓴 뒤 애플리케이션으로 전달해야 한다. 인터넷에 직접 노출하는 경우에도 애플리케이션
+앞단에서 허용 Host를 제한하는 정책을 별도로 둔다.
 
 TLS를 신뢰할 수 있는 reverse proxy에서만 종료하는 운영 배포라면 다음처럼 환경변수로
 Spring Boot의 `framework` 전략을 선택할 수 있다.
@@ -38,8 +40,9 @@ Spring Boot의 `framework` 전략을 선택할 수 있다.
 SLCN_FORWARD_HEADERS_STRATEGY=framework
 ```
 
-`framework`는 proxy가 위 세 헤더를 외부 입력에서 제거한 뒤 실제 요청 값으로 덮어쓰고,
-애플리케이션이 proxy를 거치지 않은 직접 접근으로부터 격리되어 있을 때만 사용한다.
+`framework`는 위의 Host 정책을 적용하는 trusted proxy가 세 forwarded 헤더를 외부 입력에서
+제거한 뒤 실제 요청 값으로 덮어쓰고, 애플리케이션이 proxy를 거치지 않은 직접 접근으로부터
+격리되어 있을 때만 선택적으로 사용한다.
 인터넷에 직접 노출된 애플리케이션이나 헤더를 정규화하지 않는 proxy에서는 기본값
 `none`을 유지한다. Spring Boot의 `framework` 전략이 활성화되면 Resource가 신뢰된
 forwarded scheme/host/prefix를 반영해 `feedUrl`을 생성한다.
@@ -214,10 +217,35 @@ ICS에는 반복 master 하나를 VEVENT 하나와 `RRULE` 하나로 발행한�
 - 연결된 Schedule이 있는 Calendar의 hard delete는 `409 Conflict`로 거부한다. 먼저
   Schedule을 다른 Calendar로 이동하거나 삭제해야 feed의 이름 매핑이 안정적으로
   유지된다.
+- 참조 확인과 Calendar 삭제는 같은 애플리케이션 트랜잭션에서 수행하지만, Schedule
+  등록과 Calendar 삭제가 동시에 일어나는 경우를 DB 수준에서 원자적으로 직렬화하지는
+  않는다. 이 범위에서는 외래 키, 잠금 또는 별도 isolation 설계를 추가하지 않았으므로,
+  엄격한 동시성 보장이 필요하면 배포 전에 해당 DB 제약·트랜잭션 정책을 별도로 설계해야
+  한다. 애플리케이션 메모리 잠금으로 이 간극을 보완하지 않는다.
 - SLCN의 등록·수정 경계는 `start < end`인 양의 기간만 허용한다. renderer도 방어적으로
   `start >= end` 또는 날짜 누락을 거부하므로 RFC-invalid인 동일 `DTSTART`/`DTEND`를
   발행하지 않는다. 과거 DB에 잘못된 row가 있으면 해당 feed는 일반적인 `500` 오류가
   될 수 있으므로 배포 전에 데이터를 교정한다.
+
+과거에 mutation 검증을 거치지 않고 저장된 `recurrence_rule`은 feed 경계에서 다시
+검증한다. 지원하지 않는 RRULE, 문법 오류, control character 또는 CR/LF가 포함된 값은
+renderer가 `500` 경로로 거부하며 `RRULE` content line으로 출력하지 않는다. 배포 전에
+다음 query로 날짜 누락·역순과 의심스러운 legacy rule을 조회하고, 반환된 각 nonblank
+rule을 Schedule의 `all_day` 값으로 `ScheduleRecurrenceRuleValidator`에 통과시킨 뒤
+실패한 row를 수정하거나 recurrence를 `NULL`로 정리한다.
+
+```sql
+SELECT id, is_all_day, start_time, end_time, recurrence_rule
+FROM slcn.schedule
+WHERE start_time IS NULL
+   OR end_time IS NULL
+   OR (is_all_day = false AND start_time >= end_time)
+   OR (is_all_day = true AND start_time::date >= end_time::date)
+   OR (recurrence_rule IS NOT NULL
+       AND (recurrence_rule ~ '[[:cntrl:]]'
+            OR recurrence_rule LIKE 'RRULE:%'))
+ORDER BY id;
+```
 
 ## Token 회전과 폐기
 
@@ -251,9 +279,10 @@ exception message, 사용자 정의 audit event, debug log에 남기지 않는�
 
 2026-09-04 현재 이 로컬 worktree에는 외부에서 접근 가능한 HTTPS 배포 주소와 Apple/
 Google 계정이 없으므로 실제 macOS/iOS 또는 Google Calendar 구독을 수행하지 않았다.
-자동화된 iCal4j renderer component/round-trip 및 HTTP contract 테스트가 한글·escape·
-folding, timed/all-day/반복, 수정·숨김·삭제, ETag/조건부 GET, token 보안 및 ADMIN 권한
-계약을 검증한다. 이는 외부 provider의 실제 동기화 성공을 의미하지 않는다.
+자동화된 iCal4j renderer component/round-trip, aggregate flow, 그리고 HTTP contract
+테스트가 한글·escape·folding, timed/all-day/반복, 수정·숨김·삭제, ETag/조건부 GET,
+token 보안 및 ADMIN 권한 계약을 검증한다. 이는 하나의 end-to-end provider 테스트나
+외부 provider의 실제 동기화 성공을 의미하지 않는다.
 다음 표는 배포 후 실제 증거로 채운다. 실행하지 않은 검사를 통과로 표시하지 않는다.
 
 | 클라이언트 | 상태 | 배포 후 확인 항목 |

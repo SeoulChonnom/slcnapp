@@ -39,6 +39,9 @@ public class ScheduleFeedTokenLogic {
 
 	@Transactional
 	public void delete(String feedId) {
+		if (feedId == null || feedId.isBlank()) {
+			throw new ScheduleFeedNotFoundException();
+		}
 		scheduleFeedTokenStore.deleteById(feedId);
 	}
 

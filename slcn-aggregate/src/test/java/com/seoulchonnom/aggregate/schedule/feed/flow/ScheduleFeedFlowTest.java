@@ -63,17 +63,33 @@ class ScheduleFeedFlowTest {
 	}
 
 	@Test
-	void getFeedEvents_shouldKeepValidationFirstInStoreCallOrder() {
+	void getFeedEvents_shouldReturnEmptyWithoutCalendarLookupWhenNoSchedulesExist() {
 		String rawToken = "valid-token";
 		when(scheduleStore.findAllNonHiddenForFeed()).thenReturn(List.of());
-		when(calendarStore.findAllByIds(Set.of())).thenReturn(Map.of());
 
-		scheduleFeedFlow.getFeedEvents(rawToken);
+		assertThat(scheduleFeedFlow.getFeedEvents(rawToken)).isEmpty();
 
-		InOrder inOrder = inOrder(feedTokenLogic, scheduleStore, calendarStore);
+		InOrder inOrder = inOrder(feedTokenLogic, scheduleStore);
 		inOrder.verify(feedTokenLogic).validate(rawToken);
 		inOrder.verify(scheduleStore).findAllNonHiddenForFeed();
-		inOrder.verify(calendarStore).findAllByIds(Set.of());
+		verifyNoInteractions(calendarStore);
+	}
+
+	@Test
+	void getFeedEvents_shouldFilterNullCalendarIdsBeforeBulkLookupAndDropOrphans() {
+		String rawToken = "valid-token";
+		Schedule valid = schedule("schedule-001", "calendar-001", LocalDateTime.of(2026, 9, 2, 9, 0), false);
+		Schedule nullCalendar = schedule("schedule-002", null, LocalDateTime.of(2026, 9, 1, 9, 0), false);
+		when(scheduleStore.findAllNonHiddenForFeed()).thenReturn(List.of(nullCalendar, valid));
+		Calendar calendar = calendar("calendar-001", true);
+		when(calendarStore.findAllByIds(Set.of("calendar-001"))).thenReturn(Map.of("calendar-001", calendar));
+
+		assertThat(scheduleFeedFlow.getFeedEvents(rawToken))
+			.extracting(event -> event.schedule().getId())
+			.containsExactly("schedule-001");
+
+		verify(calendarStore).findAllByIds(Set.of("calendar-001"));
+		verifyNoMoreInteractions(calendarStore);
 	}
 
 	private Schedule schedule(String id, String calendarId, LocalDateTime start, boolean hidden) {

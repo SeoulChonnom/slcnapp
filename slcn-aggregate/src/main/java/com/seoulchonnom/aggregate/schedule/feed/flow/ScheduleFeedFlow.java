@@ -5,6 +5,7 @@ import static java.util.stream.Collectors.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import org.springframework.stereotype.Service;
@@ -33,17 +34,28 @@ public class ScheduleFeedFlow {
 		feedTokenLogic.validate(rawToken);
 
 		List<Schedule> schedules = scheduleStore.findAllNonHiddenForFeed();
+		if (schedules.isEmpty()) {
+			return List.of();
+		}
 		Set<String> calendarIds = schedules.stream()
 			.map(Schedule::getCalendarId)
+			.filter(Objects::nonNull)
 			.collect(toSet());
-		Map<String, Calendar> calendars = calendarStore.findAllByIds(calendarIds);
+		Map<String, Calendar> calendars = calendarIds.isEmpty()
+			? Map.of()
+			: calendarStore.findAllByIds(calendarIds);
 
 		return schedules.stream()
 			.filter(schedule -> {
-				if (calendars.containsKey(schedule.getCalendarId())) {
+				String calendarId = schedule.getCalendarId();
+				if (calendarId != null && calendars.containsKey(calendarId)) {
 					return true;
 				}
-				log.warn("Skipping orphan schedule: scheduleId={}, calendarId={}", schedule.getId(), schedule.getCalendarId());
+				if (calendarId == null) {
+					log.warn("Skipping orphan schedule: scheduleId={}", schedule.getId());
+				} else {
+					log.warn("Skipping orphan schedule: scheduleId={}, calendarId={}", schedule.getId(), calendarId);
+				}
 				return false;
 			})
 			.map(schedule -> new ScheduleFeedEvent(schedule, calendars.get(schedule.getCalendarId())))

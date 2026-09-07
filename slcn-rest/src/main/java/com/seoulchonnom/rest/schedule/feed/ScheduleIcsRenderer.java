@@ -19,6 +19,8 @@ import java.util.Objects;
 
 import org.springframework.stereotype.Component;
 
+import com.seoulchonnom.aggregate.schedule.logic.ScheduleRecurrenceRuleValidator;
+
 import net.fortuna.ical4j.data.CalendarOutputter;
 import net.fortuna.ical4j.model.TimeZoneRegistry;
 import net.fortuna.ical4j.model.TimeZoneRegistryFactory;
@@ -51,9 +53,18 @@ public class ScheduleIcsRenderer {
 	private static final URI ORGANIZER_URI = URI.create("https://github.com/SeoulChonnom/slcnapp");
 	private static final String TIMEZONE_UPDATE_PROPERTY = "net.fortuna.ical4j.timezone.update.enabled";
 	private static final int RFC5545_FOLD_LENGTH = 75;
+	private final ScheduleRecurrenceRuleValidator recurrenceRuleValidator;
 
 	static {
 		disableTimeZoneUpdates();
+	}
+
+	public ScheduleIcsRenderer() {
+		this(new ScheduleRecurrenceRuleValidator());
+	}
+
+	ScheduleIcsRenderer(ScheduleRecurrenceRuleValidator recurrenceRuleValidator) {
+		this.recurrenceRuleValidator = Objects.requireNonNull(recurrenceRuleValidator, "recurrenceRuleValidator");
 	}
 
 	public RenderedCalendar render(List<ScheduleFeedEvent> events) {
@@ -117,9 +128,18 @@ public class ScheduleIcsRenderer {
 			event.add(new Location(normalizeText(schedule.getLocation())));
 		}
 		if (hasText(schedule.getRecurrenceRule())) {
+			validateRecurrenceRule(schedule);
 			event.add(new RawRRuleProperty(schedule.getRecurrenceRule()));
 		}
 		return event;
+	}
+
+	private void validateRecurrenceRule(Schedule schedule) {
+		try {
+			recurrenceRuleValidator.validateAndNormalize(schedule.getRecurrenceRule(), schedule.isAllDay());
+		} catch (RuntimeException exception) {
+			throw new IllegalStateException("Invalid schedule recurrence rule", exception);
+		}
 	}
 
 	private void validateDateRange(Schedule schedule) {

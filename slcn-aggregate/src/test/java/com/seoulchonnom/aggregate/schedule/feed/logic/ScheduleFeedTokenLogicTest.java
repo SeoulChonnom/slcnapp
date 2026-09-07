@@ -14,6 +14,7 @@ import org.mockito.InOrder;
 import com.seoulchonnom.aggregate.common.exception.BadRequestException;
 import com.seoulchonnom.aggregate.schedule.feed.exception.ScheduleFeedNotFoundException;
 import com.seoulchonnom.aggregate.schedule.feed.store.ScheduleFeedTokenStore;
+import com.seoulchonnom.spec.common.exception.ErrorCode;
 import com.seoulchonnom.spec.schedule.feed.entity.ScheduleFeedToken;
 
 class ScheduleFeedTokenLogicTest {
@@ -43,6 +44,20 @@ class ScheduleFeedTokenLogicTest {
 	}
 
 	@Test
+	void create_shouldAcceptNameExactly100Characters() {
+		String name = "가".repeat(100);
+		String rawToken = "raw-token";
+		ScheduleFeedToken savedToken = token("FEED-0001", name, "a".repeat(64));
+		when(generator.generate()).thenReturn(rawToken);
+		when(hasher.hash(rawToken)).thenReturn(savedToken.getTokenHash());
+		when(store.save(any(ScheduleFeedToken.class))).thenReturn(savedToken);
+
+		assertThat(logic.create(name).feedToken()).isSameAs(savedToken);
+
+		verify(store).save(argThat(value -> value.getName().equals(name)));
+	}
+
+	@Test
 	void create_shouldPersistOnlyHashAndReturnRawTokenOnce() {
 		String rawToken = "raw-token";
 		String tokenHash = "a".repeat(64);
@@ -62,6 +77,18 @@ class ScheduleFeedTokenLogicTest {
 		assertThat(captor.getValue().getTokenHash()).isNotEqualTo(rawToken);
 		verify(generator).generate();
 		verify(hasher).hash(rawToken);
+	}
+
+	@Test
+	void createdFeedToken_toString_shouldRedactRawTokenAndHash() {
+		ScheduleFeedToken feedToken = token("FEED-0001", "Calendar", "hash-secret");
+		ScheduleFeedTokenLogic.CreatedFeedToken created =
+			new ScheduleFeedTokenLogic.CreatedFeedToken(feedToken, "raw-secret");
+
+		assertThat(created.toString())
+			.doesNotContain("raw-secret")
+			.doesNotContain("hash-secret")
+			.contains("<redacted>");
 	}
 
 	@Test
@@ -85,6 +112,16 @@ class ScheduleFeedTokenLogicTest {
 
 		verify(store).deleteById("FEED-0001");
 		verifyNoInteractions(hasher, generator);
+	}
+
+	@Test
+	void delete_shouldUseUniformNotFoundErrorCodeForNullAndBlankIds() {
+		assertThatThrownBy(() -> logic.delete(null))
+			.isInstanceOf(ScheduleFeedNotFoundException.class)
+			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.SCHEDULE_FEED_NOT_FOUND);
+		assertThatThrownBy(() -> logic.delete(" "))
+			.isInstanceOf(ScheduleFeedNotFoundException.class)
+			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.SCHEDULE_FEED_NOT_FOUND);
 	}
 
 	@Test
@@ -120,10 +157,16 @@ class ScheduleFeedTokenLogicTest {
 
 		assertThatThrownBy(() -> logic.validate(" "))
 			.isInstanceOf(ScheduleFeedNotFoundException.class)
-			.hasMessage("해당 일정 피드가 없습니다.");
+			.hasMessage("해당 일정 피드가 없습니다.")
+			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.SCHEDULE_FEED_NOT_FOUND);
+		assertThatThrownBy(() -> logic.validate(null))
+			.isInstanceOf(ScheduleFeedNotFoundException.class)
+			.hasMessage("해당 일정 피드가 없습니다.")
+			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.SCHEDULE_FEED_NOT_FOUND);
 		assertThatThrownBy(() -> logic.validate(malformedToken))
 			.isInstanceOf(ScheduleFeedNotFoundException.class)
 			.hasMessage("해당 일정 피드가 없습니다.")
+			.hasFieldOrPropertyWithValue("errorCode", ErrorCode.SCHEDULE_FEED_NOT_FOUND)
 			.hasMessageNotContaining(malformedToken);
 
 		verifyNoInteractions(store);

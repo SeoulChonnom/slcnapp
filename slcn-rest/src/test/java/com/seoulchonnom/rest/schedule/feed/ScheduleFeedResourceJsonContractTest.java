@@ -15,6 +15,7 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpHeaders;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
@@ -54,6 +55,8 @@ class ScheduleFeedResourceJsonContractTest {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"name\":\"Google Calendar\"}"))
 			.andExpect(status().isCreated())
+			.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+				.string(HttpHeaders.CACHE_CONTROL, "no-store"))
 			.andExpect(jsonPath("$.id").value("FEED-0001"))
 			.andExpect(jsonPath("$.name").value("Google Calendar"))
 			.andExpect(jsonPath("$.feedUrl").value("http://localhost/schedule/feeds/raw-token/calendar.ics"))

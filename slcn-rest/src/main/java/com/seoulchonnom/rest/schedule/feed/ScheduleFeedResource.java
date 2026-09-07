@@ -47,9 +47,9 @@ public class ScheduleFeedResource implements ScheduleFeedFacade {
 			.buildAndExpand(created.rawToken())
 			.toUriString();
 
-		return new ResponseEntity<>(
-			ScheduleFeedCreatedRdo.from(created.feedToken(), feedUrl),
-			HttpStatus.CREATED);
+		return ResponseEntity.status(HttpStatus.CREATED)
+			.cacheControl(CacheControl.noStore())
+			.body(ScheduleFeedCreatedRdo.from(created.feedToken(), feedUrl));
 	}
 
 	@Override

@@ -301,6 +301,33 @@ class ScheduleIcsRendererTest {
 		assertThat(event.getPropertyList().getProperty(Property.DESCRIPTION)).isEmpty();
 	}
 
+	@ParameterizedTest
+	@ValueSource(strings = {
+		"FREQ=DAILY\r\nX-INJECTED:VALUE",
+		"FREQ=DAILY\nX-INJECTED:VALUE",
+		"FREQ=DAILY;UNKNOWN=VALUE",
+		"FREQ=NOT_SUPPORTED"
+	})
+	void render_shouldRejectUnsafeOrInvalidLegacyRecurrenceRule(String recurrenceRule) {
+		ScheduleFeedRendererFixture fixture = fixture(
+			"SCHEDULE-0015",
+			"반복",
+			"오래된 일정",
+			null,
+			false,
+			LocalDateTime.of(2026, 9, 3, 9, 0),
+			LocalDateTime.of(2026, 9, 3, 10, 0),
+			null,
+			recurrenceRule,
+			0,
+			1_757_000_000_000L,
+			1_757_000_000_000L);
+
+		assertThatThrownBy(() -> renderer.render(List.of(fixture.event())))
+			.isInstanceOf(IllegalStateException.class)
+			.hasMessage("Invalid schedule recurrence rule");
+	}
+
 	@Test
 	void render_shouldEscapeTextFoldUtf8WithoutSplittingCharactersAndUseCrLf() throws Exception {
 		String longText = "쉼표,세미콜론;역슬래시\\줄\r\n바꿈-\r" + "한글".repeat(40);
