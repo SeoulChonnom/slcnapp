@@ -58,6 +58,25 @@ forwarded scheme/host/prefix를 반영해 `feedUrl`을 생성한다.
 `framework` 전략 대신 `SLCN_PUBLIC_BASE_URL` 설정을 우선 검토한다. 두 설정을 함께
 켜면 `SLCN_PUBLIC_BASE_URL`이 우선한다.
 
+**형식 요구사항**
+
+- scheme(`http://` 또는 `https://`)과 host를 포함한 절대 URL이어야 한다. scheme이
+  없는 값(예: `slcn.example.com`)은 상대 URL을 조용히 만들지 않고 feed 생성 요청을
+  즉시 실패시킨다(`500`). 오탈자를 배포 후에야 발견하지 않도록 배포 전 스테이징에서
+  `feedUrl` 응답을 눈으로 확인한다.
+- application context path(`server.servlet.context-path`, 기본값 `/api`)를
+  **포함해도, 생략해도 된다.** 생략하면(`https://slcn.example.com`) 서버가
+  `server.servlet.context-path` 값을 자동으로 붙인다. 이미 그 경로로 끝나는 값을
+  주면(`https://slcn.example.com/api`) 중복해서 붙이지 않는다. 판단 기준은 문자열
+  단순 비교(경로가 context path로 끝나는지)이므로, context path와 우연히 같은
+  suffix로 끝나는 값을 쓰면 자동 부착이 생략된다 — 애매하면 context path를 포함해
+  명시적으로 적는 것을 권장한다.
+- 끝에 `/`가 여러 개 있어도 하나로 정리한 뒤 처리하므로 `https://slcn.example.com/`처럼
+  적어도 된다.
+- 예: `SLCN_PUBLIC_BASE_URL=https://slcn.example.com` 또는
+  `SLCN_PUBLIC_BASE_URL=https://slcn.example.com/api` 모두
+  `https://slcn.example.com/api/schedule/feeds/<token>/calendar.ics`로 귀결된다.
+
 ## 관리 API (ADMIN)
 
 ### Feed 생성
@@ -172,7 +191,10 @@ ETag: "<64-lowercase-hex-digest>"
 ```
 
 ETag는 token이 아니라 canonical UTF-8 ICS 본문의 SHA-256이다. 본문은 요청 시각을
-포함하지 않으므로 데이터가 같으면 모든 token과 요청에서 같은 ETag가 나온다.
+포함하지 않으므로 같은 feed에 대해서는 데이터가 같으면 여러 요청에서 같은 ETag가
+나온다. 다만 본문에는 `X-WR-CALNAME`으로 feed 이름(`ScheduleFeedToken.name`)이
+포함되므로, 이름이 다른 두 feed는 나머지 Schedule 데이터가 완전히 같아도 서로 다른
+ETag를 갖는다. ETag는 feed 간에 공유되는 값이 아니라 feed별 값이다.
 `If-None-Match`가 현재 ETag와 일치하면 강한 형식, `W/` 약한 형식, 쉼표로 구분한
 목록, `*` 모두 `304 Not Modified`와 빈 body를 반환한다. `Cache-Control`은
 `no-cache, private`로 유지해 공유 캐시가 일정을 공개하지 않으면서 클라이언트가

@@ -124,15 +124,26 @@ default void validateDateRange(@MappingTarget Schedule schedule) {
 
 ### 1.4 남는 위험 (D4)
 
-렌더러의 이벤트별 skip을 채택하지 않았으므로 다음 두 가지가 남는다. 인지된 선택이며 향후 재검토
-대상이다.
+렌더러의 이벤트별 skip을 채택하지 않았으므로 다음 세 가지가 남는다. 인지된 선택이며 향후 재검토
+대상이다. 이 중 CHECK 제약이 원천적으로 표현할 수 없는 것은 1번(RRULE)뿐이다. 2번은 CHECK가
+표현은 할 수 있지만 이번 3계층이 datetime 단위로만 검증해 all-day의 날짜 단위 규약을 놓치는
+경우이고, 3번은 3계층이 아직 배포되지 않은 시점의 문제다. 셋 다 결과적으로 "앱 mutation 경로를
+거치지 않고 들어온 행"이라는 같은 범주에 속하며, RRULE만 특별한 것이 아니다.
 
 1. **RRULE 경로는 어느 계층도 덮지 못한다.** CHECK 제약은 RRULE 유효성을 표현할 수 없다. 나중에
    `ScheduleRecurrenceRuleValidator.SUPPORTED_KEYS` 를 좁히면 기존 행이 좌초해
    `validateRecurrenceRule` → 500 → 전 구독자 피드 중단이 그대로 재현된다.
-2. **DDL 적용 전에 유입된 위반 행이 있으면** 사전 점검 쿼리가 유일한 방어선이다.
+2. **all-day 행의 날짜 단위 규약은 1~3계층 중 어느 것도 검증하지 않는다.** 계층 1·2(`start.isBefore(end)`)와
+   계층 3(`end_time > start_time`)은 모두 datetime 단위 비교이므로, `is_all_day = true` 이면서
+   같은 날 09:00~10:00처럼 `start`/`end` 가 같은 날짜인 행도 통과시킨다. 반면
+   `ScheduleIcsRenderer.validateDateRange` 는 all-day에 대해
+   `start.toLocalDate().isBefore(end.toLocalDate())` 를 요구하므로 이런 행을 렌더러 단계에서만
+   거부해 `500` → 전 구독자 피드 중단을 일으킨다. 현재 API는 all-day 값을 항상 `atStartOfDay()`
+   로 강제하므로 API 경로로는 이런 행이 만들어지지 않는다 — 즉 3번과 마찬가지로 "앱을 거치지 않고
+   DB에 직접 들어온 행" 범주이며, API가 만들 수 있는 위험이 아니다.
+3. **DDL 적용 전에 유입된 위반 행이 있으면** 사전 점검 쿼리가 유일한 방어선이다.
 
-두 위험 모두 `render()` 의 이벤트별 try/catch(skip + `log.warn`) 한 겹으로 해소된다. 이는
+세 위험 모두 `render()` 의 이벤트별 try/catch(skip + `log.warn`) 한 겹으로 해소된다. 이는
 `ScheduleFeedFlow` 가 orphan 일정을 처리하는 방식과도 일치한다.
 
 ---
@@ -314,10 +325,22 @@ SELECT count(*) FROM slcn.schedule s
 
 -- P3. 종일 일정. 0이면 백필 불필요(D2의 전제 재확인).
 SELECT count(*) FROM slcn.schedule WHERE is_all_day = true;
+
+-- P4. hidden=true(soft delete) 행. CRITICAL — 0이 아니면 무시하고 진행하지 않는다.
+SELECT count(*) FROM slcn.schedule WHERE hidden = true;
 ```
 
 P1 또는 P2가 0이 아니면 중단하고 데이터를 먼저 정리한다. P3가 0이 아니면 D2가 성립하지 않으므로
 설계를 재검토한다.
+
+**P4가 0이 아니면 반드시 9절의 archive 단계(3단계)를 실행해야 한다. 건너뛰어서는 안 된다.**
+이 PR은 soft delete(`hidden`)를 제거하고 4개 `ScheduleRepository` 조회 메서드에서
+`…AndHiddenFalse…` 술어를 뺐다. 신 배포본이 뜨는 순간부터 `hidden = true` 인 행은 평범한 행으로
+취급되어 월별 조회와 모든 구독자의 ICS 피드에 다시 나타난다 — 사용자가 "삭제"했다고 믿는 일정이
+되살아난다. `DROP COLUMN hidden`(8.2)은 컬럼만 지울 뿐 이미 값이 채워진 행 자체를 지우지 않으므로
+이 부활은 `DROP COLUMN` 으로 막을 수 없고, DDL 적용 시점과 무관하게 신 배포본이 뜨는 즉시
+일어난다. 부수적으로 `existsByCalendarId` 도 이 행들을 정상 행으로 세게 되어 M1에서 의도한
+캘린더 삭제 409 해소가 무력화된다(이미 hidden 상태였던 일정이 있는 캘린더는 여전히 영구 409).
 
 ### 8.2 적용 (애플리케이션 배포와 함께)
 
@@ -360,23 +383,56 @@ ALTER TABLE slcn.schedule ADD COLUMN hidden boolean NOT NULL DEFAULT false;
 `hidden` 을 복원할 때는 기본값을 반드시 함께 지정한다. 원본에는 기본값이 없었으나, 복원 시점의
 구 배포본이 이 컬럼을 채우지 못하면 INSERT가 실패하기 때문이다.
 
+**주의 — 이 롤백은 삭제된 데이터를 복원하지 않는다.** 9절 3단계(archive)가 이미 실행되어
+`hidden = true` 행이 `DELETE` 됐다면, 위 롤백 스크립트로 컬럼과 제약을 되돌려도 그 행 자체는
+돌아오지 않는다(`DROP COLUMN` 과 `DELETE` 는 서로 별개의 되돌릴 수 없는 작업이다). 유일한
+복구 경로는 `slcn.schedule_hidden_archive` 에 보관된 사본을 `INSERT` 로 되돌리는 것이며, 이
+런북은 그 작업을 포함하지 않는다 — 필요하면 배포 담당자가 archive 테이블 스키마를 확인하고
+별도로 수행한다. 이 때문에 archive 테이블은 배포가 안정적으로 확인되기 전까지 절대 드롭하지
+않는다(9절 3단계 참조).
+
 ---
 
 ## 9. 배포 순서
 
-`hidden` 컬럼과 종일 규약 두 가지가 무중단 배포를 제약한다.
+`hidden` 컬럼과 종일 규약 두 가지가 배포 순서를 제약한다. 또한 **이 배포는 무중단이 아니다.**
+8.2는 `ALTER COLUMN … SET NOT NULL`, `ADD CONSTRAINT … CHECK`, `ADD CONSTRAINT … FOREIGN KEY`
+를 한 트랜잭션에서 실행하는데, 이 DDL들은 기존 행을 스캔하는 동안 `slcn.schedule` 에 ACCESS
+EXCLUSIVE 락을 잡고 FK 추가는 `slcn.calendar` 에도 같은 락을 건다. 그 스캔이 끝날 때까지 ICS
+피드 GET을 포함한 해당 테이블의 모든 읽기·쓰기가 대기한다. 따라서 8.2는 "무중단"이 아니라
+**"짧게 차단된다"** 로 취급한다. 트래픽이 적은 시간대에 실행하고, 스캔 시간은 실제 운영 DB 행
+수를 기준으로 스테이징에서 사전에 측정해 차단 구간을 공지한다.
 
-1. **사전 점검** — 8.1의 P1·P2·P3 실행, 모두 조건 충족 확인
+1. **사전 점검** — 8.1의 P1·P2·P3·P4 실행, 모두 조건 충족 확인. P4가 0이 아니면 무시하지 않고
+   3단계에서 처리한다.
 2. **`hidden` 에 DB 기본값 부여** — `ALTER TABLE slcn.schedule ALTER COLUMN hidden SET DEFAULT false;`
    이 단계가 있어야 신 배포본이 컬럼을 채우지 않아도 INSERT가 성공하며, 구·신 배포본이 공존할 수 있다
-3. **백엔드 배포** — 신 배포본 기동, 구 배포본 종료
-4. **프론트엔드 배포** — `hide` 호출 제거, 종일 일정 `end` 를 exclusive로 전환
-5. **DDL 적용** — 8.2 실행 (`DROP COLUMN hidden` 포함)
-6. **검증** — ICS 피드 200 응답, ETag/304 동작, 일정 등록·수정·삭제, 캘린더 삭제 409
-7. **실기기 호환성 게이트** — 7.3 체크리스트
+3. **`hidden = true` 행 archive 후 삭제** — soft delete 제거로 이 행들이 신 배포본에서는 평범한
+   행이 되어 즉시 되살아나므로, **4단계(백엔드 배포)보다 먼저** 실행한다.
+   ```sql
+   CREATE TABLE slcn.schedule_hidden_archive AS SELECT * FROM slcn.schedule WHERE hidden = true;
+   DELETE FROM slcn.schedule WHERE hidden = true;
+   ```
+   `slcn.schedule_hidden_archive` 가 이 데이터의 유일한 복구 경로다. 배포가 안정적으로 확인된
+   뒤(6단계 검증 통과, 최소 하루 이상 관찰)에만 이 archive 테이블을 드롭한다. 8.1의 P4가 0이면
+   (숨김 처리된 일정이 없었으면) 이 단계는 두 문장 모두 영향받는 행이 없어 안전하게 스킵할 수
+   있지만, `CREATE TABLE … AS SELECT` 는 0행이어도 실행에 위험이 없으므로 매 배포마다 그대로
+   실행해 절차를 단순하게 유지하는 것을 권장한다.
+4. **백엔드 배포** — 신 배포본 기동, 구 배포본 종료
+5. **프론트엔드 배포** — `hide` 호출 제거, 종일 일정 `end` 를 exclusive로 전환
+6. **8.1 P1·P2 재점검** — 4·5단계 구간에서도 구 배포본이 `start == end` 저장을 허용하고(구
+   배포본은 아직 구 검증 로직을 쓴다), calendar_id에 FK가 없어 M4 레이스도 여전히 열려 있다.
+   따라서 1단계의 사전 점검은 이 시점에는 이미 낡은 정보다. **7단계(8.2)를 실행하기 직전에
+   P1·P2를 다시 실행**해 둘 다 0인지 확인한다. 위반 행이 있으면 8.2를 실행하지 말고 먼저 그
+   데이터를 정리한다 — 8.2는 하나의 `BEGIN`/`COMMIT` 이므로 `ADD CONSTRAINT` 가 실패하면
+   `DROP COLUMN hidden` 을 포함한 블록 전체가 롤백되어 배포가 중간에 멈춘다.
+7. **DDL 적용** — 8.2 실행 (`DROP COLUMN hidden` 포함)
+8. **검증** — ICS 피드 200 응답, ETag/304 동작, 일정 등록·수정·삭제, 캘린더 삭제 409
+9. **실기기 호환성 게이트** — 7.3 체크리스트
 
-2단계는 8.2에 포함하지 않고 먼저 실행한다는 점에 주의한다. 배포 중 구·신 배포본이 함께 떠 있는
-구간을 넘기기 위한 조치다.
+2단계는 7단계(8.2)에 포함하지 않고 먼저 실행한다는 점에 주의한다. 배포 중 구·신 배포본이 함께
+떠 있는 구간을 넘기기 위한 조치다. 3단계(archive)는 반드시 4단계(백엔드 배포)보다 먼저 실행해
+"신 배포본이 뜬 순간 숨김 일정이 되살아나는" 구간이 존재하지 않게 한다.
 
 ---
 

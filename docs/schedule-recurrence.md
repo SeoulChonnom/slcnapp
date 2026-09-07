@@ -99,7 +99,7 @@ Content-Type: application/json
 {master Schedule ID}/{occurrence 시작 시각(Asia/Seoul)의 ISO offset}
 ```
 
-따라서 PUT 수정, hide, DELETE는 occurrenceId가 아니라 master Schedule ID를 대상으로 하며 시리즈 전체에 적용된다. occurrence는 조회 시 계산될 뿐 저장·수정·삭제되지 않는다.
+따라서 PUT 수정과 DELETE는 occurrenceId가 아니라 master Schedule ID를 대상으로 하며 시리즈 전체에 적용된다. occurrence는 조회 시 계산될 뿐 저장·수정·삭제되지 않는다. `PUT /schedule/{id}/hide`는 soft delete와 함께 제거되어 더 이상 존재하지 않으며, `DELETE /schedule/{id}`가 삭제의 유일한 경로다(단일 occurrence만 삭제하는 기능은 없다).
 
 ## 배포 전 DB precheck
 
