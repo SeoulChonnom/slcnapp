@@ -47,6 +47,17 @@ SLCN_FORWARD_HEADERS_STRATEGY=framework
 `none`을 유지한다. Spring Boot의 `framework` 전략이 활성화되면 Resource가 신뢰된
 forwarded scheme/host/prefix를 반영해 `feedUrl`을 생성한다.
 
+### `SLCN_PUBLIC_BASE_URL`
+
+`slcn.public-base-url`(환경변수 `SLCN_PUBLIC_BASE_URL`)는 기본값이 빈 문자열이다.
+값을 설정하면 `feedUrl`을 이 base URL 기준으로 생성해 `forward-headers-strategy`
+설정과 무관하게 외부에 공개할 canonical 주소를 고정할 수 있다. 값이 비어 있으면
+기존 동작대로 요청에서 파생한 URL(`ServletUriComponentsBuilder.fromCurrentContextPath`)로
+되돌아간다. `forward-headers-strategy`를 `none`으로 유지한 채로도 `feedUrl`을
+올바른 외부 주소로 만들 수 있으므로, trusted proxy를 신뢰하기 어려운 환경에서는
+`framework` 전략 대신 `SLCN_PUBLIC_BASE_URL` 설정을 우선 검토한다. 두 설정을 함께
+켜면 `SLCN_PUBLIC_BASE_URL`이 우선한다.
+
 ## 관리 API (ADMIN)
 
 ### Feed 생성
@@ -126,8 +137,9 @@ Authorization: Bearer <SLCN-JWT>
 3. Apple Calendar 또는 Google Calendar의 구독 UI에 URL을 붙여 넣는다.
 4. URL을 회전할 때는 기존 feed를 삭제하기 전에 대체 feed를 먼저 생성하고 새 URL로
    구독을 바꾼다.
-5. Schedule 변경·숨김·삭제는 외부 Calendar의 다음 refresh 이후에 반영된다고
-   안내한다. 즉시 동기화는 보장하지 않는다.
+5. Schedule 변경·삭제는 외부 Calendar의 다음 refresh 이후에 반영된다고
+   안내한다. 즉시 동기화는 보장하지 않는다. Schedule 삭제는 hard delete
+   단일 경로이며 복구 API가 없다.
 
 ### Apple Calendar
 
@@ -170,6 +182,15 @@ ETag는 token이 아니라 canonical UTF-8 ICS 본문의 SHA-256이다. 본문�
 잘못된·공백·폐기된 token은 token 값을 오류 응답에 포함하지 않고 `404 Not Found`로
 처리한다. 이 경로의 POST/PUT/DELETE나 `calendar.ics`가 아닌 경로는 공개하지 않는다.
 
+### 종일 일정 `end` exclusive 규약 (API 계약)
+
+종일 일정의 `end`는 ICS 렌더링만의 관례가 아니라 Schedule 등록·수정 API 자체의
+계약이다. 하루짜리 종일 일정은 `start=2026-01-01`, `end=2026-01-02`처럼 저장하며,
+`end`는 해당 일정이 끝나는 다음 날 00:00을 가리키는 exclusive 값이다. 이 규약은
+저장값, JSON API 응답, ICS `DTEND;VALUE=DATE` 모두에서 동일하게 유지된다. `end`를
+inclusive로 다루던 기존 클라이언트는 배포 전에 반드시 exclusive 계산으로 바꿔야
+한다. 이 전환은 프론트엔드에 필수적인 호환성 파괴 변경이다.
+
 ## Schedule/Calendar 매핑
 
 | SLCN 값 | ICS 값과 의미 |
@@ -188,13 +209,27 @@ ETag는 token이 아니라 canonical UTF-8 ICS 본문의 SHA-256이다. 본문�
 Calendar 이름은 `SUMMARY` prefix와 `CATEGORIES`에만 넣고 `DESCRIPTION`에는 반복하지
 않는다. 한글과 text의 역슬래시·쉼표·세미콜론·줄바꿈은 RFC 5545 규칙으로 escape한다.
 모든 line은 CRLF로 끝나며 UTF-8 기준 75 octet에서 folding한다. VCALENDAR에는
-`VERSION:2.0`, 고정 `PRODID`, `CALSCALE:GREGORIAN`, `METHOD:PUBLISH`와
-`Asia/Seoul` VTIMEZONE 하나가 포함된다. VEVENT의 고정 Organizer는
+`VERSION:2.0`, 고정 `PRODID`, `CALSCALE:GREGORIAN`, `METHOD:PUBLISH`,
+`Asia/Seoul` VTIMEZONE 하나, feed token의 이름이 공백이 아닐 때만 채우는
+`X-WR-CALNAME`, 그리고 항상 채우는 `X-WR-TIMEZONE:Asia/Seoul`이 포함된다. 두
+`X-WR-*` property는 구독 UI가 캘린더 목록에 URL 대신 사람이 읽을 수 있는 이름과
+시간대를 표시하도록 돕는다. VEVENT의 고정 Organizer는
 `https://github.com/SeoulChonnom/slcnapp`이다.
 
-Feed는 다음 Schedule만 발행한다.
+### 피드 시간 창
 
-- `hidden=false`인 모든 Schedule을 날짜 horizon 없이 발행한다.
+feed는 전체 Schedule을 무제한으로 조회하지 않고 시간 창(window) 안의 후보만
+조회한다. 창은 `slcn.ics.window.past-months`(환경변수
+`SLCN_ICS_WINDOW_PAST_MONTHS`, 기본값 12)와 `slcn.ics.window.future-months`
+(환경변수 `SLCN_ICS_WINDOW_FUTURE_MONTHS`, 기본값 24)로 조정한다. 창 경계는
+현재 월의 1일 00:00(`Asia/Seoul`)을 기준으로 그 앞뒤 개월수만큼 스냅되므로,
+같은 달 안에서는 요청 시각이 달라도 같은 창이 적용되어 ETag가 안정적으로
+유지된다.
+
+- 비반복 Schedule은 `start < 창 종료` and `end > 창 시작`을 모두 만족해야
+  포함된다. 창보다 오래된 비반복 일정은 구독 캘린더에서 사라진다.
+- 반복 Schedule은 `start < 창 종료`만 확인하고 하한을 두지 않는다. 오래전에
+  시작한 주간 반복 일정도 여전히 발행된다.
 - `Calendar.visible`은 화면 선택 속성이므로 feed 포함 여부를 결정하지 않는다.
 - Calendar이 없는 고아 Schedule은 제외하고 ID만 경고 로그에 남긴다.
 - 일정이 없는 유효한 feed는 위에서 설명한 빈 VCALENDAR를 발행한다.
@@ -206,12 +241,15 @@ ICS에는 반복 master 하나를 VEVENT 하나와 `RRULE` 하나로 발행한�
 `EXDATE`·`RDATE`·`RECURRENCE-ID` 미지원은 [Schedule 반복 일정 API](schedule-recurrence.md)와
 동일하다. JSON 기간 조회와 달리 ICS에서 occurrence를 서버가 펼치지 않는다.
 
-### 수정·숨김·삭제
+### 수정·삭제
 
 - Schedule 수정은 같은 UID를 유지하고 `entityVersion` 기반 `SEQUENCE`, 내용, 날짜,
   recurrence, `LAST-MODIFIED`, feed ETag를 갱신한다.
-- Schedule을 숨기면 row는 남지만 다음 feed부터 VEVENT를 발행하지 않는다. 삭제도
-  다음 feed부터 제외하며 `STATUS:CANCELLED` 같은 tombstone은 발행하지 않는다.
+- Schedule 삭제는 `DELETE /schedule/{id}` 단일 경로이며 hard delete다. `hidden`
+  플래그와 `PUT /schedule/{id}/hide`는 제거되어 더 이상 존재하지 않는다(과거에는
+  숨김 처리로 row를 남긴 뒤 feed에서만 제외했으나, 복구 API가 없어 쓰기 전용
+  기능이었다). 삭제된 Schedule은 다음 feed부터 제외하며 `STATUS:CANCELLED` 같은
+  tombstone은 발행하지 않고, DB에서도 즉시 사라지므로 복구할 수 없다.
 - Calendar 이름을 수정하면 Calendar `modifiedTime`이 갱신되어 해당 Calendar의
   `SUMMARY`, `CATEGORIES`, `LAST-MODIFIED`와 전체 feed ETag가 함께 바뀐다.
 - 연결된 Schedule이 있는 Calendar의 hard delete는 `409 Conflict`로 거부한다. 먼저
@@ -280,21 +318,23 @@ exception message, 사용자 정의 audit event, debug log에 남기지 않는�
 2026-09-04 현재 이 로컬 worktree에는 외부에서 접근 가능한 HTTPS 배포 주소와 Apple/
 Google 계정이 없으므로 실제 macOS/iOS 또는 Google Calendar 구독을 수행하지 않았다.
 자동화된 iCal4j renderer component/round-trip, aggregate flow, 그리고 HTTP contract
-테스트가 한글·escape·folding, timed/all-day/반복, 수정·숨김·삭제, ETag/조건부 GET,
+테스트가 한글·escape·folding, timed/all-day/반복, 수정·삭제, ETag/조건부 GET,
 token 보안 및 ADMIN 권한 계약을 검증한다. 이는 하나의 end-to-end provider 테스트나
 외부 provider의 실제 동기화 성공을 의미하지 않는다.
 다음 표는 배포 후 실제 증거로 채운다. 실행하지 않은 검사를 통과로 표시하지 않는다.
 
 | 클라이언트 | 상태 | 배포 후 확인 항목 |
 | --- | --- | --- |
-| Apple Calendar macOS | 미실행 — 공개 HTTPS 필요 | 구독 추가, 읽기 전용, 한글, timed/all-day/반복, Calendar 이름 |
-| Apple Calendar iOS/iCloud | 미실행 — 공개 HTTPS와 iCloud 계정 필요 | iPhone 표시, refresh 후 수정·숨김·삭제 |
-| Google Calendar 웹 | 미실행 — 공개 HTTPS와 Google 계정 필요 | `From URL`, 제목 prefix, category 표시, refresh |
-| Google Calendar 모바일 | 미실행 — 웹 구독과 계정 refresh 필요 | 동일 계정 표시, 수정·숨김·삭제 지연 |
+| Apple Calendar macOS | 미실행 — 공개 HTTPS 필요 | 구독 등록, 읽기 전용, 한글, timed/all-day/반복, Calendar 이름, `X-WR-CALNAME`/`X-WR-TIMEZONE` 반영 |
+| Apple Calendar iOS/iCloud | 미실행 — 공개 HTTPS와 iCloud 계정 필요 | iPhone 표시, refresh 지연, 수정·삭제 반영 |
+| Google Calendar 웹 | 미실행 — 공개 HTTPS와 Google 계정 필요 | `From URL` 등록, 제목 prefix, category 표시, refresh 지연 |
+| Google Calendar 모바일 | 미실행 — 웹 구독과 계정 refresh 필요 | 동일 계정 표시, 수정·삭제 반영 지연 |
 
 배포 후 대표 일정(한글 timed, one-day all-day, `FREQ=WEEKLY;BYDAY=TU;COUNT=3`, 빈
-body, 긴 한글 body)을 만들고 각 클라이언트에서 표시를 확인한다. 한 일정 수정 후
-UID가 유지되고, 숨김·삭제 후 다음 provider refresh에서 사라지는지 확인한다. 마지막으로
-이전 feed를 폐기하고 다음 요청이 `404`인지 확인한다. Provider별 refresh 지연이나
-category 표시 차이는 기록하되, RFC 출력이 잘못된 경우가 아니라면 특정 UI를 위해
-서버 표현을 변경하지 않는다.
+body, 긴 한글 body, 창(window) 밖으로 밀려난 오래된 비반복 일정과 창보다 오래
+전에 시작한 반복 일정)을 만들고 각 클라이언트에서 표시를 확인한다. 창 밖 비반복
+일정은 나타나지 않고 오래된 반복 일정은 나타나야 한다. 한 일정 수정 후 UID가
+유지되고, 삭제 후 다음 provider refresh에서 사라지는지 확인한다. 마지막으로
+이전 feed를 폐기(token 폐기)하고 다음 요청이 `404`인지 확인한다. Provider별
+refresh 지연이나 category 표시 차이는 기록하되, RFC 출력이 잘못된 경우가 아니라면
+특정 UI를 위해 서버 표현을 변경하지 않는다.
