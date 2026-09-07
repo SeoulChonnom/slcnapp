@@ -57,6 +57,10 @@ slcn:
   domain: "${SLCN_DOMAIN_LIST:http://localhost:9090}"
   upload:
     path: "${SLCN_UPLOAD_PATH}"
+  ics:
+    window:
+      past-months: ${SLCN_ICS_WINDOW_PAST_MONTHS:12}
+      future-months: ${SLCN_ICS_WINDOW_FUTURE_MONTHS:24}
 
 cookie:
   expire:

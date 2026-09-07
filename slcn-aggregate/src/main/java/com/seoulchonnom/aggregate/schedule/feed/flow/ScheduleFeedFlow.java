@@ -1,13 +1,16 @@
 package com.seoulchonnom.aggregate.schedule.feed.flow;
 
+import static com.seoulchonnom.spec.schedule.constant.ScheduleConstant.*;
 import static java.util.Comparator.*;
 import static java.util.stream.Collectors.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,10 +33,30 @@ public class ScheduleFeedFlow {
 	private final ScheduleStore scheduleStore;
 	private final CalendarStore calendarStore;
 
+	@Value("${slcn.ics.window.past-months:12}")
+	private int windowPastMonths;
+
+	@Value("${slcn.ics.window.future-months:24}")
+	private int windowFutureMonths;
+
+	public FeedWindow feedWindow() {
+		LocalDateTime monthStart = LocalDateTime.now(SCHEDULE_ZONE_ID)
+			.withDayOfMonth(1)
+			.toLocalDate()
+			.atStartOfDay();
+		return new FeedWindow(
+			monthStart.minusMonths(windowPastMonths),
+			monthStart.plusMonths(windowFutureMonths));
+	}
+
+	public record FeedWindow(LocalDateTime start, LocalDateTime end) {
+	}
+
 	public List<ScheduleFeedEvent> getFeedEvents(String rawToken) {
 		feedTokenLogic.validate(rawToken);
 
-		List<Schedule> schedules = scheduleStore.findAllForFeed();
+		FeedWindow window = feedWindow();
+		List<Schedule> schedules = scheduleStore.findFeedCandidates(window.start(), window.end());
 		if (schedules.isEmpty()) {
 			return List.of();
 		}

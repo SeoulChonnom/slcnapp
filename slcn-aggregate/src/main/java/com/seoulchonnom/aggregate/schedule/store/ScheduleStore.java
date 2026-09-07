@@ -44,8 +44,15 @@ public class ScheduleStore {
 			.toList();
 	}
 
-	public List<Schedule> findAllForFeed() {
-		return scheduleRepository.findAllByOrderByStartAscIdAsc().stream()
+	public List<Schedule> findFeedCandidates(LocalDateTime windowStart, LocalDateTime windowEnd) {
+		Map<String, ScheduleJpo> candidates = new LinkedHashMap<>();
+		scheduleRepository
+			.findAllByStartBeforeAndEndAfterAndRecurrenceRuleIsNullOrderByStartAscIdAsc(windowEnd, windowStart)
+			.forEach(scheduleJpo -> candidates.put(scheduleJpo.getId(), scheduleJpo));
+		scheduleRepository
+			.findAllByStartBeforeAndRecurrenceRuleIsNotNullOrderByStartAscIdAsc(windowEnd)
+			.forEach(scheduleJpo -> candidates.put(scheduleJpo.getId(), scheduleJpo));
+		return candidates.values().stream()
 			.map(scheduleJpoMapper::toDomain)
 			.toList();
 	}

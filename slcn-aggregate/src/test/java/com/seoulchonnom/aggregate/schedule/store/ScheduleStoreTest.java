@@ -1,6 +1,7 @@
 package com.seoulchonnom.aggregate.schedule.store;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.mockito.BDDMockito.*;
 import static org.mockito.Mockito.*;
 
 import java.time.LocalDateTime;
@@ -68,30 +69,42 @@ class ScheduleStoreTest {
 	}
 
 	@Test
-	void findAllForFeed_shouldMapRepositoryOrderedFullDataset() {
-		ScheduleJpo oldOneTime = scheduleJpo(
-			"schedule-001",
-			LocalDateTime.of(2025, 1, 1, 9, 0),
-			LocalDateTime.of(2025, 1, 1, 10, 0),
-			null);
-		ScheduleJpo recurrenceMaster = scheduleJpo(
-			"schedule-002",
-			LocalDateTime.of(2026, 9, 1, 9, 0),
-			LocalDateTime.of(2026, 9, 1, 10, 0),
-			"FREQ=WEEKLY;BYDAY=TU");
-		Schedule oldOneTimeDomain = schedule(oldOneTime.getId());
-		Schedule recurrenceMasterDomain = schedule(recurrenceMaster.getId());
-		when(repository.findAllByOrderByStartAscIdAsc()).thenReturn(List.of(oldOneTime, recurrenceMaster));
-		when(scheduleJpoMapper.toDomain(oldOneTime)).thenReturn(oldOneTimeDomain);
-		when(scheduleJpoMapper.toDomain(recurrenceMaster)).thenReturn(recurrenceMasterDomain);
+	void findFeedCandidates_shouldIncludeRecurringScheduleStartedBeforeWindow() {
+		LocalDateTime windowStart = LocalDateTime.of(2026, 9, 1, 0, 0);
+		LocalDateTime windowEnd = LocalDateTime.of(2028, 9, 1, 0, 0);
 
-		List<Schedule> result = scheduleStore.findAllForFeed();
+		ScheduleJpo recurring = new ScheduleJpo();
+		recurring.setId("SCHEDULE-RECUR");
+		recurring.setStart(LocalDateTime.of(2020, 1, 6, 10, 0));
+		recurring.setEnd(LocalDateTime.of(2020, 1, 6, 11, 0));
+		recurring.setRecurrenceRule("FREQ=WEEKLY");
 
-		assertThat(result).containsExactly(oldOneTimeDomain, recurrenceMasterDomain);
-		verify(repository).findAllByOrderByStartAscIdAsc();
-		verify(scheduleJpoMapper).toDomain(oldOneTime);
-		verify(scheduleJpoMapper).toDomain(recurrenceMaster);
-		verifyNoMoreInteractions(repository, scheduleJpoMapper);
+		given(repository.findAllByStartBeforeAndEndAfterAndRecurrenceRuleIsNullOrderByStartAscIdAsc(
+			windowEnd, windowStart)).willReturn(List.of());
+		given(repository.findAllByStartBeforeAndRecurrenceRuleIsNotNullOrderByStartAscIdAsc(windowEnd))
+			.willReturn(List.of(recurring));
+		given(scheduleJpoMapper.toDomain(recurring)).willReturn(
+			Schedule.builder().recurrenceRule("FREQ=WEEKLY")
+				.start(recurring.getStart()).end(recurring.getEnd()).build());
+
+		List<Schedule> result = scheduleStore.findFeedCandidates(windowStart, windowEnd);
+
+		assertThat(result).hasSize(1);
+	}
+
+	@Test
+	void findFeedCandidates_shouldExcludeNonRecurringScheduleOutsideWindow() {
+		LocalDateTime windowStart = LocalDateTime.of(2026, 9, 1, 0, 0);
+		LocalDateTime windowEnd = LocalDateTime.of(2028, 9, 1, 0, 0);
+
+		given(repository.findAllByStartBeforeAndEndAfterAndRecurrenceRuleIsNullOrderByStartAscIdAsc(
+			windowEnd, windowStart)).willReturn(List.of());
+		given(repository.findAllByStartBeforeAndRecurrenceRuleIsNotNullOrderByStartAscIdAsc(windowEnd))
+			.willReturn(List.of());
+
+		List<Schedule> result = scheduleStore.findFeedCandidates(windowStart, windowEnd);
+
+		assertThat(result).isEmpty();
 	}
 
 	@Test
