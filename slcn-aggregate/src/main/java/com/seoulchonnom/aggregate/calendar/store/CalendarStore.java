@@ -30,6 +30,10 @@ public class CalendarStore {
 	@Transactional
 	public void delete(Calendar calendar) {
 		calendarRepository.delete(calendarJpoMapper.toJpo(calendar));
+		// fk_schedule_calendar 위반을 이 트랜잭션 안에서 즉시 드러내려면 커밋까지 flush를
+		// 미루면 안 된다. flush를 미루면 예외가 CalendarLogic#deleteCalendar의 try/catch를
+		// 벗어난 커밋 시점에 발생해 CalendarScheduleConflictException으로 변환되지 않는다.
+		calendarRepository.flush();
 	}
 
 	public Calendar findById(String id) {

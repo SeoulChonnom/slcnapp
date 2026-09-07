@@ -4,6 +4,7 @@ import static com.seoulchonnom.spec.calendar.constant.CalendarConstant.*;
 
 import java.util.List;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -77,7 +78,15 @@ public class CalendarLogic {
 		if (scheduleStore.existsByCalendarId(calendarId)) {
 			throw new CalendarScheduleConflictException();
 		}
-		calendarStore.delete(calendar);
+		try {
+			calendarStore.delete(calendar);
+		} catch (DataIntegrityViolationException exception) {
+			// existsByCalendarId 확인과 delete 사이에 다른 트랜잭션이 같은 캘린더로 일정을
+			// 등록하면(M4 레이스) fk_schedule_calendar 위반이 이 시점에 발생한다. 애플리케이션
+			// 전역 핸들러가 모든 DataIntegrityViolationException을 409로 매핑하지 않으므로
+			// (다른 unique 제약과 섞이지 않도록) 여기서 좁혀서 변환한다.
+			throw new CalendarScheduleConflictException();
+		}
 	}
 
 	private void validateCalendarMutation(String name, String backgroundColor, String borderColor, String textColor,

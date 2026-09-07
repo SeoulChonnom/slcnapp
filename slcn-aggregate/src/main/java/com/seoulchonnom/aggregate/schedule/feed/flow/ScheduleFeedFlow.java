@@ -42,13 +42,24 @@ public class ScheduleFeedFlow {
 	private int windowFutureMonths;
 
 	public FeedWindow feedWindow() {
+		if (windowPastMonths <= 0 || windowFutureMonths <= 0) {
+			throw new IllegalStateException(
+				"slcn.ics.window.past-months/future-months는 1 이상이어야 합니다: past-months="
+					+ windowPastMonths + ", future-months=" + windowFutureMonths);
+		}
+
 		LocalDateTime monthStart = LocalDateTime.now(SCHEDULE_ZONE_ID)
 			.withDayOfMonth(1)
 			.toLocalDate()
 			.atStartOfDay();
-		return new FeedWindow(
+		FeedWindow window = new FeedWindow(
 			monthStart.minusMonths(windowPastMonths),
 			monthStart.plusMonths(windowFutureMonths));
+		if (!window.start().isBefore(window.end())) {
+			throw new IllegalStateException(
+				"ICS 피드 시간 창이 역전되었습니다: start=" + window.start() + ", end=" + window.end());
+		}
+		return window;
 	}
 
 	public record FeedWindow(LocalDateTime start, LocalDateTime end) {

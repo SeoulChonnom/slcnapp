@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
 import org.mockito.ArgumentCaptor;
 
+import org.springframework.dao.DataIntegrityViolationException;
+
 import com.seoulchonnom.aggregate.calendar.exception.CalendarScheduleConflictException;
 import com.seoulchonnom.aggregate.calendar.store.CalendarStore;
 import com.seoulchonnom.aggregate.common.exception.BadRequestException;
@@ -158,5 +160,22 @@ class CalendarLogicTest {
 
 		verify(scheduleStore).existsByCalendarId("CALENDAR-0001");
 		verify(calendarStore, never()).delete(any(Calendar.class));
+	}
+
+	@Test
+	void deleteCalendar_shouldConvertDataIntegrityViolationToCalendarScheduleConflict() {
+		Calendar calendar = Calendar.builder().build();
+		when(calendarStore.findById("CALENDAR-0001")).thenReturn(calendar);
+		when(scheduleStore.existsByCalendarId("CALENDAR-0001")).thenReturn(false);
+		doThrow(new DataIntegrityViolationException("fk_schedule_calendar"))
+			.when(calendarStore).delete(calendar);
+
+		Throwable thrown = catchThrowable(() -> calendarLogic.deleteCalendar("CALENDAR-0001"));
+
+		assertThat(thrown)
+			.isInstanceOf(CalendarScheduleConflictException.class)
+			.hasMessage("일정이 연결된 캘린더는 삭제할 수 없습니다.");
+		assertThat(((CalendarScheduleConflictException) thrown).getErrorCode())
+			.isEqualTo(ErrorCode.CALENDAR_SCHEDULE_CONFLICT);
 	}
 }

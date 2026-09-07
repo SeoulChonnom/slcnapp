@@ -7,7 +7,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -43,6 +43,7 @@ class ScheduleFeedResourceTest {
 		scheduleIcsRenderer = mock(ScheduleIcsRenderer.class);
 		scheduleFeedResource = new ScheduleFeedResource(
 			scheduleFeedTokenLogic, scheduleFeedFlow, scheduleIcsRenderer);
+		ReflectionTestUtils.setField(scheduleFeedResource, "contextPath", "/api");
 		LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
 		validator.afterPropertiesSet();
 		mockMvc = MockMvcBuilders.standaloneSetup(scheduleFeedResource)
@@ -84,7 +85,44 @@ class ScheduleFeedResourceTest {
 	}
 
 	@Test
-	void createFeed_whenPublicBaseUrlBlank_shouldFallBackToRequestUrl() throws Exception {
+	void createFeed_whenPublicBaseUrlConfiguredWithoutContextPath_shouldAppendServerContextPath() throws Exception {
+		ReflectionTestUtils.setField(scheduleFeedResource, "publicBaseUrl", "https://slcn.example.com");
+		givenCreatedFeedToken();
+
+		mockMvc.perform(post("/schedule/feeds")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"name\":\"가족 캘린더\"}"))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.feedUrl")
+				.value("https://slcn.example.com/api/schedule/feeds/RAW-TOKEN/calendar.ics"));
+	}
+
+	@Test
+	void createFeed_whenPublicBaseUrlHasTrailingSlash_shouldNotDoubleSlashOrDuplicateContextPath() throws Exception {
+		ReflectionTestUtils.setField(scheduleFeedResource, "publicBaseUrl", "https://slcn.example.com/api/");
+		givenCreatedFeedToken();
+
+		mockMvc.perform(post("/schedule/feeds")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"name\":\"가족 캘린더\"}"))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.feedUrl")
+				.value("https://slcn.example.com/api/schedule/feeds/RAW-TOKEN/calendar.ics"));
+	}
+
+	@Test
+	void createFeed_whenPublicBaseUrlMissingScheme_shouldFailClearlyInsteadOfEmittingRelativeUrl() throws Exception {
+		ReflectionTestUtils.setField(scheduleFeedResource, "publicBaseUrl", "slcn.example.com");
+		givenCreatedFeedToken();
+
+		mockMvc.perform(post("/schedule/feeds")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"name\":\"가족 캘린더\"}"))
+			.andExpect(status().is5xxServerError());
+	}
+
+	@Test
+	void createFeed_whenPublicBaseUrlBlank_shouldFallBackToAbsoluteRequestUrl() throws Exception {
 		ReflectionTestUtils.setField(scheduleFeedResource, "publicBaseUrl", "");
 		givenCreatedFeedToken();
 
@@ -92,7 +130,9 @@ class ScheduleFeedResourceTest {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"name\":\"가족 캘린더\"}"))
 			.andExpect(status().isCreated())
-			.andExpect(jsonPath("$.feedUrl").value(containsString("/schedule/feeds/RAW-TOKEN/calendar.ics")));
+			.andExpect(jsonPath("$.feedUrl").value(startsWith("http")))
+			.andExpect(jsonPath("$.feedUrl").value(org.hamcrest.Matchers.endsWith(
+				"/schedule/feeds/RAW-TOKEN/calendar.ics")));
 	}
 
 	private void givenCreatedFeedToken() {

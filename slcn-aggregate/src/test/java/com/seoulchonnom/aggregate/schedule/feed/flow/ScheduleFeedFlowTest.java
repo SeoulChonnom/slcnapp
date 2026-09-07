@@ -47,6 +47,22 @@ class ScheduleFeedFlowTest {
 	}
 
 	@Test
+	void feedWindow_shouldRejectNonPositivePastMonths() {
+		ReflectionTestUtils.setField(scheduleFeedFlow, "windowPastMonths", 0);
+
+		assertThatThrownBy(scheduleFeedFlow::feedWindow)
+			.isInstanceOf(IllegalStateException.class);
+	}
+
+	@Test
+	void feedWindow_shouldRejectNonPositiveFutureMonths() {
+		ReflectionTestUtils.setField(scheduleFeedFlow, "windowFutureMonths", -1);
+
+		assertThatThrownBy(scheduleFeedFlow::feedWindow)
+			.isInstanceOf(IllegalStateException.class);
+	}
+
+	@Test
 	void getFeedContent_shouldValidateBeforeLoadingSchedulesOrCalendars() {
 		String rawToken = "invalid-token";
 		doThrow(new RuntimeException("invalid token")).when(feedTokenLogic).validate(rawToken);

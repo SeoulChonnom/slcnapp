@@ -1,6 +1,5 @@
 package com.seoulchonnom.rest.common.handler;
 
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -69,14 +68,6 @@ public class CommonExceptionHandler {
 		return new ResponseEntity<>(
 			ErrorResponse.from(false, "입력이 올바르지 않습니다."),
 			HttpStatus.BAD_REQUEST);
-	}
-
-	@ExceptionHandler(DataIntegrityViolationException.class)
-	public ResponseEntity<ErrorResponse> dataIntegrityViolationException(DataIntegrityViolationException e) {
-		log.warn("Data integrity violation", e);
-		return new ResponseEntity<>(
-			ErrorResponse.from(false, ErrorCode.CALENDAR_SCHEDULE_CONFLICT.getMessage()),
-			ErrorCode.CALENDAR_SCHEDULE_CONFLICT.getHttpStatus());
 	}
 
 	@ExceptionHandler(Exception.class)

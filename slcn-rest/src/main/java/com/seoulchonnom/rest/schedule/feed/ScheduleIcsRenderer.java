@@ -71,7 +71,7 @@ public class ScheduleIcsRenderer {
 
 	public RenderedCalendar render(ScheduleFeedContent content) {
 		Objects.requireNonNull(content, "content");
-		List<ScheduleFeedEvent> events = content.events();
+		List<ScheduleFeedEvent> events = Objects.requireNonNull(content.events(), "events");
 		TimeZoneRegistry timeZoneRegistry = TimeZoneRegistryFactory.getInstance().createRegistry();
 		net.fortuna.ical4j.model.TimeZone seoulTimeZone = timeZoneRegistry.getTimeZone(SCHEDULE_ZONE_ID.getId());
 		if (seoulTimeZone == null) {

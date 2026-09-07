@@ -1,5 +1,6 @@
 package com.seoulchonnom.rest.schedule.feed;
 
+import java.net.URI;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -43,6 +44,10 @@ public class ScheduleFeedResource implements ScheduleFeedFacade {
 	@Value("${slcn.public-base-url:}")
 	private String publicBaseUrl;
 
+	/** UserResource#contextPath와 같은 방식. SLCN_PUBLIC_BASE_URL 조립 시 중복 없이 붙인다. */
+	@Value("${server.servlet.context-path:}")
+	private String contextPath;
+
 	@Override
 	@PostMapping
 	public ResponseEntity<ScheduleFeedCreatedRdo> createFeed(@RequestBody @Valid ScheduleFeedCdo scheduleFeedCdo) {
@@ -56,12 +61,43 @@ public class ScheduleFeedResource implements ScheduleFeedFacade {
 	private String feedUrl(String rawToken) {
 		UriComponentsBuilder builder = publicBaseUrl == null || publicBaseUrl.isBlank()
 			? ServletUriComponentsBuilder.fromCurrentContextPath()
-			: UriComponentsBuilder.fromUriString(publicBaseUrl.stripTrailing().replaceAll("/+$", ""));
+			: configuredBaseUrlBuilder(publicBaseUrl);
 
 		return builder
 			.path("/schedule/feeds/{feedToken}/calendar.ics")
 			.buildAndExpand(rawToken)
 			.toUriString();
+	}
+
+	/**
+	 * SLCN_PUBLIC_BASE_URL 로 조립하는 branch. fromCurrentContextPath() 와 같은 모양(context
+	 * path 포함)이 되도록 server.servlet.context-path 를 붙인다. 이미 base URL에 context
+	 * path가 포함돼 있으면(경로가 그 값으로 끝나면) 중복 부착하지 않는다. scheme/host가 없는
+	 * 값(상대 URL)은 구독 불가능한 URL을 조용히 만들지 않고 여기서 바로 실패시킨다.
+	 */
+	private UriComponentsBuilder configuredBaseUrlBuilder(String rawBaseUrl) {
+		String trimmed = rawBaseUrl.strip().replaceAll("/+$", "");
+		UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(trimmed);
+		URI baseUri = builder.build().toUri();
+		if (baseUri.getScheme() == null || baseUri.getHost() == null) {
+			throw new IllegalStateException(
+				"slcn.public-base-url(SLCN_PUBLIC_BASE_URL)은 scheme과 host를 포함한 절대 URL이어야 합니다: "
+					+ rawBaseUrl);
+		}
+
+		String normalizedContextPath = normalizeContextPath();
+		String basePath = baseUri.getPath() == null ? "" : baseUri.getPath();
+		if (!normalizedContextPath.isEmpty() && !basePath.endsWith(normalizedContextPath)) {
+			builder.path(normalizedContextPath);
+		}
+		return builder;
+	}
+
+	private String normalizeContextPath() {
+		if (contextPath == null || contextPath.isBlank()) {
+			return "";
+		}
+		return contextPath.startsWith("/") ? contextPath : "/" + contextPath;
 	}
 
 	@Override

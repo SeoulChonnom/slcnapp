@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 
 import com.seoulchonnom.aggregate.calendar.store.jpo.CalendarJpo;
 import com.seoulchonnom.aggregate.calendar.store.mapper.CalendarJpoMapper;
@@ -39,6 +40,19 @@ class CalendarStoreTest {
 		verify(calendarJpoMapper).toDomain(visibleJpo);
 		verify(calendarJpoMapper).toDomain(hiddenJpo);
 		verifyNoMoreInteractions(calendarRepository, calendarJpoMapper);
+	}
+
+	@Test
+	void delete_shouldFlushImmediatelySoConstraintViolationsSurfaceSynchronously() {
+		Calendar calendar = calendar("CALENDAR-0001", true);
+		CalendarJpo jpo = calendarJpo("CALENDAR-0001");
+		when(calendarJpoMapper.toJpo(calendar)).thenReturn(jpo);
+
+		calendarStore.delete(calendar);
+
+		InOrder inOrder = inOrder(calendarRepository);
+		inOrder.verify(calendarRepository).delete(jpo);
+		inOrder.verify(calendarRepository).flush();
 	}
 
 	private CalendarJpo calendarJpo(String id) {

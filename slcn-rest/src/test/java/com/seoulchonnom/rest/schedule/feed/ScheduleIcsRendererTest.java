@@ -304,6 +304,20 @@ class ScheduleIcsRendererTest {
 	}
 
 	@Test
+	void render_shouldRejectNullEventsListInsteadOfThrowingLaterWithAConfusingStackTrace() {
+		assertThatThrownBy(() -> renderer.render(new ScheduleFeedContent("테스트 캘린더", null)))
+			.isInstanceOf(NullPointerException.class)
+			.hasMessageContaining("events");
+	}
+
+	@Test
+	void render_shouldRejectNullContent() {
+		assertThatThrownBy(() -> renderer.render(null))
+			.isInstanceOf(NullPointerException.class)
+			.hasMessageContaining("content");
+	}
+
+	@Test
 	void render_shouldPreserveRawRecurrenceRuleAndOmitBlankDescription() throws Exception {
 		ScheduleFeedRendererFixture fixture = fixture(
 			"SCHEDULE-0004",
