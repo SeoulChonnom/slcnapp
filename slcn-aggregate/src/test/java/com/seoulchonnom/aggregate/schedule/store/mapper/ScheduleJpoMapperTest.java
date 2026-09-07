@@ -88,4 +88,19 @@ class ScheduleJpoMapperTest {
 		assertThat(scheduleJpo.getLocation()).isEqualTo("Busan");
 		assertThat(scheduleJpo.getRecurrenceRule()).isEqualTo("FREQ=DAILY;COUNT=3");
 	}
+
+	@Test
+	void toDomain_whenStoredRangeIsInvalid_shouldMapWithoutValidation() {
+		ScheduleJpo scheduleJpo = new ScheduleJpo();
+		scheduleJpo.setId("SCHEDULE-0001");
+		scheduleJpo.setCalendarId("CALENDAR-0001");
+		scheduleJpo.setTitle("레거시 일정");
+		scheduleJpo.setAllDay(false);
+		scheduleJpo.setStart(LocalDateTime.of(2026, 9, 3, 19, 0));
+		scheduleJpo.setEnd(LocalDateTime.of(2026, 9, 3, 19, 0));
+
+		Schedule schedule = scheduleJpoMapper.toDomain(scheduleJpo);
+
+		assertThat(schedule.getStart()).isEqualTo(schedule.getEnd());
+	}
 }

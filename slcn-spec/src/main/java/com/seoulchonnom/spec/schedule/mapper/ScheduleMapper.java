@@ -5,6 +5,7 @@ import static org.mapstruct.MappingConstants.ComponentModel.*;
 
 import java.time.LocalDateTime;
 
+import org.mapstruct.AfterMapping;
 import org.mapstruct.Builder;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -58,5 +59,14 @@ public interface ScheduleMapper {
 
 	default LocalDateTime parseDateTime(String dateTime, boolean isAllDay) {
 		return parseMutationDateTime(dateTime, isAllDay);
+	}
+
+	@AfterMapping
+	default void validateDateRange(@MappingTarget Schedule schedule) {
+		LocalDateTime start = schedule.getStart();
+		LocalDateTime end = schedule.getEnd();
+		if (start == null || end == null || !start.isBefore(end)) {
+			throw new IllegalArgumentException("start는 end보다 빨라야 합니다.");
+		}
 	}
 }
