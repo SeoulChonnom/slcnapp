@@ -64,4 +64,12 @@ class CommonExceptionHandlerTest {
 		assertNotNull(response.getBody());
 		assertEquals("입력이 올바르지 않습니다.", response.getBody().getMessage());
 	}
+
+	/**
+	 * DataIntegrityViolationException은 더 이상 앱 전역에서 캘린더-일정 409로 매핑되지 않는다.
+	 * uk_trip_date, username, client_id, token_hash 등 다른 unique 제약 위반이나 hidden
+	 * NOT NULL 위반까지 이 메시지로 가려지는 것을 막기 위함이다. 이제는 예외가 잡히지 않으므로
+	 * mapsUnhandledExceptionToInternalServerError가 검증하는 일반 Exception 경로(500)로
+	 * 떨어진다. 캘린더 삭제 레이스에 대한 409 변환은 CalendarLogicTest에서 검증한다.
+	 */
 }

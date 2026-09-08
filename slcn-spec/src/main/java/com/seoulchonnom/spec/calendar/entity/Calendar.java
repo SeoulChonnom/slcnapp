@@ -28,4 +28,8 @@ public class Calendar extends DomainEntity {
 	public void hideCalendar() {
 		this.visible = false;
 	}
+
+	public void touchModifiedTime() {
+		this.modifiedTime = System.currentTimeMillis();
+	}
 }
