@@ -1,5 +1,8 @@
 # 임장 기록(Inspection) 기능 설계 제안
 
+> **이 문서는 `docs/field_research/implementation_design.md`로 대체되었다.** 아래 내용은 초기 제안이며 현재 구현 기준이 아니다.
+> 특히 `InspectionPlace`(단지)는 `InspectionArea`(지역/생활권)로 의미가 바뀌었고, 단지명은 `ViewedProperty.complexName`으로 내려갔다.
+>
 > 상태: 제안(Proposal). 구현 전 검토용 문서다.
 > 배치 기준은 `docs/module.md`, 파일 연동 규칙은 `docs/file-asset.md`를 따른다.
 
