@@ -4,5 +4,7 @@ public enum FileBoxTargetType {
 	TRAVEL,
 	TRAVEL_DAY,
 	TRAVEL_PLACE,
-	TRIP
+	TRIP,
+	INSPECTION_VISIT,
+	VIEWED_PROPERTY
 }

@@ -1,6 +1,7 @@
 package com.seoulchonnom.aggregate.filebox.store;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -37,6 +38,19 @@ public class FileBoxStore {
 	public Optional<FileBox> findOptionalByOwner(FileBoxOwnerType ownerType, String ownerId) {
 		return fileBoxRepository.findByOwnerTypeAndOwnerId(ownerType, ownerId)
 			.map(fileBoxDocMapper::toDomain);
+	}
+
+	/**
+	 * 목록 화면이 owner마다 findByOwner를 반복 호출하지 않도록 한 번에 읽는다.
+	 * 파생 질의는 이미 FileBoxRepository에 있고 여기서 도메인 변환만 얹는다.
+	 */
+	public List<FileBox> findAllByOwnerTypeAndOwnerIdIn(FileBoxOwnerType ownerType, Collection<String> ownerIds) {
+		if (ownerIds == null || ownerIds.isEmpty()) {
+			return List.of();
+		}
+		return fileBoxRepository.findAllByOwnerTypeAndOwnerIdIn(ownerType, ownerIds).stream()
+			.map(fileBoxDocMapper::toDomain)
+			.toList();
 	}
 
 	public FileBox createForOwner(FileBoxOwnerType ownerType, String ownerId) {

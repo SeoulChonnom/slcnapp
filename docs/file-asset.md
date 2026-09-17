@@ -15,7 +15,7 @@
   - 단건 업로드 API다.
   - `multipart/form-data`
   - `file`: 이미지 파일
-  - `type`: `logo`, `map`, `travel`, `profile`
+  - `type`: `logo`, `map`, `travel`, `profile`, `inspection`
   - 실제 파일을 저장하고 MongoDB에 `FileAsset`을 생성한 뒤 `FileAssetRdo`를 반환한다.
 - `POST /api/assets/files`
   - 다중 업로드 API다.
@@ -100,8 +100,8 @@ MongoDB `file_asset` 컬렉션에는 아래 정보를 저장한다.
 도메인과 파일의 연결은 MongoDB `file_box` 컬렉션에 `FileBox`로 저장한다. 소유자 1건당 문서 1건이며 `(ownerType, ownerId)`에 유니크 인덱스가 있다.
 
 - `id`
-- `ownerType`: `TRAVEL`, `TRIP`
-- `ownerId`: 여행 ID 또는 나들이 ID
+- `ownerType`: `TRAVEL`, `TRIP`, `INSPECTION_VISIT`
+- `ownerId`: 여행 ID, 나들이 ID 또는 임장 기록 ID
 - `items`: 연결된 파일 목록
 - `registeredTime`, `modifiedTime`
 
@@ -109,8 +109,8 @@ MongoDB `file_asset` 컬렉션에는 아래 정보를 저장한다.
 
 - `id`
 - `fileAssetId`: `FileAsset.id`
-- `targetType`: `TRAVEL`, `TRAVEL_DAY`, `TRAVEL_PLACE`, `TRIP`
-- `targetId`: 대상 식별자. `TRAVEL`/`TRIP`은 비워둔다
+- `targetType`: `TRAVEL`, `TRAVEL_DAY`, `TRAVEL_PLACE`, `TRIP`, `INSPECTION_VISIT`, `VIEWED_PROPERTY`
+- `targetId`: 대상 식별자. `TRAVEL`/`TRIP`/`INSPECTION_VISIT`은 비워둔다
 - `role`: `COVER`, `GALLERY`, `LOGO`, `FIRST_MAP`, `SECOND_MAP`
 - `caption`
 - `sortOrder`: 0 이하로 보내면 그룹별로 자동 채번한다
@@ -167,6 +167,19 @@ FE는 먼저 `POST /api/assets/file` 또는 `POST /api/assets/files`로 사진�
 
 `SECOND_MAP`, `nextButtonText`, `previousButtonText`는 **셋 다 있거나 셋 다 없어야** 한다.
 
+### 임장
+
+`POST /api/inspection-visits`, `PUT /api/inspection-visits/{visitId}`, 매물 등록·수정의 `files`에 전달한다. 파일 타입은 `inspection`이어야 한다.
+
+한 임장 기록의 `FileBox` 하나가 임장 사진과 그 임장에 속한 매물 사진을 **함께** 담는다. 매물마다 `FileBox`를 만들지 않는다 — 상세 화면이 사진을 한 번에 읽고, 매물을 지울 때 해당 `items`만 걷어내면 된다.
+
+- `role`은 `COVER` 또는 `GALLERY`만 허용한다
+- `ownerType`은 `INSPECTION_VISIT`, `ownerId`는 임장 기록 ID다
+- `targetType`이 `INSPECTION_VISIT`이면 `targetId`는 비워야 한다 (임장 자체의 사진)
+- `targetType`이 `VIEWED_PROPERTY`면 `targetId`는 그 임장에 존재하는 매물 ID(UUID)다
+- 위 두 값은 요청에 담지 않아도 서버가 경로에서 확정한다
+- 정렬만 바꿀 때는 `files` 전체를 되돌려보내지 말고 `PUT /api/inspection-visits/{visitId}/images/order`를 쓴다. 임장 사진과 매물 사진을 한 엔드포인트가 함께 처리한다
+
 ### 프로필
 
 사용자 프로필 이미지는 `FileBox`를 쓰지 않고 `user.profileImageFileId`에 `FileAsset.id`를 직접 보관한다. 파일 타입은 `profile`이어야 하며, 빈 문자열을 보내면 연결을 해제한다.
@@ -174,5 +187,7 @@ FE는 먼저 `POST /api/assets/file` 또는 `POST /api/assets/files`로 사진�
 ## 삭제
 
 여행을 삭제하면 해당 `FileBox` 문서와 여행 레코드를 지운다.
+
+임장 기록을 삭제할 때는 **RDB를 먼저 커밋하고 그 다음에 `FileBox`를 지운다.** 순서를 뒤집으면 RDB 삭제가 실패했을 때 `fileAssetId` 목록을 잃어 사진을 복구할 수 없다. 반대 순서에서 남는 것은 아무도 참조하지 않는 `FileBox` 문서 하나뿐이다.
 
 **디스크의 실제 파일과 `file_asset` 문서는 남는다.** 도메인 삭제는 연결만 끊으며, 파일 자체를 정리하는 로직은 아직 없다.

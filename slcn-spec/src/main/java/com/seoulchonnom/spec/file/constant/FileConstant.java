@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 public class FileConstant {
 	public static final long MAX_FILE_SIZE = 10 * 1024 * 1024L;
 
-	public static final String AVAILABLE_PATH = "logo|map|travel|profile";
+	public static final String AVAILABLE_PATH = "logo|map|travel|profile|inspection";
 	/**
 	 * 업로드로 받아들이는 확장자. 파생본 전용 포맷(webp)은 여기에 넣지 않는다.
 	 */

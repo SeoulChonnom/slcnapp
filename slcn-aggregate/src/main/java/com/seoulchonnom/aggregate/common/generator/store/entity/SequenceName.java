@@ -21,5 +21,20 @@ public enum SequenceName {
 		public String toString() {
 			return "TRAVEL";
 		}
+	}, INSPECTION_AREA {
+		@Override
+		public String toString() {
+			return "INSPECTION_AREA";
+		}
+	}, INSPECTION_VISIT {
+		@Override
+		public String toString() {
+			return "INSPECTION_VISIT";
+		}
+	}, INSPECTION_QUESTION {
+		@Override
+		public String toString() {
+			return "INSPECTION_QUESTION";
+		}
 	}
 }
