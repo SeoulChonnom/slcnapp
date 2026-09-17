@@ -168,7 +168,7 @@ class FileResourceTest {
 
 	@Test
 	void downloadFileById_shouldReturnOriginalAsAttachmentWithUploadedFilename() {
-		when(fileLogic.getImageFileById("file-1", null))
+		when(fileLogic.downloadImageFileById("file-1", null))
 			.thenReturn(imageRdo(new byte[] {1, 2}, "image/png", "original", "여행 사진.png"));
 
 		var response = fileResource.downloadFileById("file-1", null, null);
@@ -183,7 +183,7 @@ class FileResourceTest {
 
 	@Test
 	void downloadFileById_shouldReturnRequestedVariantWhenItIsKnown() {
-		when(fileLogic.getImageFileById("file-1", ImageVariant.HOME_THUMB))
+		when(fileLogic.downloadImageFileById("file-1", ImageVariant.HOME_THUMB))
 			.thenReturn(imageRdo(new byte[] {9}, "image/webp", "home-thumb", "cover_home-thumb.webp"));
 
 		var response = fileResource.downloadFileById("file-1", "home-thumb", null);
@@ -196,18 +196,18 @@ class FileResourceTest {
 
 	@Test
 	void downloadFileById_shouldFallBackToOriginalForUnknownVariantSoSavesAreNeverDownscaled() {
-		when(fileLogic.getImageFileById("file-1", null))
+		when(fileLogic.downloadImageFileById("file-1", null))
 			.thenReturn(imageRdo(new byte[] {1}, "image/png", "original", "cover.png"));
 
 		var response = fileResource.downloadFileById("file-1", "does-not-exist", null);
 
 		assertEquals(HttpStatus.OK, response.getStatusCode());
-		verify(fileLogic, never()).getImageFileById("file-1", ImageVariant.HOME_FEATURE);
+		verify(fileLogic, never()).downloadImageFileById("file-1", ImageVariant.HOME_FEATURE);
 	}
 
 	@Test
 	void downloadFileById_shouldNotShareItsEtagWithTheInlineResponse() {
-		when(fileLogic.getImageFileById("file-1", null))
+		when(fileLogic.downloadImageFileById("file-1", null))
 			.thenReturn(imageRdo(new byte[] {1}, "image/png", "original", "cover.png"));
 
 		var response = fileResource.downloadFileById("file-1", null, null);
@@ -220,12 +220,12 @@ class FileResourceTest {
 		var response = fileResource.downloadFileById("file-1", null, "\"file-1-original-download\"");
 
 		assertEquals(HttpStatus.NOT_MODIFIED, response.getStatusCode());
-		verify(fileLogic, never()).getImageFileById(anyString(), any());
+		verify(fileLogic, never()).downloadImageFileById(anyString(), any());
 	}
 
 	@Test
 	void downloadFileById_shouldUseAFallbackNameWhenTheAssetHasNoUsableFilename() {
-		when(fileLogic.getImageFileById("file-1", null))
+		when(fileLogic.downloadImageFileById("file-1", null))
 			.thenReturn(imageRdo(new byte[] {1}, "image/png", "original", ""));
 
 		var response = fileResource.downloadFileById("file-1", null, null);
@@ -280,6 +280,68 @@ class FileResourceTest {
 
 		assertEquals(HttpStatus.NOT_MODIFIED, response.getStatusCode());
 		verify(fileLogic, never()).getImageFile(anyString(), anyString());
+	}
+
+	@Test
+	void getFileById_shouldRedirectWhenTheLogicReturnsASignedUrl() {
+		when(fileLogic.getImageFileById("file-1", null)).thenReturn(redirectRdo("original"));
+
+		var response = fileResource.getFileById("file-1", null, null, null, null);
+
+		assertEquals(HttpStatus.FOUND, response.getStatusCode());
+		assertEquals("https://r2.example.com/signed", response.getHeaders().getLocation().toString());
+		assertNull(response.getBody());
+	}
+
+	@Test
+	void getFileById_shouldNotCacheOrTagARedirectBecauseTheSignedUrlExpires() {
+		when(fileLogic.getImageFileById("file-1", null)).thenReturn(redirectRdo("original"));
+
+		var response = fileResource.getFileById("file-1", null, null, null, null);
+
+		assertNull(response.getHeaders().getETag());
+		assertEquals("no-store", response.getHeaders().getCacheControl());
+	}
+
+	@Test
+	void downloadFileById_shouldRedirectAndLeaveTheDispositionToTheSignedUrl() {
+		when(fileLogic.downloadImageFileById("file-1", null)).thenReturn(redirectRdo("original"));
+
+		var response = fileResource.downloadFileById("file-1", null, null);
+
+		assertEquals(HttpStatus.FOUND, response.getStatusCode());
+		assertEquals("https://r2.example.com/signed", response.getHeaders().getLocation().toString());
+		assertNull(response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION));
+	}
+
+	@Test
+	void getFile_shouldRedirectWhenTheLogicReturnsASignedUrl() {
+		when(fileLogic.getImageFile("logo", "72d768d4-2b05-48f9-bee8-fee3b52e909f.png"))
+			.thenReturn(redirectRdo("original"));
+
+		var response = fileResource.getFile("logo", "72d768d4-2b05-48f9-bee8-fee3b52e909f.png", null);
+
+		assertEquals(HttpStatus.FOUND, response.getStatusCode());
+	}
+
+	@Test
+	void downloadFileById_shouldStillStreamVariantBytesWithItsOwnDisposition() {
+		when(fileLogic.downloadImageFileById("file-1", ImageVariant.HOME_THUMB))
+			.thenReturn(imageRdo(new byte[] {9}, "image/webp", "home-thumb", "cover_home-thumb.webp"));
+
+		var response = fileResource.downloadFileById("file-1", "home-thumb", null);
+
+		assertEquals(HttpStatus.OK, response.getStatusCode());
+		assertTrue(response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION)
+			.contains("cover_home-thumb.webp"));
+	}
+
+	private ImageFileRdo redirectRdo(String variant) {
+		return ImageFileRdo.builder()
+			.redirectUrl("https://r2.example.com/signed")
+			.variant(variant)
+			.downloadFilename("cover.png")
+			.build();
 	}
 
 	private ImageFileRdo imageRdo(byte[] image, String mimeType, String variant) {

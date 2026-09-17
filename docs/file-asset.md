@@ -2,7 +2,7 @@
 
 ## 개요
 
-파일 업로드는 실제 이미지 파일을 디스크에 저장하고, 파일 메타데이터는 MongoDB `file_asset` 컬렉션에 `FileAsset`으로 저장한다.
+파일 업로드는 실제 이미지 파일을 오브젝트 스토리지에 저장하고, 파일 메타데이터는 MongoDB `file_asset` 컬렉션에 `FileAsset`으로 저장한다.
 
 나들이/여행 API는 파일 자체를 받지 않고 `FileAsset.id`를 이미지 참조값으로 사용한다. 도메인과 파일의 연결은 MongoDB `file_box` 컬렉션이 담당한다.
 
@@ -38,22 +38,47 @@ FE 연동 규칙(축소본 선택, 캐시, 구 자산 처리)은 `docs/image-ass
 - 확장자는 `jpg`, `jpeg`, `png`, `gif`, `svg`
 - `Content-Type`이 `image/`로 시작해야 한다
 - SVG를 제외하면 실제로 디코딩 가능한 이미지여야 한다
+- 다중 업로드는 요청 전체 60 MB까지다 (`spring.servlet.multipart.max-request-size`)
 
 ## 저장 방식
 
-실제 파일은 `slcn.upload.path` 하위에 저장한다.
+실제 파일은 오브젝트 스토리지(Cloudflare R2)에 저장한다. `slcn.storage.provider`가 `r2`가 아니면 `slcn.upload.path` 하위의 로컬 디스크를 같은 키 구조로 쓴다.
 
-- `logo/{uuid}.{ext}`
-- `map/{uuid}.{ext}`
-- `travel/{uuid}.{ext}`
-- `profile/{uuid}.{ext}`
+원본과 파생본은 prefix를 나눈다. 파생본에만 CDN과 캐시 정책을 걸 수 있어야 하기 때문이다.
 
-축소본은 원본과 같은 디렉터리에 접미사를 붙여 저장한다. 원본은 그대로 보존한다.
+- 원본: `originals/{type}/{uuid}.{ext}`
+- 파생본: `derived/{type}/{uuid}_{variant}.{ext}`
 
-- `travel/{uuid}_home-feature.{ext}` (가로 960px)
-- `travel/{uuid}_home-thumb.{ext}` (가로 320px)
+`{type}`은 `logo`, `map`, `travel`, `profile`이다.
 
-축소본은 업로드 시점에 생성하며, 원본이 목표 너비보다 작으면 만들지 않는다. 인코딩은 WebP를 우선하고 사용할 수 없는 환경에서는 JPEG로 폴백한다. 확장자가 환경에 따라 달라질 수 있으므로 실제 파일명과 MIME 타입을 `variants`에 기록한다. 축소본 생성 실패는 업로드를 실패시키지 않는다.
+- `derived/travel/{uuid}_home-feature.{ext}` (가로 960px)
+- `derived/travel/{uuid}_home-thumb.{ext}` (가로 320px)
+
+축소본은 업로드 시점에 서버가 임시 디렉터리에서 생성한 뒤 업로드하며, 원본이 목표 너비보다 작으면 만들지 않는다. 인코딩은 WebP를 우선하고 사용할 수 없는 환경에서는 JPEG로 폴백한다. 확장자가 환경에 따라 달라질 수 있으므로 실제 파일명과 MIME 타입을 `variants`에 기록한다. 축소본 생성 실패는 업로드를 실패시키지 않는다.
+
+업로드는 오브젝트 업로드가 모두 끝난 뒤에 메타데이터를 저장한다. 순서를 뒤집으면 객체가 없는 메타데이터가 생겨 조회가 깨진다.
+
+### 조회 경로
+
+- **원본**은 서버를 통과하지 않는다. 서명된 조회 URL(기본 만료 300초)로 `302 Found` 리다이렉트한다. 응답에 ETag를 붙이지 않고 `Cache-Control: no-store`를 건다.
+- **축소본**은 서버가 오브젝트 스토리지에서 읽어 그대로 응답한다. ETag와 `Cache-Control: private, max-age=86400`은 이전과 같다.
+- 로컬 프로바이더는 서명 URL을 만들 수 없으므로 원본도 바이트로 응답한다. 개발 환경의 동작은 이전과 같다.
+
+### 설정
+
+| 키 | 기본값 | 설명 |
+| --- | --- | --- |
+| `slcn.storage.provider` | `local` | `local` 또는 `r2` |
+| `slcn.storage.presigned-ttl-seconds` | `300` | 서명 URL 만료. 만료는 요청 시작 시점에만 검사된다 |
+| `slcn.storage.r2.endpoint` | (빈 값) | R2 S3 호환 endpoint |
+| `slcn.storage.r2.region` | `auto` | R2는 `auto`를 쓴다 |
+| `slcn.storage.r2.bucket` | (빈 값) | 버킷 이름 |
+| `slcn.storage.r2.access-key` | (빈 값) | `SLCN_R2_ACCESS_KEY` |
+| `slcn.storage.r2.secret-key` | (빈 값) | `SLCN_R2_SECRET_KEY` |
+| `slcn.storage.migration.enabled` | `false` | 기동 시 기존 로컬 파일 1회 백필 |
+| `slcn.storage.migration.batch-size` | `100` | 백필 페이지 크기 |
+
+`slcn.upload.path`는 로컬 프로바이더의 기준 디렉터리이자 백필의 원본 위치로 계속 쓰인다.
 
 MongoDB `file_asset` 컬렉션에는 아래 정보를 저장한다.
 
