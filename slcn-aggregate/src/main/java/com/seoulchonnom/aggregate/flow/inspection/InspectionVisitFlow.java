@@ -11,12 +11,16 @@ import com.seoulchonnom.aggregate.inspection.exception.InvalidInspectionVisitExc
 import com.seoulchonnom.aggregate.inspection.logic.InspectionAreaLogic;
 import com.seoulchonnom.aggregate.inspection.logic.InspectionTagLogic;
 import com.seoulchonnom.aggregate.inspection.logic.InspectionVisitLogic;
+import com.seoulchonnom.aggregate.inspection.logic.ViewedPropertyLogic;
 import com.seoulchonnom.aggregate.inspection.store.InspectionTagStore;
 import com.seoulchonnom.spec.common.generator.IdGenerator;
 import com.seoulchonnom.spec.filebox.facade.sdo.FileBoxItemUdo;
 import com.seoulchonnom.spec.inspection.entity.InspectionArea;
 import com.seoulchonnom.spec.inspection.entity.InspectionTag;
 import com.seoulchonnom.spec.inspection.entity.InspectionVisit;
+import com.seoulchonnom.spec.inspection.entity.ViewedProperty;
+import com.seoulchonnom.spec.inspection.entity.vo.InspectionStatus;
+import com.seoulchonnom.spec.inspection.facade.sdo.FileBoxItemOrderUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitCdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitUdo;
 
@@ -37,6 +41,7 @@ public class InspectionVisitFlow {
 	private final InspectionTagLogic inspectionTagLogic;
 	private final InspectionTagStore inspectionTagStore;
 	private final InspectionPhotoSupport inspectionPhotoSupport;
+	private final ViewedPropertyLogic viewedPropertyLogic;
 	private final IdGenerator idGenerator;
 
 	/**
@@ -72,6 +77,67 @@ public class InspectionVisitFlow {
 		}
 		inspectionPhotoSupport.syncVisitPhotos(saved.getId(), inspectionVisitUdo.getFiles());
 		return saved;
+	}
+
+	/**
+	 * 요구사항 §36의 임장 완료 조건.
+	 *
+	 * 매물 0건 임장도 완료할 수 있다 — "성수동 상권만 확인하고 돌아온 임장"이 정상 기록이다.
+	 * 4번 조건은 "매물이 있다면 전부 완료"로 읽는다.
+	 */
+	@Transactional
+	public InspectionVisit changeInspectionVisitStatus(String visitId, InspectionStatus status) {
+		InspectionVisit visit = inspectionVisitLogic.getInspectionVisit(visitId);
+		if (status == null) {
+			throw new InvalidInspectionVisitException("상태 값은 필수입니다.");
+		}
+		if (InspectionStatus.COMPLETED == status) {
+			validateCompletable(visit);
+		}
+		visit.changeStatus(status);
+		return inspectionVisitLogic.save(visit);
+	}
+
+	private void validateCompletable(InspectionVisit visit) {
+		List<String> missing = inspectionVisitLogic.findMissingFieldsForCompletion(visit);
+		if (!missing.isEmpty()) {
+			throw new InvalidInspectionVisitException("임장 완료 조건을 만족하지 않습니다. missingFields=" + missing);
+		}
+		List<String> draftPropertyIds = viewedPropertyLogic.getViewedProperties(visit.getId()).stream()
+			.filter(property -> InspectionStatus.COMPLETED != property.getStatus())
+			.map(ViewedProperty::getId)
+			.toList();
+		if (!draftPropertyIds.isEmpty()) {
+			throw new InvalidInspectionVisitException(
+				"필수 조건을 만족하지 않은 매물이 있습니다. propertyIds=" + draftPropertyIds);
+		}
+	}
+
+	/**
+	 * RDB를 먼저 커밋하고 FileBox를 나중에 지운다.
+	 *
+	 * 순서를 뒤집으면 RDB 삭제가 실패했을 때 fileAssetId 목록 자체를 잃어 사진을 복구할 수 없다.
+	 * 이 방향에서 남는 것은 아무도 참조하지 않는 고아 FileBox 문서 하나뿐이고 정리 배치로 지운다.
+	 */
+	@Transactional
+	public void deleteInspectionVisit(String visitId) {
+		inspectionVisitLogic.getInspectionVisit(visitId);
+		inspectionTagStore.deletePropertyLinksByVisitId(visitId);
+		viewedPropertyLogic.deleteByVisitId(visitId);
+		inspectionTagStore.deleteVisitLinks(visitId);
+		inspectionVisitLogic.delete(visitId);
+
+		inspectionPhotoSupport.deleteAll(visitId);
+	}
+
+	/**
+	 * 사진 정렬 일괄 갱신. itemId가 FileBox 문서 안에서 유일하므로
+	 * 임장 사진과 매물 사진을 한 경로가 함께 처리한다.
+	 */
+	@Transactional
+	public void modifyInspectionImageOrder(String visitId, List<FileBoxItemOrderUdo> orders) {
+		inspectionVisitLogic.getInspectionVisit(visitId);
+		inspectionPhotoSupport.applyItemOrder(visitId, orders);
 	}
 
 	private InspectionArea resolveArea(InspectionVisitCdo inspectionVisitCdo) {

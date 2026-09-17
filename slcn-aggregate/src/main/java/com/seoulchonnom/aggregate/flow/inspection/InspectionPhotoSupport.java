@@ -15,6 +15,7 @@ import org.springframework.util.StringUtils;
 import com.seoulchonnom.aggregate.file.store.FileAssetStore;
 import com.seoulchonnom.aggregate.filebox.store.FileBoxStore;
 import com.seoulchonnom.aggregate.inspection.exception.InvalidInspectionFileException;
+import com.seoulchonnom.aggregate.inspection.exception.InvalidInspectionOrderException;
 import com.seoulchonnom.spec.file.entity.FileAsset;
 import com.seoulchonnom.spec.file.entity.vo.FileType;
 import com.seoulchonnom.spec.file.facade.sdo.FileAssetRdo;
@@ -25,6 +26,7 @@ import com.seoulchonnom.spec.filebox.entity.vo.FileBoxOwnerType;
 import com.seoulchonnom.spec.filebox.entity.vo.FileBoxTargetType;
 import com.seoulchonnom.spec.filebox.facade.sdo.FileBoxItemRdo;
 import com.seoulchonnom.spec.filebox.facade.sdo.FileBoxItemUdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.FileBoxItemOrderUdo;
 import com.seoulchonnom.spec.filebox.mapper.FileBoxMapper;
 
 import lombok.RequiredArgsConstructor;
@@ -70,6 +72,40 @@ public class InspectionPhotoSupport {
 			.filter(item -> !isSameGroup(item, FileBoxTargetType.VIEWED_PROPERTY, propertyId))
 			.toList();
 		fileBoxStore.syncItems(FileBoxOwnerType.INSPECTION_VISIT, visitId, new ArrayList<>(remaining));
+	}
+
+	/**
+	 * 사진 sortOrder만 갱신한다. 요청에 빠진 항목은 기존 순서를 유지한다.
+	 *
+	 * files 배열 전체 치환으로 순서를 바꾸면 사진 30장짜리 임장에서 순서 하나 바꾸는 데
+	 * 배열 전체를 되돌려보내야 한다. targetType을 요청에서 받지 않고 서버가 항목을 찾아 판정한다.
+	 */
+	public void applyItemOrder(String visitId, List<FileBoxItemOrderUdo> orders) {
+		if (orders == null || orders.isEmpty()) {
+			return;
+		}
+		Map<String, Integer> requested = new HashMap<>();
+		for (FileBoxItemOrderUdo order : orders) {
+			if (!StringUtils.hasText(order.getItemId())) {
+				throw new InvalidInspectionOrderException("정렬 대상 사진 ID가 비어 있습니다.");
+			}
+			requested.put(order.getItemId(), order.getSortOrder());
+		}
+
+		List<FileBoxItem> items = existingItems(visitId);
+		Set<String> knownIds = new HashSet<>();
+		items.forEach(item -> knownIds.add(item.getId()));
+		if (!knownIds.containsAll(requested.keySet())) {
+			throw new InvalidInspectionOrderException("이 임장에 속하지 않은 사진이 정렬 요청에 포함되었습니다.");
+		}
+
+		items.forEach(item -> {
+			Integer sortOrder = requested.get(item.getId());
+			if (sortOrder != null) {
+				item.setSortOrder(sortOrder);
+			}
+		});
+		fileBoxStore.syncItems(FileBoxOwnerType.INSPECTION_VISIT, visitId, items);
 	}
 
 	public void deleteAll(String visitId) {

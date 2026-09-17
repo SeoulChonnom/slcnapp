@@ -49,6 +49,11 @@ public class InspectionVisitLogic {
 		return inspectionVisitStore.save(visit);
 	}
 
+	@Transactional
+	public void delete(String visitId) {
+		inspectionVisitStore.delete(visitId);
+	}
+
 	/**
 	 * 스칼라 필드는 생략하면 null로 덮어쓴다. PUT은 전체 교체이고,
 	 * Jackson POJO가 "필드 없음"과 "명시적 null"을 구별하지 못하기 때문이다.
