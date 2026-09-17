@@ -1557,13 +1557,15 @@ JPA 엔티티 스캔은 `AggregateConfiguration`이 `com.seoulchonnom.aggregate`
 | 2 ✅ | spec 계약 | 엔티티 5종, VO 3종/enum 3종, Facade 5종, sdo 33종, mapper 6종 | 컴파일 + 엔티티·mapper 테스트 36건 |
 | 3 | aggregate — 질문 | `InspectionQuestion` JPO·Store·Logic(`versions` 컨버터 포함), 버전 추가 규칙, 시드 SQL 문서화 | `InspectionQuestionLogicTest` |
 | 4 | aggregate — 지역·태그 | `InspectionArea`, `InspectionTag` + 연결 테이블 JPO·Store·Logic | `InspectionAreaLogicTest`, `InspectionTagLogicTest` |
-| 5 | aggregate — 임장 | `InspectionVisit` JPO·Store·Logic + `InspectionVisitFlow`(등록/수정/삭제/상태) | `InspectionVisitFlowTest` |
-| 6 | aggregate — 매물·문답 | `ViewedProperty` JPO·Store·Logic(`answers` 컨버터, 파생 카운트 갱신, 타입별 값 검증 포함) + `ViewedPropertyFlow`(스냅샷 생성 포함) | `ViewedPropertyFlowTest`, `ViewedPropertyLogicTest` |
+| 5 | aggregate — 임장 | `InspectionVisit` JPO·Store·Logic + `InspectionPhotoSupport` + `InspectionVisitFlow`(등록/수정) | `InspectionVisitLogicTest`, `InspectionVisitFlowTest`, `InspectionPhotoSupportTest` |
+| 6 | aggregate — 매물·문답·상태·삭제 | `ViewedProperty` JPO·Store·Logic(`answers` 컨버터, 파생 카운트 갱신, 타입별 값 검증 포함) + `ViewedPropertyFlow`(스냅샷 생성 포함) + **양쪽 상태 전이와 삭제** | `ViewedPropertyFlowTest`, `ViewedPropertyLogicTest` |
 | 7 | aggregate — 조회 | `InspectionVisitQueryFlow`, `InspectionAreaQueryFlow`, projection 2종(`answers` 제외), 목록·상세 배치 조회, 목록 필터, 미완료 요약, 질문 `answerCount`(본문 §11.5), 정렬 갱신 | `InspectionVisitQueryFlowTest`, `InspectionAreaQueryFlowTest`, `IncompleteSummaryTest`, `InspectionOrderTest` |
 | 8 | rest + 보안 | Resource 5종, `SecurityConfiguration`에 질문 쓰기 `ADMIN` matcher | `*ResourceTest`, `*ResourceJsonContractTest`, `SecurityConfigurationTest` |
 | 9 | 문서 | `docs/file-asset.md` 갱신, FE 연동 문서(`docs/field_research/api.md`), `01-spec-design.md` 대체 표기 | — |
 
 3~4번은 서로 독립이라 병행 가능하다. 5번은 4번, 6번은 3·5번에 의존한다.
+
+**상태 전이와 삭제는 5번이 아니라 6번에 둔다.** 임장 완료 조건(본문 §4.3-4)이 "모든 매물이 COMPLETED"이고 임장 삭제가 하위 매물 삭제를 포함하므로, 두 기능 다 `ViewedProperty`가 있어야 성립한다. 5번에 두면 매물을 모르는 반쪽짜리 구현을 만들었다가 6번에서 다시 고치게 된다.
 
 ### 15.1 배포 시 순서
 
