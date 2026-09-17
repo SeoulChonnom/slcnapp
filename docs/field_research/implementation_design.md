@@ -770,15 +770,28 @@ FE는 **6장 단위로 나눠 업로드**하고, 받은 `fileAssetId`를 모아 
 
 인덱스: `uk_inspection_tag_name (name)` — 유니크
 
-`inspection_visit_tag` / `viewed_property_tag`
+`inspection_visit_tag`
 
 | 컬럼 | 타입 | 비고 |
 | --- | --- | --- |
 | `id` | varchar | UUID |
-| `inspection_visit_id` (또는 `viewed_property_id`) | varchar | not null |
+| `inspection_visit_id` | varchar | not null |
 | `tag_id` | varchar | not null |
 
-인덱스: `uk_inspection_visit_tag (inspection_visit_id, tag_id)` 유니크, `idx_inspection_visit_tag_tag (tag_id)` — 매물 쪽도 동일 형태
+인덱스: `uk_inspection_visit_tag (inspection_visit_id, tag_id)` 유니크, `idx_inspection_visit_tag_tag (tag_id)`
+
+`viewed_property_tag`
+
+| 컬럼 | 타입 | 비고 |
+| --- | --- | --- |
+| `id` | varchar | UUID |
+| `viewed_property_id` | varchar | not null |
+| `inspection_visit_id` | varchar | not null, **비정규화** |
+| `tag_id` | varchar | not null |
+
+인덱스: `uk_viewed_property_tag (viewed_property_id, tag_id)` 유니크, `idx_viewed_property_tag_tag (tag_id)`, `idx_viewed_property_tag_visit (inspection_visit_id)`
+
+`inspection_visit_id`를 매물 태그 연결에도 두는 이유: 본문 §12.1의 임장 삭제가 `deleteByInspectionVisitId` 한 번으로 끝나야 하고, 본문 §11.2의 "태그 2회(임장/매물 일괄)" 조회도 매물 ID 목록을 먼저 구하는 왕복 없이 끝나야 한다. 이 컬럼이 없으면 둘 다 `viewed_property` 조인이나 서브쿼리가 된다. 태그 연결이 다른 임장으로 옮겨가는 시나리오가 없으므로 정합성 위험이 없다.
 
 ### 8.6 `ddl-auto=update` 주의
 
