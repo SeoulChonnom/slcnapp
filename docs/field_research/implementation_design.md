@@ -26,7 +26,7 @@
 
 - 현재 서비스는 사용자별 데이터 분리를 하지 않는다(`Travel`, `Trip` 모두 소유자 컬럼이 없다). 임장도 동일하게 **전역 공유 데이터**로 설계한다. 사용자 스코프가 필요해지면 전 도메인 공통 과제로 따로 다룬다.
 - 인가는 기본 정책(`anyRequest().hasAuthority("USER")`)을 따르되, **질문 관리 API의 쓰기 경로는 `ADMIN` 전용**이다(본문 §10.4). 조회는 `USER`로 남긴다 — 사용자가 문답을 작성하려면 질문 목록을 읽어야 하기 때문이다.
-- `ddl-auto=update`이므로 신규 테이블 9개는 자동 생성된다. 기존 테이블은 건드리지 않는다.
+- `ddl-auto=update`이므로 신규 테이블 7개는 자동 생성된다. 기존 테이블은 건드리지 않는다.
 - 날짜/시간 기준 타임존은 `Asia/Seoul`이다.
 
 ---
@@ -38,9 +38,9 @@
 | 1 | §2 도메인 3계층(지역-임장-매물) | `InspectionArea` / `InspectionVisit` / `ViewedProperty` 3개 테이블 분리 | 재임장·다중 매물이 모두 1:N. JSON 내장으로는 매물 단위 질의가 불가능 |
 | 2 | §3.1 임장 지역은 **생활권 단위** | `InspectionArea` = 성수동·잠실 수준. 개별 단지가 아니다 | §49-1. 단지는 매물의 속성(`complexName`)으로 내려간다 |
 | 3 | §13 단지/건물명 | `ViewedProperty.complexName` **필수 문자열 컬럼**. 별도 엔티티 없음 | §49-6, §49-7. 확장 경로는 본문 §3.4.1 |
-| 4 | §17 문답은 매물 기준 | `PropertyAnswer.viewedPropertyId` 참조. `InspectionVisit`은 답변을 직접 갖지 않음 | §49-8 |
-| 5 | §20 질문 변경 이력 보존 | `InspectionQuestion` + `InspectionQuestionVersion` 분리 | §49-12 |
-| 6 | §24 작성 중 질문 변경 차단 | **매물 생성 시점에 활성 질문 전체를 `PropertyAnswer` 빈 행으로 미리 생성(materialize)**하고 버전·문구·필수여부·정렬순서를 스냅샷으로 고정 | 별도 `QuestionnaireVersion` 엔티티 없이 §24·§49-9·§49-11을 동시에 만족. 본문 §5 |
+| 4 | §17 문답은 매물 기준 | `ViewedProperty`에 **내장된 `PropertyAnswer` VO 목록**(`viewed_property.answers` JSON 컬럼). `InspectionVisit`은 답변을 직접 갖지 않음 | §49-8. 답변은 매물 밖에서 참조되지도, 매물과 다른 생명주기를 갖지도 않는다. 본문 §3.6 |
+| 5 | §20 질문 변경 이력 보존 | `InspectionQuestion`에 **내장된 `QuestionVersion` VO 목록**(`inspection_question.versions` JSON 컬럼) | §49-12. 요구사항 §20의 Question → Version 트리를 그대로 표현한다. 버전은 질문 수정의 부산물이며 독립 조작 대상이 아니다. 본문 §3.5 |
+| 6 | §24 작성 중 질문 변경 차단 | **매물 생성 시점에 활성 질문 전체를 `PropertyAnswer` 빈 VO로 미리 생성(materialize)**하고 버전·문구·필수여부·정렬순서·단위를 스냅샷으로 고정 | 요구사항 §24가 제시한 두 선택지 중 "`ViewedProperty` 생성 시 적용되는 `QuestionVersion` 목록 Snapshot"을 문자 그대로 구현한다. 본문 §5 |
 | 7 | §25 태그 공통 관리 | `InspectionTag` 마스터 + `inspection_visit_tag` / `viewed_property_tag` 연결 테이블 | 요구사항 도메인 다이어그램 그대로. §42 태그 필터를 인덱스 조인으로 처리 |
 | 8 | §29 기존 이미지 저장 방식 재사용 | **신규 이미지 테이블을 만들지 않고 기존 `FileBox`(MongoDB) 재사용.** `ownerType=INSPECTION_VISIT`, `targetType=INSPECTION_VISIT` / `VIEWED_PROPERTY` | `FileBox.items`가 이미 `fileAssetId` / `caption` / `sortOrder`를 갖는다. §30·§31 저장 정보와 1:1 대응. 본문 §7 |
 | 9 | §10·§16 DRAFT/COMPLETED | 두 엔티티가 공유하는 `InspectionStatus` enum. 완료 검증은 상태 전이 시점에만 수행 | 본문 §4 |
@@ -57,22 +57,47 @@
 ### 3.1 엔티티 개요
 
 ```text
-InspectionArea ──1:N──> InspectionVisit ──1:N──> ViewedProperty ──1:N──> PropertyAnswer
-   (성수동)                (2026-09-17 14:00)      (트리마제 /             │
-                                 │                   101동 1203호)        │ 스냅샷 참조
-                                 │ N:M                    │ N:M           ▼
-                                 ▼                        ▼      InspectionQuestionVersion
-                           InspectionTag           InspectionTag          ▲
-                              (inspection_tag 마스터 공유)                │ 1:N
-                                                                InspectionQuestion
+InspectionArea ──1:N──> InspectionVisit ──1:N──> ViewedProperty
+   (성수동)                (2026-09-17 14:00)      (트리마제 / 101동 1203호)
+                                 │                        │            │
+                                 │ N:M                    │ N:M        │ 내장(JSON 컬럼)
+                                 ▼                        ▼            ▼
+                           InspectionTag           InspectionTag   PropertyAnswer[]  ← VO
+                              (inspection_tag 마스터 공유)              │
+                                                                       │ questionId = 통계·비교의 축
+                                                                       ▼
+                                                              InspectionQuestion
+                                                                       │ 내장(JSON 컬럼)
+                                                                       ▼
+                                                              QuestionVersion[]  ← VO
 
 FileBox(ownerType=INSPECTION_VISIT, ownerId=visitId)
   ├─ item(targetType=INSPECTION_VISIT,  targetId=null)        → 임장 사진
   └─ item(targetType=VIEWED_PROPERTY,   targetId=propertyId)  → 매물 사진
 ```
 
-- Aggregate root는 `InspectionArea`, `InspectionVisit`, `InspectionQuestion` 셋이다.
-- `ViewedProperty`와 `PropertyAnswer`는 `InspectionVisit`에 종속되지만 **별도 테이블**이다. 매물 단위 정렬·부분 수정·관심도 필터[요구사항 §42]가 기능 요구사항이므로 JSON 내장으로 두면 전부 애플리케이션 메모리 필터가 된다.
+**엔티티 5종**: `InspectionArea`, `InspectionVisit`, `ViewedProperty`, `InspectionQuestion`, `InspectionTag`
+**VO 3종**: `PropertyAnswer`, `QuestionVersion`, `QuestionChoice`
+
+Aggregate root는 `InspectionArea`, `InspectionVisit`, `InspectionQuestion` 셋이다.
+
+#### 3.1.1 무엇을 엔티티로 두고 무엇을 VO로 두는가
+
+세 가지를 묻는다. **바깥에서 ID로 참조되는가 / 자기만의 생명주기가 있는가 / 자기 필드로 부모를 가로지르는 질의가 있는가.** 셋 다 아니면 VO다.
+
+| 모델 | 외부 ID 참조 | 독립 생명주기 | 횡단 질의 | 판정 |
+| --- | --- | --- | --- | --- |
+| `InspectionArea` | `inspection_visit.area_id` | 등록·수정·삭제 API | 지역명 검색[요구사항 §42] | **엔티티** |
+| `InspectionVisit` | `viewed_property.inspection_visit_id`, `FileBox.ownerId` | 등록·수정·삭제·상태 전이 | 기간·재방문 의사·태그[요구사항 §42] | **엔티티** |
+| `ViewedProperty` | `FileBoxItem.targetId`, `viewed_property_tag.viewed_property_id` | 등록·수정·삭제·상태·정렬 API | 관심도·단지명[요구사항 §42] | **엔티티** |
+| `InspectionQuestion` | `PropertyAnswer.questionId` | ADMIN 등록·수정·활성화 | `enabled` 필터, 축별 집계 | **엔티티** |
+| `InspectionTag` | 연결 테이블 2종 | get-or-create, 자동완성 | 사용 빈도 정렬 | **엔티티** |
+| `PropertyAnswer` | **없음.** 답변 ID를 참조하는 곳이 하나도 없고, 저장 API도 `answerId`가 아니라 `questionId`로 대상을 찾는다 | **없음.** 매물과 함께 생겨 매물과 함께 죽는다 | **없음.** 요구사항 §42의 검색 축에 문답 값이 없다 | **VO** |
+| `QuestionVersion` | 답변이 `questionVersionNo`(값)로만 가리킨다 | **없음.** 질문 문구 수정의 부산물이고, 만들어진 뒤 수정도 삭제도 되지 않는다 | **없음** | **VO** |
+
+`ViewedProperty`가 VO가 아닌 이유를 분명히 해 둔다. 매물 단위 정렬·부분 수정·관심도 필터[요구사항 §42]가 기능 요구이고, 무엇보다 **`FileBoxItem.targetId`가 매물 ID를 가리킨다.** 사진이 바깥에서 매물을 참조하므로 매물은 안정적인 식별자를 가진 엔티티여야 한다.
+
+이 저장소에는 같은 판단의 선례가 있다. `Travel`은 엔티티이고 `TravelDay`·`TravelPlace`는 VO로 `travel.days` **TEXT 컬럼에 JSON으로** 저장된다(`TravelJpo.java:38`). `TravelPlace.placeKey`는 그 JSON 안의 UUID인데 `FileBoxItem.targetId`로 쓰인다. 임장의 `PropertyAnswer`는 그보다도 참조가 적다.
 
 ### 3.2 InspectionArea
 
@@ -125,10 +150,15 @@ public class ViewedProperty extends DomainEntity {
 	private Integer interestLevel;      // 1~5. DRAFT에서는 null 허용
 	private InspectionStatus status;    // 필수, 기본 DRAFT
 	private int sortOrder;              // 요구사항 §33 임장 내 표시 순서
+
+	private List<PropertyAnswer> answers;   // 내장 VO 목록. 본문 §3.6
+	private int requiredAnswerCount;        // 파생값. 본문 §3.6.1
+	private int unansweredRequiredCount;    // 파생값. 본문 §3.6.1
 }
 ```
 
 - ID: **UUID**. `id_sequence`는 상한이 `0xFFFF`(65,535)라 `임장 수 × 매물 수`로 늘어나는 값에 맞지 않는다.
+- 문답은 이 엔티티 안에 산다(본문 §3.6). 매물을 지우면 답변도 함께 사라지고, 별도 삭제 단계가 없다.
 - `complexName`과 `name`은 **둘 다 필수**다[요구사항 §12, §37-1, §37-2]. 임장 지역이 생활권 단위로 넓어지면서 "어느 단지의 매물인가"가 매물 식별에 필수가 되었다.
 - 동/호수/평형을 분리하지 않는다[요구사항 §14, §46]. 확장 시 `name`은 표시용으로 남기고 구조화 컬럼을 추가한다.
 - `sortOrder`는 생성 시 `현재 최대값 + 1`로 자동 채번하고, 별도 정렬 변경 API로 일괄 갱신한다[요구사항 §33].
@@ -160,7 +190,7 @@ public class ViewedProperty extends DomainEntity {
 
 전역 단지명 마스터를 만들지 않는 이유는 §3.4.1과 같다. 후보는 "이 임장 안에서 이미 쓴 이름"으로 충분하다.
 
-### 3.5 InspectionQuestion / InspectionQuestionVersion
+### 3.5 InspectionQuestion / QuestionVersion
 
 ```java
 public class InspectionQuestion extends DomainEntity {
@@ -168,12 +198,11 @@ public class InspectionQuestion extends DomainEntity {
 	private boolean required;               // 요구사항 §22
 	private int sortOrder;                  // 요구사항 §23
 	private boolean enabled;                // 요구사항 §19
-	private String currentVersionId;
-	private int currentVersionNo;
+	private List<QuestionVersion> versions; // 1번부터. 추가만 되고 수정·삭제되지 않는다
+	private int currentVersionNo;           // versions의 마지막 번호
 }
 
-public class InspectionQuestionVersion extends DomainEntity {
-	private String questionId;
+public class QuestionVersion implements JsonSerializable {   // VO
 	private int versionNo;                  // 1부터
 	private String content;                 // 질문 문구
 	private String description;             // 도움말
@@ -181,53 +210,66 @@ public class InspectionQuestionVersion extends DomainEntity {
 	private String unit;                    // NUMBER에서만 사용. 예: 만원, m2
 }
 
-public class QuestionChoice implements JsonSerializable {
+public class QuestionChoice implements JsonSerializable {    // VO
 	private String code;    // 불변 식별자. 답변이 참조한다
 	private String label;   // 표시 문구
 	private int sortOrder;
 }
 ```
 
-- `InspectionQuestion` ID: `INSPECTION_QUESTION-{4자리 16진수}`. `InspectionQuestionVersion` ID: UUID.
+- `InspectionQuestion` ID: `INSPECTION_QUESTION-{4자리 16진수}`.
+- **`QuestionVersion`은 별도 테이블이 아니라 `inspection_question.versions` JSON 컬럼이다.** 요구사항 §20이 그리는 `Question ├─ v1 ├─ v2 └─ v3` 트리를 그대로 표현한다. 버전은 질문당 한 자릿수로 늘고, 조회는 항상 "이 질문의 전체 이력"이라 부모와 함께 읽는 것이 자연스럽다.
+- 버전 번호는 `versions.size() + 1`로 채번한다. 별도 시퀀스도, `uk_inspection_question_version` 유니크 제약도 필요 없다 — 같은 행 안의 리스트라 `EntityJpo`의 `@Version` 낙관적 잠금이 동시 채번을 막는다(본문 §4.6).
+- 답변은 버전을 **ID가 아니라 `questionVersionNo`(값)으로** 가리킨다. 버전에 행 ID가 없기 때문이고, 어차피 답변은 문구 자체를 스냅샷으로 들고 있어 버전을 되짚을 일이 없다.
 - 질문 물리 삭제 API는 만들지 않는다. 요구사항 §18·§49-20·§34.4가 금지하는 것은 엄밀히 **"기존 답변이 연결된"** 질문의 물리 삭제지만, 답변 0건인 질문만 골라 지우는 API를 따로 두는 실익이 없어 **삭제 경로 자체를 만들지 않는 쪽으로 단순화한다.** 잘못 만든 질문은 `enabled=false`로 내린다.
 
 **버전이 올라가는 변경과 올라가지 않는 변경을 구분한다.**
 
 | 변경 | 결과 | 이유 |
 | --- | --- | --- |
-| `content`, `description` 수정 | 새 버전 생성 (`versionNo + 1`) | 문구가 바뀌면 과거 답변의 의미가 달라진다[요구사항 §20] |
-| `choices` 추가·수정·삭제 | 새 버전 생성 | 선택지를 지우면 그 선택지를 고른 과거 답변이 고아가 된다 |
-| `unit` 변경 | 새 버전 생성 | 수치의 의미가 바뀐다 |
+| `content`, `description` 수정 | 새 버전 추가 (`versionNo + 1`) | 문구가 바뀌면 과거 답변의 의미가 달라진다[요구사항 §20] |
+| `choices` 추가·수정·삭제 | 새 버전 추가 | 선택지를 지우면 그 선택지를 고른 과거 답변이 고아가 된다 |
+| `unit` 변경 | 새 버전 추가 | 수치의 의미가 바뀐다 |
 | `required` 변경 | 버전 유지 | 수집 정책이지 질문의 의미가 아니다. 진행 중 매물에는 스냅샷이 이미 고정되어 있다 |
 | `sortOrder` 변경 | 버전 유지 | 표시 순서일 뿐 과거 데이터에 영향 없음 |
 | `enabled` 토글 | 버전 유지 | "지금 물어볼 질문인가"만 답한다[요구사항 §19] |
 | `answerType` 변경 | **금지(`400`)** | 아래 단락 참조 |
 
-요구사항 §18은 관리자 기능으로 "질문 타입 설정"을 나열한다. 이 설계는 그것을 **생성 시점의 설정**으로 좁히고 생성 후 변경은 막는다. 타입별 값 컬럼이 분리되어 있어(본문 §3.6) `TEXT`로 쌓인 답변과 `RATING`으로 쌓인 답변을 한 질문 아래에서 읽을 방법이 없기 때문이다. 타입을 바꿔야 하면 **기존 질문을 미사용 처리하고 새 질문을 만든다** — 과거 답변은 그대로 조회되고(요구사항 §19) 새 축이 생긴다. 요구사항 §20("질문 내용 변경으로 기존 기록이 변경되어서는 안 된다")을 지키려면 이 제약이 불가피하다.
+기존 버전은 **절대 수정하지 않는다.** 리스트에 추가만 한다. 이것이 요구사항 §20을 지키는 최소 규칙이고, JSON 컬럼이라 DB가 대신 막아주지 않으므로 `InspectionQuestionLogic`이 이 불변식을 강제한다(본문 §14.1 테스트 대상).
+
+요구사항 §18은 관리자 기능으로 "질문 타입 설정"을 나열한다. 이 설계는 그것을 **생성 시점의 설정**으로 좁히고 생성 후 변경은 막는다. 타입별 값 필드가 분리되어 있어(본문 §3.6) `TEXT`로 쌓인 답변과 `RATING`으로 쌓인 답변을 한 질문 아래에서 읽을 방법이 없기 때문이다. 타입을 바꿔야 하면 **기존 질문을 미사용 처리하고 새 질문을 만든다** — 과거 답변은 그대로 조회되고(요구사항 §19) 새 축이 생긴다. 요구사항 §20("질문 내용 변경으로 기존 기록이 변경되어서는 안 된다")을 지키려면 이 제약이 불가피하다.
 
 관심사 분리:
 
 | 관심사 | 담당 |
 | --- | --- |
 | 지금 이 질문을 물어볼 것인가 | `InspectionQuestion.enabled` |
-| 이 질문은 어떻게 바뀌어 왔나 | `InspectionQuestionVersion` |
+| 이 질문은 어떻게 바뀌어 왔나 | `InspectionQuestion.versions` |
 | 과거 기록 화면이 그때 그대로인가 | `PropertyAnswer`의 문구 스냅샷 |
 | 여러 기록을 같은 축으로 묶을 수 있는가 | `PropertyAnswer.questionId` + `questionVersionNo` |
 
-### 3.6 PropertyAnswer
+### 3.6 PropertyAnswer (VO)
+
+`ViewedProperty`에 내장된다. 별도 테이블도, 행 ID도 없다.
 
 ```java
-public class PropertyAnswer extends DomainEntity {
-	private String viewedPropertyId;        // 필수
-	private String inspectionVisitId;       // 비정규화. 삭제/집계 질의용
-	private String questionId;              // 통계·비교의 축
-	private String questionVersionId;       // 답변 시점 버전
-	private int questionVersionNo;
+public class ViewedProperty extends DomainEntity {
+	// ... 본문 §3.4의 필드 ...
+	private List<PropertyAnswer> answers;   // viewed_property.answers JSON 컬럼
+	private int requiredAnswerCount;        // 파생값. 아래 참조
+	private int unansweredRequiredCount;    // 파생값. 아래 참조
+}
+
+public class PropertyAnswer implements JsonSerializable {   // VO
+	private String questionId;              // 통계·비교의 축. 리스트 안에서 유일하다
+	private int questionVersionNo;          // 답변 시점 버전 번호
+
 	private String questionContent;         // 스냅샷: 답변 시점 문구
 	private String questionDescription;     // 스냅샷
 	private QuestionAnswerType answerType;  // 스냅샷
 	private boolean required;               // 스냅샷: 완료 검증 기준
 	private int sortOrder;                  // 스냅샷: 표시 순서
+	private String unit;                    // 스냅샷: NUMBER의 단위. 예: 만원, m2
 	private List<QuestionChoice> choiceOptions; // 스냅샷: SELECT 계열 선택지
 
 	private String textValue;               // TEXT, LONG_TEXT
@@ -236,14 +278,15 @@ public class PropertyAnswer extends DomainEntity {
 	private Integer ratingValue;            // RATING (1~5)
 	private List<String> selectedCodes;     // SINGLE_SELECT, MULTI_SELECT
 
-	private boolean answered;               // 파생값. 저장한다
+	private boolean answered;               // 파생값
 }
 ```
 
-- ID: **UUID**.
-- `questionId`는 "어느 축의 답인가", `questionVersionNo`는 "어느 문구에 답했는가", `questionContent`는 "조인 없이 그대로 그린다"를 각각 책임진다. 셋 다 필요하다.
-- 값은 타입별 컬럼으로 나눈다. 문자열 하나에 몰면 "채광 4점 이상" 같은 질의가 불가능해진다.
-- `required`를 답변 행에 스냅샷으로 복사하는 것이 요구사항 §24의 핵심이다. 완료 검증이 **질문 마스터의 현재 상태를 보지 않는다.**
+- **`questionId`가 리스트 안의 식별자다.** 매물 하나에 같은 질문이 두 번 들어가지 않으므로 별도 ID가 필요 없고, 답변 저장 API도 이미 `questionId`로 대상을 찾는다(본문 §10.6).
+- `questionId`는 "어느 축의 답인가", `questionVersionNo`는 "어느 문구에 답했는가", `questionContent`는 "질문 마스터를 읽지 않고 그대로 그린다"를 각각 책임진다. 셋 다 필요하다.
+- 값은 타입별 필드로 나눈다. 문자열 하나에 몰면 타입별 검증(본문 §5.5)과 FE 위젯 선택이 불가능해진다.
+- `required`를 답변에 스냅샷으로 복사하는 것이 요구사항 §24의 핵심이다. 완료 검증이 **질문 마스터의 현재 상태를 보지 않는다.**
+- `unit`을 스냅샷에 포함한다. 빠뜨리면 `NUMBER` 답변이 `3.5`만 남고 "만원"인지 "m2"인지 잃는다. 단위 변경은 새 버전을 만드는 변경이므로(본문 §3.5) 마스터를 되짚어 복원할 수도 없다 — 요구사항 §20을 지키려면 값 옆에 있어야 한다.
 
 `answered` 판정 규칙(저장 시 계산):
 
@@ -256,7 +299,36 @@ public class PropertyAnswer extends DomainEntity {
 | `SINGLE_SELECT` | `selectedCodes`의 크기가 정확히 1 |
 | `MULTI_SELECT` | `selectedCodes`가 비어 있지 않음 |
 
-`answered`를 파생값이지만 저장하는 이유: 매물 완료 검증이 `count(viewedPropertyId = ? AND required = true AND answered = false)` 단일 질의로 끝난다. 매번 전체 답변을 로드해 타입별로 다시 판정하지 않는다.
+#### 3.6.1 파생 카운트를 매물 행에 저장하는 이유
+
+`requiredAnswerCount`와 `unansweredRequiredCount`는 `answers`를 순회하면 언제든 다시 구할 수 있는 값이다. 그럼에도 **매물 행의 정수 컬럼으로 저장한다.**
+
+답변이 별도 테이블이었다면 목록 화면의 미완료 집계(본문 §10.9)를 `GROUP BY`로 받을 수 있었다. JSON 컬럼에서는 그 길이 막힌다. 저장하지 않으면 지역 목록 한 번에 **모든 매물의 `answers` JSON을 읽어 파싱해야 한다** — 목록이 답변 본문 조회로 바뀐다.
+
+정수 두 개를 저장하면 목록 질의는 이렇게 끝난다.
+
+```sql
+SELECT inspection_visit_id,
+       count(*)                          AS property_count,
+       sum(unanswered_required_count)    AS unanswered_required_count,
+       count(*) FILTER (WHERE status = 'DRAFT') AS draft_property_count
+  FROM slcn.viewed_property
+ WHERE inspection_visit_id IN (...)
+ GROUP BY inspection_visit_id
+```
+
+`answers` 컬럼을 **한 바이트도 읽지 않는다.** 답변이 테이블이던 설계보다 오히려 싸다(테이블 조인 1회가 사라진다).
+
+두 값은 `answers`가 바뀌는 모든 경로에서 함께 갱신된다. 경로는 매물 생성(스냅샷 생성)과 `PUT .../answers` 둘뿐이고, 둘 다 `ViewedPropertyFlow`를 지나므로 갱신 지점이 한 곳이다. 같은 행 안의 값이라 `answers`와 카운트가 서로 어긋난 채 커밋될 수 없다 — 답변이 별도 테이블이었다면 불가능했던 보장이다.
+
+#### 3.6.2 매물 행이 무거워지는 것에 대한 대비
+
+질문 수십 개의 문구·설명·선택지를 스냅샷으로 들고 있으므로 `answers` JSON은 매물 한 건당 수 KB가 된다. **목록·집계 질의는 이 컬럼을 읽으면 안 된다.**
+
+- 매물 요약이 필요한 모든 조회는 `ViewedPropertySummaryPdo` projection으로 필요한 컬럼만 읽는다(본문 §11.1). `answers`는 projection에 넣지 않는다.
+- `answers` 전체를 읽는 것은 매물 상세와 임장/지역 상세뿐이다. 이때는 어차피 화면에 문답을 그려야 한다.
+
+`TravelLogic.getTravels()`는 목록에서 `days` JSON을 전부 읽는다. 임장은 처음부터 projection으로 간다.
 
 ### 3.7 InspectionTag
 
@@ -280,6 +352,14 @@ public enum QuestionAnswerType {                             // 요구사항 §2
 	TEXT, LONG_TEXT, BOOLEAN, SINGLE_SELECT, MULTI_SELECT, NUMBER, RATING
 }
 ```
+
+값 객체 3종은 전부 `JsonSerializable`을 구현하고 JSON 컬럼에 실린다.
+
+| VO | 사는 곳 | 저장 |
+| --- | --- | --- |
+| `PropertyAnswer` | `ViewedProperty.answers` | `viewed_property.answers` TEXT (JSON) |
+| `QuestionVersion` | `InspectionQuestion.versions` | `inspection_question.versions` TEXT (JSON) |
+| `QuestionChoice` | `QuestionVersion.choices`, `PropertyAnswer.choiceOptions` | 위 두 컬럼 안에 중첩 |
 
 - `InspectionStatus`는 임장과 매물이 공유한다. 두 상태 집합이 완전히 같고[요구사항 §10, §16], 한쪽만 값이 늘어날 때 분리하면 된다.
 - `VisitTimeSlot { MORNING, AFTERNOON, EVENING, NIGHT }`은 **초기 범위에서 만들지 않는다**[요구사항 §9]. 필요해지면 `InspectionVisit`에 nullable 컬럼 하나를 더하는 변경으로 끝난다.
@@ -311,7 +391,7 @@ public enum QuestionAnswerType {                             // 요구사항 §2
 2. `name`에 공백이 아닌 값이 있다.
 3. `interestLevel`이 존재한다.
 4. `interestLevel`이 1~5 범위다.
-5. 해당 매물의 `PropertyAnswer` 중 `required = true AND answered = false`인 행이 0건이다.
+5. `unansweredRequiredCount == 0`이다. 이 값은 매물 행 자신의 컬럼이므로 다른 테이블을 읽지 않는다(본문 §3.6.1).
 
 실패 시 `400 INSPECTION_ANSWER_REQUIRED`(5번) 또는 `400 INVALID_VIEWED_PROPERTY`(1~4번). 응답 메시지에 미답변 `questionId` 목록을 담아 FE가 해당 문항으로 스크롤할 수 있게 한다.
 
@@ -350,7 +430,7 @@ public enum QuestionAnswerType {                             // 요구사항 §2
 ```text
 매물 P = COMPLETED (필수 문답 전부 답변됨)
   ↓ PUT .../answers 로 필수 문항의 textValue를 "" 로 저장
-property_answer.answered = false 로 갱신됨
+answers[i].answered     = false 로 갱신됨
 viewed_property.status  = COMPLETED 그대로          ← 불변식 붕괴
 inspection_visit.status = COMPLETED 그대로          ← "모든 매물 COMPLETED"가 필드값만 보면 여전히 참
 ```
@@ -375,18 +455,18 @@ DRAFT에서도 거절하는 것: `visitedAt` 누락, 존재하지 않는 `areaId
 
 ### 4.6 동시성과 잠금
 
-이 설계에는 **"읽어서 검증하고 그 결과로 쓰는"(check-then-act) 지점이 네 군데** 있다. 외래키 제약을 걸지 않으므로(본문 §8.8) DB가 대신 막아주지 않는다. 각각의 보호 방법을 여기서 한 번 정한다.
+이 설계에는 **"읽어서 검증하고 그 결과로 쓰는"(check-then-act) 지점이 네 군데** 있다. 외래키 제약을 걸지 않으므로(본문 §8.6) DB가 대신 막아주지 않는다. 각각의 보호 방법을 여기서 한 번 정한다.
 
 | # | 지점 | 레이스 시나리오 | 보호 |
 | --- | --- | --- | --- |
 | 1 | 지역 중복 검사 → 생성 | 같은 요청을 더블클릭하면 두 요청이 "성수동 없음"을 동시에 확인하고 둘 다 INSERT. **이 설계가 막으려던 "재임장 이력이 두 갈래로 갈라지는" 결함이 그대로 재현된다** | `inspection_area.name`에 **유니크 인덱스**(`uk_inspection_area_name`)를 걸고, INSERT의 제약 위반을 잡아 `409 INSPECTION_AREA_DUPLICATED` + 기존 후보 응답으로 변환한다 |
 | 2 | 지역 삭제 전 "임장 0건" 검사 → 삭제 | T1이 `count == 0`을 확인한 직후 T2가 그 지역으로 임장을 등록하고, T1이 지역을 지운다. `inspection_visit.area_id`가 없는 지역을 가리켜 **상세 조회(본문 §11.2-2)가 깨진다** | 삭제 트랜잭션에서 지역 행에 `SELECT ... FOR UPDATE`를 걸고 그 안에서 검사·삭제를 수행한다. 임장 생성 시의 `areaId` 검증도 같은 행을 `FOR SHARE`로 읽어 두 트랜잭션이 직렬화되게 한다 |
-| 3 | 매물 완료 검증 → `status = COMPLETED` | T1이 `count(required && !answered) == 0`을 읽고 통과 판정한 뒤, 커밋 전에 T2가 `PUT .../answers`로 필수 답변을 비우고 먼저 커밋한다. T1은 자기가 읽은 시점 기준으로 통과했으므로 그대로 `COMPLETED`를 커밋 → **필수 문항이 빈 `COMPLETED` 매물** | 완료 전이 트랜잭션에서 그 매물의 `property_answer` 행들을 `SELECT ... FOR UPDATE`로 읽고 검증한다. `EntityJpo`의 `@Version`은 `viewed_property` **자기 행**의 분실 갱신만 막고, 다른 테이블(`property_answer`)의 변경은 감지하지 못하므로 여기서는 도움이 되지 않는다 |
+| 3 | 매물 완료 검증 → `status = COMPLETED` | T1이 완료 조건을 읽고 통과 판정한 뒤, 커밋 전에 T2가 `PUT .../answers`로 필수 답변을 비우고 먼저 커밋한다 | **문답과 상태가 같은 행에 있으므로 `EntityJpo`의 `@Version` 낙관적 잠금이 그대로 막는다.** T1이 읽은 `entityVersion`으로 UPDATE가 나가고, T2가 먼저 커밋했으면 0건 갱신으로 `OptimisticLockingFailureException`이 난다. 명시적 잠금이 필요 없다 — 답변을 매물 안에 둔 결정(본문 §3.6)이 이 레이스를 구조적으로 없앤다 |
 | 4 | 태그 get-or-create | 두 사용자가 동시에 신규 태그 `#한강`으로 저장하면, 나중 요청이 `uk_inspection_tag_name` 위반으로 **임장 등록 트랜잭션 전체가 실패**한다 | 유니크 위반(`DataIntegrityViolationException`)을 잡아 **재조회 후 기존 행을 재사용**한다. 이 경우는 사용자 오류가 아니라 정상 흐름이므로 에러를 노출하지 않는다 |
 
-질문 문구 수정도 `uk_inspection_question_version (question_id, version_no)` 덕에 데이터 손상은 없지만, 두 관리자가 동시에 같은 질문을 고치면 나중 요청이 제약 위반으로 실패한다. 이때는 **`409`로 매핑하고 "질문이 이미 수정되었습니다. 새로고침 후 다시 시도하세요"** 메시지를 돌려준다. 500으로 새어나가면 관리자가 원인을 알 수 없다.
+질문 문구 수정도 마찬가지다. 버전 목록이 `inspection_question` **같은 행 안의 JSON**이므로 두 관리자가 동시에 같은 질문을 고치면 `@Version`이 나중 요청을 막는다. 유니크 제약으로 뒤늦게 걸리는 것이 아니라 갱신 시점에 바로 걸린다. 이때 `OptimisticLockingFailureException`을 **`409 INSPECTION_QUESTION_CONFLICT`로 매핑하고 "질문이 이미 수정되었습니다. 새로고침 후 다시 시도하세요"** 메시지를 돌려준다. 500으로 새어나가면 관리자가 원인을 알 수 없다.
 
-`EntityJpo`는 `@Version entityVersion`을 가지고 있고 `@MappedSuperclass`이므로 **모든 JPO에 낙관적 잠금이 자동으로 걸린다.** 다만 위 표에서 보듯 이것이 보호하는 범위는 "같은 행의 동시 갱신"뿐이다. 교차 테이블 검증은 명시적 잠금이 필요하다.
+`EntityJpo`는 `@Version entityVersion`을 가지고 있고 `@MappedSuperclass`이므로 **모든 JPO에 낙관적 잠금이 자동으로 걸린다.** 이것이 보호하는 범위는 "같은 행의 동시 갱신"뿐이다. 그래서 하위 데이터를 부모 행 안에 두는 결정이 동시성 측면에서 이득이 된다 — 위 표에서 3번이 사라지고 질문 버전 충돌이 자동으로 처리되는 것이 그 결과다. 남은 1·2·4번은 서로 다른 행을 오가는 검사라 여전히 명시적 보호가 필요하다.
 
 ---
 
@@ -394,42 +474,69 @@ DRAFT에서도 거절하는 것: `visitedAt` 누락, 존재하지 않는 `areaId
 
 ### 5.1 선택한 방식
 
-**매물 생성 시점에 활성 질문 전체를 `PropertyAnswer` 빈 행으로 미리 만든다(materialization).**
+**매물 생성 시점에 활성 질문 전체를 `PropertyAnswer` 빈 VO로 만들어 매물 안에 넣는다(materialization).**
 
 ```text
 POST /inspection-visits/{visitId}/properties
         ↓
-ViewedProperty 저장 (DRAFT)
+InspectionQuestion where enabled = true order by sortOrder  조회 (1회)
         ↓
-InspectionQuestion where enabled = true order by sortOrder  조회
+각 질문의 currentVersion을 versions 리스트에서 꺼낸다 (같은 행이라 추가 조회 없음)
         ↓
-각 질문의 currentVersion 조회
+질문 수만큼 PropertyAnswer VO 생성
+  - questionId, questionVersionNo
+  - questionContent, questionDescription, answerType, required, sortOrder, unit, choiceOptions  ← 전부 스냅샷
+  - 값 필드는 전부 null, answered = false
         ↓
-질문 수만큼 PropertyAnswer 행 생성
-  - questionId, questionVersionId, questionVersionNo
-  - questionContent, questionDescription, answerType, required, sortOrder, choiceOptions  ← 전부 스냅샷
-  - 값 컬럼은 전부 null, answered = false
+ViewedProperty 저장 (DRAFT) — 매물과 문답이 한 번의 INSERT로 함께 들어간다
         ↓
 응답: 매물 + 빈 문답 목록(화면에 그대로 렌더링 가능)
 ```
 
-이후 답변 저장(`PUT .../answers`)은 **이 행들의 값 컬럼만 갱신**한다. 행을 추가하거나 삭제하지 않는다.
+이후 답변 저장(`PUT .../answers`)은 **리스트 안 항목의 값 필드만 갱신**한다. 항목을 추가하거나 제거하지 않는다.
+
+질문 마스터 조회가 **1회**로 끝나는 점을 짚어 둔다. 버전이 별도 테이블이던 때는 질문 조회 후 현재 버전을 다시 읽어야 했다.
 
 ### 5.2 이 방식이 요구사항을 만족하는 방법
 
 | 요구사항 | 만족 방식 |
 | --- | --- |
-| §24 작성 시작 후 질문이 추가돼도 강제하지 않음 | 매물 생성 시점에 행 집합이 확정된다. 이후 추가된 질문은 이 매물에 행이 없으므로 화면에도 검증에도 등장하지 않는다 |
-| §20 질문 문구 수정이 기존 기록에 영향 없음 | `questionContent`가 행에 복사되어 있다. 마스터를 고쳐도 과거 행은 그대로 |
-| §19 미사용 질문도 기존 기록에서는 조회 가능 | 행이 이미 존재하므로 `enabled=false`와 무관하게 조회된다 |
-| §22 필수 문답 검증 | `required`가 행에 스냅샷되어 있어 마스터 변경과 독립적으로 검증된다 |
-| §49-11 과거 기록 동일 복원 | 행 하나로 질문 문구·타입·선택지·순서가 모두 복원된다. 조인 없이 렌더링 가능 |
+| §24 작성 시작 후 질문이 추가돼도 강제하지 않음 | 매물 생성 시점에 리스트가 확정된다. 이후 추가된 질문은 이 매물의 리스트에 없으므로 화면에도 검증에도 등장하지 않는다 |
+| §20 질문 문구 수정이 기존 기록에 영향 없음 | `questionContent`가 복사되어 있다. 마스터를 고쳐도 과거 항목은 그대로 |
+| §19 미사용 질문도 기존 기록에서는 조회 가능 | 항목이 이미 존재하므로 `enabled=false`와 무관하게 조회된다 |
+| §22 필수 문답 검증 | `required`가 항목에 스냅샷되어 있어 마스터 변경과 독립적으로 검증된다 |
+| §49-11 과거 기록 동일 복원 | 항목 하나로 질문 문구·타입·단위·선택지·순서가 모두 복원된다. 조회 한 번으로 렌더링 가능 |
 
 ### 5.3 별도 `QuestionnaireVersion` 엔티티를 두지 않는 이유
 
-요구사항 §24와 §48은 `QuestionnaireVersion` 또는 "`ViewedProperty` 생성 시 적용되는 `QuestionVersion` 목록 Snapshot" 중 하나를 쓸 수 있다고 열어 두었다. 전자를 택하면 테이블 2개(`questionnaire_version`, `questionnaire_question`)와 "질문이 하나 바뀔 때마다 새 세트 버전을 만들지, 기존 세트를 수정할지" 판단 규칙이 추가로 필요하다. 후자는 **답변 행 자체가 스냅샷 역할을 겸하므로 추가 테이블이 0개**다. 매물당 답변 행이 질문 수만큼(현실적으로 10~30개) 생기는 저장 비용은 이 규모의 서비스에서 문제가 되지 않는다.
+요구사항 §24와 §48은 두 가지를 열어 두었다.
 
-트레이드오프: 매물을 만들었지만 문답을 하나도 안 쓰고 버리면 빈 행이 남는다. 매물 삭제 시 함께 지워지므로[요구사항 §34.3] 누수는 없다.
+```text
+QuestionnaireVersion
+또는
+ViewedProperty 생성 시 적용되는 QuestionVersion 목록 Snapshot
+```
+
+**후자를 문자 그대로 구현한다.** 매물이 자기 안에 `QuestionVersion` 목록의 스냅샷을 들고, 거기에 답변 값이 붙어 있는 형태다. 전자를 택하면 테이블 2개(`questionnaire_version`, `questionnaire_question`)와 "질문이 하나 바뀔 때마다 새 세트 버전을 만들지, 기존 세트를 수정할지" 판단 규칙이 추가로 필요하다.
+
+답변을 별도 테이블(`property_answer`)로 두는 중간안도 검토했고, 그쪽을 택하지 않았다. 답변은 **바깥에서 참조되지 않고, 매물과 생명주기가 같고, 자기 값으로 매물을 가로지르는 질의가 요구사항에 없다**(본문 §3.1.1). 세 조건이 모두 아닌 데이터를 테이블로 올리면 얻는 것 없이 다음을 잃는다.
+
+| 잃는 것 | 내용 |
+| --- | --- |
+| 원자성 | 답변 쓰기와 매물 상태 갱신이 두 테이블에 걸쳐 일어나 완료 검증에 명시적 행 잠금이 필요해진다(본문 §4.6-3) |
+| 조회 1회 | 상세 화면에서 답변 조회가 별도 왕복으로 남는다 |
+| 삭제 단계 | 임장·매물 삭제마다 답변 삭제 단계가 하나 더 붙는다 |
+| 비정규화 컬럼 | 임장 단위 삭제·집계를 위해 `inspection_visit_id`를 답변에 복사해야 한다 |
+
+트레이드오프는 정직하게 적어 둔다.
+
+| 잃는 것 | 영향 | 판단 |
+| --- | --- | --- |
+| 답변 값으로 인덱스 검색 | `content`가 TEXT JSON이라 "채광 4점 이상" 류 질의는 전건 스캔이다 | **요구사항 §42의 검색 축에 문답 값이 없다.** 임장 기준은 지역명·기간·재방문 의사·태그, 매물 기준은 단지명·매물명·관심도·태그다. 요구되지 않는 능력을 위해 구조를 무겁게 하지 않는다 |
+| 버전별 `answerCount`(FE 요구 #5) | 질문별·버전별 답변 수를 세려면 `viewed_property` 전건을 읽어 JSON을 파싱해야 한다 | **느려진다.** 관리자 화면 저빈도 조회이고 매물이 수천 건 규모라 허용한다. 본문 §11.5에 처리 방법과 전환 임계값을 둔다 |
+| 매물 행 크기 | 매물당 수 KB | projection으로 분리한다(본문 §3.6.2) |
+
+**되돌릴 수 있는 결정이다.** 문답 값 검색이 실제로 요구되면 `answers` JSON을 `property_answer` 테이블로 펼치는 마이그레이션 한 번이면 된다. 스냅샷 필드가 이미 전부 들어 있어 변환에 외부 정보가 필요 없다.
 
 ### 5.4 활성 질문이 0개일 때
 
@@ -619,41 +726,20 @@ FE는 **6장 단위로 나눠 업로드**하고, 받은 `fileAssetId`를 모아 
 | `interest_level` | int | nullable, 1~5 |
 | `status` | varchar | `@Enumerated(STRING)`, not null |
 | `sort_order` | int | |
+| `answers` | text | **JSON. `PropertyAnswerListConverter`.** 문답 스냅샷 + 값(본문 §3.6) |
+| `required_answer_count` | int | not null, 기본 0. 파생값(본문 §3.6.1) |
+| `unanswered_required_count` | int | not null, 기본 0. 파생값 |
 | `registered_time` / `modified_time` | bigint | |
 
 인덱스: `idx_viewed_property_visit (inspection_visit_id, sort_order)`, `idx_viewed_property_interest (interest_level)`, `idx_viewed_property_complex (complex_name)`
 
 `idx_viewed_property_complex`는 요구사항 §42의 단지/건물명 검색용이다. **유니크가 아니다** — 같은 단지의 여러 매물이 정상이다[요구사항 §49-23].
 
-### 8.4 `property_answer`
+미완료 집계용 인덱스는 따로 두지 않는다. 집계가 항상 `inspection_visit_id IN (...)`로 시작해 `idx_viewed_property_visit`를 타고, 그 뒤는 정수 컬럼 `sum()`이라 별도 인덱스가 도움이 되지 않는다.
 
-| 컬럼 | 타입 | 비고 |
-| --- | --- | --- |
-| `id` | varchar | UUID |
-| `viewed_property_id` | varchar | not null |
-| `inspection_visit_id` | varchar | not null, 비정규화 |
-| `question_id` | varchar | not null |
-| `question_version_id` | varchar | not null |
-| `question_version_no` | int | |
-| `question_content` | text | not null, 스냅샷 |
-| `question_description` | text | 스냅샷 |
-| `answer_type` | varchar | `@Enumerated(STRING)`, 스냅샷 |
-| `required` | boolean | 스냅샷 |
-| `sort_order` | int | 스냅샷 |
-| `choice_options` | text | JSON. `QuestionChoiceListConverter` |
-| `text_value` | text | |
-| `boolean_value` | boolean | |
-| `number_value` | numeric(15,4) | |
-| `rating_value` | int | |
-| `selected_codes` | text | JSON. `StringListConverter` |
-| `answered` | boolean | not null |
-| `registered_time` / `modified_time` | bigint | |
+**`answers`를 읽지 않는 조회는 projection을 쓴다.** JPA 엔티티를 그대로 로드하면 TEXT 컬럼이 항상 따라온다(`@Basic(fetch = LAZY)`는 바이트코드 강화 없이는 동작하지 않는다). 목록·집계 경로는 `ViewedPropertySummaryPdo`로 필요한 컬럼만 선택한다(본문 §3.6.2, §11.1).
 
-인덱스: `idx_property_answer_property (viewed_property_id, sort_order)`, `idx_property_answer_required (viewed_property_id, required, answered)`, `idx_property_answer_question (question_id)`, `idx_property_answer_visit (inspection_visit_id)`
-
-`inspection_visit_id`를 비정규화하는 이유: 임장 삭제 시 하위 답변을 한 번의 `deleteByInspectionVisitId`로 지울 수 있고, 향후 매물 비교[요구사항 §43]가 매물 ID 목록을 먼저 조회하는 왕복 없이 끝난다. 답변이 다른 매물로 옮겨가는 시나리오가 없으므로 정합성 위험이 없다.
-
-### 8.5 `inspection_question`
+### 8.4 `inspection_question`
 
 | 컬럼 | 타입 | 비고 |
 | --- | --- | --- |
@@ -662,28 +748,17 @@ FE는 **6장 단위로 나눠 업로드**하고, 받은 `fileAssetId`를 모아 
 | `required` | boolean | |
 | `sort_order` | int | |
 | `enabled` | boolean | |
-| `current_version_id` | varchar | |
-| `current_version_no` | int | |
+| `versions` | text | **JSON. `QuestionVersionListConverter`.** 버전 이력 전체(본문 §3.5) |
+| `current_version_no` | int | `versions`의 마지막 번호 |
 | `registered_time` / `modified_time` | bigint | |
 
 인덱스: `idx_inspection_question_enabled_sort (enabled, sort_order)`
 
-### 8.6 `inspection_question_version`
+`current_version_no`는 `versions`에서 유도할 수 있지만 컬럼으로 둔다. 매물 생성 시 활성 질문 목록을 읽을 때 JSON을 파싱하기 전에 버전 번호가 필요하고, `isCurrentVersion` 배지 계산(본문 §10.8)이 이 값만 쓴다.
 
-| 컬럼 | 타입 | 비고 |
-| --- | --- | --- |
-| `id` | varchar | UUID |
-| `question_id` | varchar | not null |
-| `version_no` | int | not null |
-| `content` | text | not null |
-| `description` | text | |
-| `choices` | text | JSON |
-| `unit` | varchar(20) | |
-| `registered_time` / `modified_time` | bigint | |
+**질문 버전용 테이블과 `uk_inspection_question_version` 유니크 제약은 없다.** 버전 번호 채번은 같은 행 안에서 일어나고 `@Version`이 동시 채번을 막는다(본문 §4.6).
 
-인덱스: `uk_inspection_question_version (question_id, version_no)` — **유니크**
-
-### 8.7 태그 테이블
+### 8.5 태그 테이블
 
 `inspection_tag`
 
@@ -705,13 +780,14 @@ FE는 **6장 단위로 나눠 업로드**하고, 받은 `fileAssetId`를 모아 
 
 인덱스: `uk_inspection_visit_tag (inspection_visit_id, tag_id)` 유니크, `idx_inspection_visit_tag_tag (tag_id)` — 매물 쪽도 동일 형태
 
-### 8.8 `ddl-auto=update` 주의
+### 8.6 `ddl-auto=update` 주의
 
-- 신규 테이블 9개는 자동 생성된다. 기존 테이블 변경은 없다.
-- **유니크 인덱스는 `ddl-auto`가 만들어주지 않는 경우가 있다.** `uk_inspection_area_name`, `uk_inspection_question_version`, `uk_inspection_tag_name`, 태그 연결 테이블 2개 — 총 **5건**의 유니크 제약이 실제로 생성되었는지 배포 후 `\d+`로 확인한다. 없으면 수동 `CREATE UNIQUE INDEX`를 건다. 하나라도 빠지면 본문 §4.6의 동시성 보호가 무력화된다.
+- 신규 테이블 **7개**는 자동 생성된다. 기존 테이블 변경은 없다.
+- **유니크 인덱스는 `ddl-auto`가 만들어주지 않는 경우가 있다.** `uk_inspection_area_name`, `uk_inspection_tag_name`, 태그 연결 테이블 2개 — 총 **4건**의 유니크 제약이 실제로 생성되었는지 배포 후 `\d+`로 확인한다. 없으면 수동 `CREATE UNIQUE INDEX`를 건다. 하나라도 빠지면 본문 §4.6의 동시성 보호가 무력화된다.
+- JSON을 싣는 컬럼(`viewed_property.answers`, `inspection_question.versions`)은 `@Column(columnDefinition = "TEXT")`를 명시한다. 빠뜨리면 `varchar(255)`로 생성되어 질문이 몇 개만 늘어도 저장이 실패한다. `TravelJpo.days`가 같은 방식이다.
 - 외래키 제약은 걸지 않는다. 기존 도메인(`travel`, `trip`)도 참조 ID를 plain 컬럼으로 두고 애플리케이션에서 검증한다. 같은 방식을 유지한다.
 
-### 8.9 `id_sequence` 시드
+### 8.7 `id_sequence` 시드
 
 **행이 없으면 등록이 `ID NOT EXIST`로 실패한다.** 배포 전 반드시 실행한다.
 
@@ -721,7 +797,7 @@ INSERT INTO slcn.id_sequence (name, last_id) VALUES ('INSPECTION_VISIT', '0000')
 INSERT INTO slcn.id_sequence (name, last_id) VALUES ('INSPECTION_QUESTION', '0000');
 ```
 
-`ViewedProperty`, `PropertyAnswer`, `InspectionQuestionVersion`, `InspectionTag`와 태그 연결 행은 **UUID**를 쓴다. `id_sequence`는 상한이 `0xFFFF`(65,535)라 이들 규모를 감당하지 못한다.
+`ViewedProperty`, `InspectionTag`와 태그 연결 행은 **UUID**를 쓴다. `PropertyAnswer`와 `QuestionVersion`은 VO라 행 ID 자체가 없다(본문 §3.6, §3.5). `id_sequence`는 상한이 `0xFFFF`(65,535)라 이들 규모를 감당하지 못한다.
 
 ---
 
@@ -736,16 +812,16 @@ slcn-spec/src/main/java/com/seoulchonnom/spec/inspection/
 ├── entity/
 │   ├── InspectionArea.java
 │   ├── InspectionVisit.java
-│   ├── ViewedProperty.java
-│   ├── PropertyAnswer.java
-│   ├── InspectionQuestion.java
-│   ├── InspectionQuestionVersion.java
+│   ├── ViewedProperty.java                     # answers 목록을 품는다
+│   ├── InspectionQuestion.java                 # versions 목록을 품는다
 │   ├── InspectionTag.java
 │   └── vo/
 │       ├── RevisitIntent.java
 │       ├── InspectionStatus.java
 │       ├── QuestionAnswerType.java
-│       └── QuestionChoice.java
+│       ├── QuestionChoice.java
+│       ├── QuestionVersion.java                # VO (본문 §3.5)
+│       └── PropertyAnswer.java                 # VO (본문 §3.6)
 ├── facade/
 │   ├── InspectionAreaFacade.java
 │   ├── InspectionVisitFacade.java
@@ -772,39 +848,36 @@ slcn-aggregate/src/main/java/com/seoulchonnom/aggregate/inspection/
 │   ├── InvalidViewedPropertyException.java
 │   ├── InspectionQuestionNotFoundException.java
 │   ├── InvalidInspectionQuestionException.java
+│   ├── InspectionQuestionConflictException.java
 │   ├── InspectionAnswerRequiredException.java
 │   └── InvalidPropertyAnswerException.java
 ├── logic/
 │   ├── InspectionAreaLogic.java
 │   ├── InspectionVisitLogic.java
-│   ├── ViewedPropertyLogic.java
-│   ├── PropertyAnswerLogic.java
-│   ├── InspectionQuestionLogic.java
+│   ├── ViewedPropertyLogic.java                # 답변 값 검증·파생 카운트 갱신 포함
+│   ├── InspectionQuestionLogic.java            # 버전 추가 규칙(기존 버전 불변) 강제
 │   └── InspectionTagLogic.java
 └── store/
     ├── InspectionAreaStore.java
     ├── InspectionVisitStore.java
     ├── ViewedPropertyStore.java
-    ├── PropertyAnswerStore.java
     ├── InspectionQuestionStore.java
-    ├── InspectionQuestionVersionStore.java
     ├── InspectionTagStore.java
     ├── jpo/
     │   ├── InspectionAreaJpo.java
     │   ├── InspectionVisitJpo.java
     │   ├── ViewedPropertyJpo.java
-    │   ├── PropertyAnswerJpo.java
     │   ├── InspectionQuestionJpo.java
-    │   ├── InspectionQuestionVersionJpo.java
     │   ├── InspectionTagJpo.java
     │   ├── InspectionVisitTagJpo.java
     │   ├── ViewedPropertyTagJpo.java
     │   └── converter/
-    │       └── QuestionChoiceListConverter.java
+    │       ├── PropertyAnswerListConverter.java    # viewed_property.answers
+    │       └── QuestionVersionListConverter.java   # inspection_question.versions
     ├── mapper/                                 # *JpoMapper
     ├── projection/
     │   ├── InspectionVisitSummaryPdo.java      # 목록 화면용(본문 §11.1)
-    │   └── ViewedPropertySummaryPdo.java
+    │   └── ViewedPropertySummaryPdo.java       # answers를 읽지 않는다(본문 §3.6.2)
     └── repository/                             # *Repository
 
 slcn-aggregate/src/main/java/com/seoulchonnom/aggregate/flow/inspection/
@@ -821,6 +894,10 @@ slcn-rest/src/main/java/com/seoulchonnom/rest/inspection/
 ├── InspectionQuestionResource.java
 └── InspectionTagResource.java
 ```
+
+Store가 7종에서 **5종**으로, JPO가 10종에서 **7종**으로 줄었다. `PropertyAnswerStore`/`PropertyAnswerLogic`과 `InspectionQuestionVersionStore`가 없어진 자리를, 부모 엔티티의 Logic이 리스트를 다루는 코드로 흡수한다.
+
+`QuestionChoice` 전용 컨버터는 두지 않는다. 단독 컬럼에 실리는 일이 없고, 위 두 컨버터가 `JsonUtil`로 통째로 직렬화할 때 중첩 객체로 함께 처리된다. `TravelDayListConverter`가 `TravelPlace`를 다루는 방식과 같다.
 
 ### 9.1 `StringListConverter` 처리
 
@@ -1001,7 +1078,6 @@ POST /api/inspection-visits/INSPECTION_VISIT-0001/properties
   "photos": [],
   "answers": [
     {
-      "answerId": "0f2c...",
       "questionId": "INSPECTION_QUESTION-0001",
       "questionVersionNo": 2,
       "question": "거실 및 방의 채광은 어떤가?",
@@ -1013,7 +1089,6 @@ POST /api/inspection-visits/INSPECTION_VISIT-0001/properties
       "textValue": null
     },
     {
-      "answerId": "c41d...",
       "questionId": "INSPECTION_QUESTION-0004",
       "questionVersionNo": 1,
       "question": "방향은?",
@@ -1131,7 +1206,7 @@ GET /api/inspection-visits
 
 | 필드 | 계산 | 비고 |
 | --- | --- | --- |
-| `isCurrentVersion` | `answer.questionVersionId == question.currentVersionId` | 질문이 삭제되지 않으므로 항상 판정 가능 |
+| `isCurrentVersion` | `answer.questionVersionNo == question.currentVersionNo` | 질문이 삭제되지 않으므로 항상 판정 가능 |
 | `questionEnabled` | `question.enabled` | `false`면 "미사용 질문" 배지 |
 
 **이 두 필드는 배지 전용이며 렌더링을 좌우하지 않는다.** 문구·타입·선택지는 어떤 경우에도 스냅샷을 쓴다. 나중에 누군가 "최신 문구를 보여주자"고 이 필드로 렌더링을 바꾸면 요구사항 §20이 깨진다. 이 제약을 `PropertyAnswerMapper`에 주석으로 남긴다.
@@ -1146,8 +1221,8 @@ DRAFT 상태에서 "무엇이 남았는지"를 화면에 적기 위한 요약이
 
 | 필드 | 레벨 | 정의 | 대응 검증 |
 | --- | --- | --- | --- |
-| `unansweredRequiredCount` | 매물 | `required = true AND answered = false`인 답변 행 수 | §4.2-5 |
-| `unansweredRequiredQuestions` | 매물 | 위 행들의 `{ questionId, question, sortOrder }` 목록 | §4.2-5 |
+| `unansweredRequiredCount` | 매물 | 매물 행의 파생 컬럼(본문 §3.6.1) | §4.2-5 |
+| `unansweredRequiredQuestions` | 매물 | `answers` 중 `required && !answered`인 항목의 `{ questionId, question, sortOrder }` | §4.2-5 |
 | `missingFields` | 매물 | `complexName` / `name` / `interestLevel` 중 비어 있는 필드명 | §4.2-1~4 |
 | `draftPropertyCount` | 임장 | 이 임장에서 `status = DRAFT`인 매물 수 | §4.3-4 |
 | `visitMissingFields` | 임장 | `visitedAt` / `revisitIntent` 중 비어 있는 필드명 | §4.3-2, §4.3-3 |
@@ -1163,7 +1238,7 @@ DRAFT 상태에서 "무엇이 남았는지"를 화면에 적기 위한 요약이
 | 지역 상세의 `visits[]` | 개수만 | 위와 같음 |
 | 임장 상세, 매물 상세 | 전 필드(이름 목록·`missingFields`·`visitMissingFields` 포함) | 이미 답변 행을 전부 로드한 상태라 추가 비용이 없다 |
 
-목록용 개수 집계는 `idx_property_answer_required (viewed_property_id, required, answered)`를 그대로 탄다. 임장/지역 단위로 묶을 때는 비정규화된 `inspection_visit_id`를 써서 `GROUP BY`로 한 번에 읽는다(본문 §8.4).
+목록용 개수 집계는 매물 행의 `unanswered_required_count` 정수 컬럼을 `sum()`으로 읽는다(본문 §3.6.1). `answers` JSON을 파싱하지 않으며, 임장/지역 단위 묶음도 `idx_viewed_property_visit`를 탄 단일 `GROUP BY`로 끝난다(본문 §8.3).
 
 ### 10.10 정렬 값 저장 [요구사항 §32, §33]
 
@@ -1188,19 +1263,21 @@ DRAFT 상태에서 "무엇이 남았는지"를 화면에 적기 위한 요약이
 
 ### 11.0 지역 목록 화면 (FE 설계 요구)
 
-지역 N건 각각에 대해 회차 전체를 가로지르는 집계가 필요하다(본문 §10.1). 지역마다 회차를 끌어오면 N × 회차 수만큼 매물·태그·FileBox를 읽게 된다. `InspectionAreaQueryFlow`에서 **지역 수와 무관하게 7회로 고정한다.**
+지역 N건 각각에 대해 회차 전체를 가로지르는 집계가 필요하다(본문 §10.1). 지역마다 회차를 끌어오면 N × 회차 수만큼 매물·태그·FileBox를 읽게 된다. `InspectionAreaQueryFlow`에서 **지역 수와 무관하게 6회로 고정한다.**
 
 ```text
 1) InspectionAreaStore.findPage(조건)                        → 지역 목록 (1회)
 2) InspectionVisitStore.findAggregatesByAreaIds(areaIds)     → visitCount, first/lastVisitedAt (1회, GROUP BY)
 3) InspectionVisitStore.findLatestByAreaIds(areaIds)         → latestVisit 후보 (1회)
-4) ViewedPropertyStore.findAreaSummaries(areaIds)            → totalPropertyCount, topProperty (1회, 조인 + GROUP BY)
-5) PropertyAnswerStore.countUnansweredByAreaIds(areaIds)     → incompleteSummary (1회, GROUP BY)
-6) InspectionTagStore.findNamesByVisitIds(latestVisitIds)    → latestVisit.tags (1회, 조인)
-7) FileBoxStore.findAllByOwnerTypeAndOwnerIdIn(visitIds)     → thumbnails, totalImageCount (1회)
+4) ViewedPropertyStore.findAreaSummaries(areaIds)            → totalPropertyCount, topProperty,
+                                                               incompleteSummary (1회, 조인 + GROUP BY)
+5) InspectionTagStore.findNamesByVisitIds(latestVisitIds)    → latestVisit.tags (1회, 조인)
+6) FileBoxStore.findAllByOwnerTypeAndOwnerIdIn(visitIds)     → thumbnails, totalImageCount (1회)
 ```
 
-6·7번이 쓰는 `visitIds`는 3번 결과에서 얻는다.
+5·6번이 쓰는 `visitIds`는 3번 결과에서 얻는다.
+
+**미완료 집계가 4번에 흡수되어 질의가 하나 줄었다.** 미답변 수가 매물 행의 정수 컬럼이라(본문 §3.6.1) 매물 집계와 같은 `GROUP BY`에서 `sum(unanswered_required_count)`로 함께 나온다. `answers` JSON은 읽지 않는다.
 
 #### `totalImageCount`의 비용
 
@@ -1222,12 +1299,13 @@ DRAFT 상태에서 "무엇이 남았는지"를 화면에 적기 위한 요약이
 ```text
 1) InspectionVisitStore.findPage(조건)                     → 임장 목록 (1회)
 2) InspectionAreaStore.findAllByIds(areaIds)               → 지역 (1회)
-3) ViewedPropertyStore.findSummariesByVisitIds(visitIds)   → 매물 수 + 최고 관심 매물 (1회, projection)
+3) ViewedPropertyStore.findSummariesByVisitIds(visitIds)   → 매물 수 + 최고 관심 매물
+                                                             + 미완료 집계 (1회, projection)
 4) InspectionTagStore.findNamesByVisitIds(visitIds)        → 태그 (1회, 조인)
 5) FileBoxStore.findAllByOwnerIds(INSPECTION_VISIT, ids)   → 대표 사진 (1회)
 ```
 
-3번은 `viewed_property`에서 `inspection_visit_id IN (...)`로 한 번에 읽고 애플리케이션에서 그룹핑한다. "최고 관심 매물"은 `interestLevel` 내림차순, 동률이면 `sortOrder` 오름차순으로 첫 번째를 고른다(null은 최하위). projection에 `complexName`을 포함한다.
+3번은 `viewed_property`에서 `inspection_visit_id IN (...)`로 한 번에 읽고 애플리케이션에서 그룹핑한다. "최고 관심 매물"은 `interestLevel` 내림차순, 동률이면 `sortOrder` 오름차순으로 첫 번째를 고른다(null은 최하위). projection에 `complexName`과 `unansweredRequiredCount`를 포함하고 **`answers`는 포함하지 않는다**(본문 §3.6.2).
 
 5번을 위한 배치 조회는 **`FileBoxRepository`에 이미 정의되어 있다.**
 
@@ -1243,18 +1321,17 @@ List<FileBoxDoc> findAllByOwnerTypeAndOwnerIdIn(FileBoxOwnerType ownerType, Coll
 ```text
 1) InspectionVisitStore.findById
 2) InspectionAreaStore.findById
-3) ViewedPropertyStore.findAllByVisitId           (sortOrder 오름차순)
-4) PropertyAnswerStore.findAllByVisitId           (비정규화 컬럼 덕에 1회)
-5) InspectionQuestionStore.findAllByIds(questionIds)  (isCurrentVersion / questionEnabled 판정용, 본문 §10.8)
-6) 태그 2회 (임장 / 매물 일괄)
-7) FileBoxStore.findOptionalByOwner               (1회, 임장+매물 사진 모두 포함)
+3) ViewedPropertyStore.findAllByVisitId           (sortOrder 오름차순. answers가 함께 온다)
+4) InspectionQuestionStore.findAllByIds(questionIds)  (isCurrentVersion / questionEnabled 판정용, 본문 §10.8)
+5) 태그 2회 (임장 / 매물 일괄)
+6) FileBoxStore.findOptionalByOwner               (1회, 임장+매물 사진 모두 포함)
 ```
 
-총 8회 고정. 매물 수에 비례해 늘지 않는다.
+총 **7회** 고정. 매물 수에 비례해 늘지 않는다. 답변 조회가 3번에 흡수되어 한 번 줄었다 — 상세 화면은 어차피 문답을 그려야 하므로 여기서는 `answers`를 통째로 읽는 것이 맞다.
 
-5번은 **배지 계산에만 쓴다.** 질문 마스터 조회가 실패하거나 비어도 문답 렌더링은 스냅샷으로 정상 동작해야 한다 — `isCurrentVersion`/`questionEnabled`를 `null`로 두고 FE가 배지를 생략한다. 이 조회를 렌더링의 전제로 만들면 요구사항 §20의 독립성이 깨진다.
+4번은 **배지 계산에만 쓴다.** 질문 마스터 조회가 실패하거나 비어도 문답 렌더링은 스냅샷으로 정상 동작해야 한다 — `isCurrentVersion`/`questionEnabled`를 `null`로 두고 FE가 배지를 생략한다. 이 조회를 렌더링의 전제로 만들면 요구사항 §20의 독립성이 깨진다.
 
-지역 상세의 복합 응답(본문 §10.1)은 위 8회에 `visits[]` 요약용 2회(회차 목록 + 회차별 매물 수·미완료 수)를 더해 **10회**다. 회차 요약에 사진을 싣지 않으므로 FileBox 추가 조회는 없다.
+지역 상세의 복합 응답(본문 §10.1)은 위 7회에 `visits[]` 요약용 2회(회차 목록 + 회차별 매물 수·미완료 수)를 더해 **9회**다. 회차 요약에 사진을 싣지 않으므로 FileBox 추가 조회는 없다.
 
 **단지별 그룹핑은 서버가 하지 않는다.** 요구사항 §41은 "UI에서는 필요에 따라 단지명을 기준으로 매물을 묶어서 표시할 수 있다"고 쓴다 — 표시 방식의 선택지이지 데이터 구조가 아니다. 응답은 `sortOrder` 오름차순 평면 배열로 내려주고, 각 항목에 `complexName`을 담는다. FE가 필요할 때 `complexName`으로 묶는다.
 
@@ -1282,7 +1359,26 @@ List<FileBoxDoc> findAllByOwnerTypeAndOwnerIdIn(FileBoxOwnerType ownerType, Coll
 | 매물 | 관심도 | `idx_viewed_property_interest` |
 | 매물 | 태그 | `idx_viewed_property_tag_tag` |
 
+요구사항 §42의 검색 축에 **문답 값이 없다는 점을 확인해 둔다.** 임장 기준은 지역명·기간·재방문 의사·태그, 매물 기준은 단지/건물명·매물명·관심도·태그이며 전부 컬럼으로 존재한다. 답변을 매물 안 JSON에 둔 결정(본문 §3.6)이 §42의 어느 축도 막지 않는다.
+
+요구사항 §43(매물 비교)의 비교 항목에는 문답이 들어 있지만, 이는 **선택한 매물 N건을 ID로 불러 나란히 그리는** 기능이다. 값으로 검색하는 것이 아니므로 JSON 저장이 걸림돌이 되지 않는다.
+
 임장 목록의 필터(지역·기간·재방문 의사·태그)는 **초기 범위에 포함한다**(본문 §10.2). 매물 횡단 검색(`GET /viewed-properties?minInterest=4&complexName=트리마제&tag=남향`)은 초기 범위에서 제외하되 위 인덱스를 지금 만들어 두어, 나중에 Resource + QueryFlow 추가만으로 끝나게 한다 — 본문 §16 결정 항목 4.
+
+### 11.5 질문별·버전별 `answerCount` (FE 요구 #5)
+
+답변이 매물 안 JSON이라 이 집계만 인덱스를 타지 못한다. **이 설계에서 유일하게 느려지는 조회이므로 처리 방법을 정해 둔다.**
+
+| 조회 | 방법 |
+| --- | --- |
+| `GET /inspection-questions?withAnswerCount=true` | 질문별 **총계**. `viewed_property`의 `answers`를 전건 읽어 애플리케이션에서 `questionId`로 집계한다 |
+| `GET /inspection-questions/{questionId}/versions` | 그 질문의 버전별 집계. 같은 스캔에서 `questionVersionNo`로 한 번 더 나눈다 |
+
+- 두 API 모두 **관리자 화면 전용이고 저빈도**다. 일반 사용자 흐름(매물 작성)은 `withAnswerCount` 없이 호출하므로 이 스캔을 타지 않는다.
+- 기본값은 `withAnswerCount=false`다. FE가 명시적으로 켜야 한다.
+- 매물 **2,000건을 넘으면** 전환한다. 가장 싼 수단은 `inspection_question`에 `answer_count`를 비정규화하고 매물 생성 시 증가시키는 것이다(스냅샷은 생성 시점에 고정되므로 이후 증감이 없다). 질문별 총계는 이것으로 정확하지만 버전별 분해는 여전히 스캔이 필요하다.
+
+이 한계는 답변을 매물 안에 둔 대가이고, 본문 §5.3에 트레이드오프로 적어 두었다.
 
 ---
 
@@ -1293,23 +1389,24 @@ List<FileBoxDoc> findAllByOwnerTypeAndOwnerIdIn(FileBoxOwnerType ownerType, Coll
 | 대상 | 정책 |
 | --- | --- |
 | 임장 지역 | 연결된 임장 기록이 있으면 물리 삭제 금지(`409`). 없으면 삭제 허용. `hidden` 플래그로 비활성화도 가능 |
-| 임장 기록 | 사용자 삭제 허용. `ViewedProperty`, `PropertyAnswer`, `inspection_visit_tag`, `viewed_property_tag`, `FileBox` 문서를 함께 삭제 |
-| 매물 | `PropertyAnswer`, `viewed_property_tag`, FileBox의 해당 `targetId` 항목을 함께 삭제 |
-| 질문 / 질문 버전 | 물리 삭제 없음. `enabled=false`만 |
+| 임장 기록 | 사용자 삭제 허용. `ViewedProperty`(문답 포함), `inspection_visit_tag`, `viewed_property_tag`, `FileBox` 문서를 함께 삭제 |
+| 매물 | `viewed_property_tag`, FileBox의 해당 `targetId` 항목을 함께 삭제. **문답은 매물 행 안에 있어 별도 삭제 대상이 아니다** |
+| 질문 / 질문 버전 | 물리 삭제 없음. `enabled=false`만. 버전은 질문 행 안의 리스트라 따로 지울 대상이 없다 |
 | 태그 마스터 | 삭제하지 않는다. 연결만 끊는다 |
 | 실제 파일 / `file_asset` 문서 | 남긴다. 기존 정책과 동일(`docs/file-asset.md`) |
 
 임장 삭제 순서:
 
 ```text
-1) PropertyAnswerStore.deleteByInspectionVisitId      ┐
-2) ViewedPropertyTagStore.deleteByInspectionVisitId   │ 하나의 PostgreSQL 트랜잭션.
-3) ViewedPropertyStore.deleteByInspectionVisitId      │ 커밋까지 완료한다
-4) InspectionVisitTagStore.deleteByInspectionVisitId  │
-5) InspectionVisitStore.delete                        ┘
+1) ViewedPropertyTagStore.deleteByInspectionVisitId   ┐
+2) ViewedPropertyStore.deleteByInspectionVisitId      │ 하나의 PostgreSQL 트랜잭션.
+3) InspectionVisitTagStore.deleteByInspectionVisitId  │ 커밋까지 완료한다
+4) InspectionVisitStore.delete                        ┘
         ↓ RDB 커밋 성공 후에만
-6) FileBoxStore.deleteByOwner(INSPECTION_VISIT, visitId)
+5) FileBoxStore.deleteByOwner(INSPECTION_VISIT, visitId)
 ```
+
+**답변 삭제 단계가 사라졌다.** 2번이 매물 행을 지우면 그 안의 문답도 함께 사라진다 — 문답만 남는 중간 상태가 존재할 수 없다.
 
 **RDB를 먼저 커밋하고 FileBox를 나중에 지운다.** 두 실패 창을 비교하면 방향이 분명하다.
 
@@ -1334,13 +1431,14 @@ List<FileBoxDoc> findAllByOwnerTypeAndOwnerIdIn(FileBoxOwnerType ownerType, Coll
 ## 13. 공통 코드 변경 체크리스트
 
 - [x] `SequenceName`에 `INSPECTION_AREA`, `INSPECTION_VISIT`, `INSPECTION_QUESTION` 추가
-- [ ] `slcn.id_sequence`에 시드 행 3건 INSERT (본문 §8.9) — **빠뜨리면 등록이 `ID NOT EXIST`로 실패**
+- [ ] `slcn.id_sequence`에 시드 행 3건 INSERT (본문 §8.7) — **빠뜨리면 등록이 `ID NOT EXIST`로 실패**
 - [x] `FileType`에 `INSPECTION("inspection")` 추가
 - [x] `FileConstant.AVAILABLE_PATH`에 `inspection` 추가 — **빠뜨리면 업로드가 `FilePathInvalidException`**
 - [x] `FileBoxOwnerType`에 `INSPECTION_VISIT` 추가
 - [x] `FileBoxTargetType`에 `INSPECTION_VISIT`, `VIEWED_PROPERTY` 추가
 - [x] `FileBoxStore`에 `findAllByOwnerTypeAndOwnerIdIn` **래퍼 메서드** 추가 — 리포지터리 파생 질의(`FileBoxRepository.java:17`)는 이미 존재하는 미사용 메서드다 (본문 §11.1)
 - [x] `StringListConverter`를 `aggregate/common/store/converter/`로 이동 + `TravelJpo`/테스트 참조 수정 (본문 §9.1)
+- [ ] `PropertyAnswerListConverter`, `QuestionVersionListConverter` 작성 — `TravelDayListConverter`와 같은 형태. **JPO 필드에 `@Column(columnDefinition = "TEXT")`를 반드시 함께 붙인다**(본문 §8.6)
 - [x] `InspectionConstant`에 에러 메시지 상수 정의
 - [x] `ErrorCode`에 아래 추가
 
@@ -1390,11 +1488,14 @@ JPA 엔티티 스캔은 `AggregateConfiguration`이 `com.seoulchonnom.aggregate`
 | `InspectionVisitFlowTest` | 매물 0건 임장 완료 성공 [요구사항 §36, §49-22] / 미완료 매물 존재 시 400 / `revisitIntent` 없이 완료 400 |
 | `InspectionVisitFlowTest` | `areaId` 인라인 생성 / 동일 지역명 중복 시 409 / 존재하지 않는 `areaId` 400 |
 | `InspectionVisitFlowTest` | 지역 정보를 수정해도 기존 임장 기록이 그대로인지 [요구사항 §6 회귀 테스트] |
-| `InspectionVisitFlowTest` | 임장 삭제 시 매물·답변·태그 연결·FileBox 모두 삭제 (본문 §12.1 순서 포함) |
-| `PropertyAnswerLogicTest` | 타입별 값 검증 (RATING 0·1·5·6, NUMBER에 textValue 동봉, SINGLE_SELECT 2건, 미등록 code, MULTI_SELECT 중복) |
-| `PropertyAnswerLogicTest` | `answered` 파생 규칙 6종 (본문 §3.6 표) |
-| `PropertyAnswerLogicTest` | 스냅샷에 없는 `questionId` 요청 시 400 / 부분 저장 시 나머지 행 유지 |
-| `InspectionQuestionLogicTest` | `content`·`choices`·`unit` 수정 시 버전 증가 / `required`·`sortOrder`·`enabled` 수정 시 버전 유지 / `answerType` 변경 400 |
+| `InspectionVisitFlowTest` | 임장 삭제 시 매물(문답 포함)·태그 연결·FileBox 모두 삭제 (본문 §12.1 순서 포함) |
+| `ViewedPropertyLogicTest` | 타입별 값 검증 (RATING 0·1·5·6, NUMBER에 textValue 동봉, SINGLE_SELECT 2건, 미등록 code, MULTI_SELECT 중복) |
+| `ViewedPropertyLogicTest` | `answered` 파생 규칙 6종 (본문 §3.6 표) |
+| `ViewedPropertyLogicTest` | 스냅샷에 없는 `questionId` 요청 시 400 / 부분 저장 시 나머지 항목 유지 |
+| `ViewedPropertyLogicTest` | `answers`를 바꾸는 모든 경로에서 `requiredAnswerCount`·`unansweredRequiredCount`가 리스트와 일치 (본문 §3.6.1) |
+| `ViewedPropertyLogicTest` | `unit`이 스냅샷에 복사되고, 이후 질문의 `unit`을 바꿔도 과거 답변의 `unit`이 유지되는지 |
+| `InspectionQuestionLogicTest` | `content`·`choices`·`unit` 수정 시 버전 추가 / `required`·`sortOrder`·`enabled` 수정 시 버전 유지 / `answerType` 변경 400 |
+| `InspectionQuestionLogicTest` | **기존 버전이 수정되지 않는지** — v2를 추가한 뒤 v1의 `content`·`choices`·`unit`이 그대로인지 (본문 §3.5) |
 | `InspectionTagLogicTest` | 이름 정규화(`#` 제거, trim) / get-or-create / 10개 초과 400 / 요청에서 빠진 태그 연결 해제 / `tags` 생략 시 유지 |
 | `InspectionAreaLogicTest` | 임장 기록 있는 지역 삭제 409 / 지역 수정이 기존 임장에 영향 없음 |
 | `InspectionVisitQueryFlowTest` | 목록 배치 조회 왕복 횟수 고정 / 최고 관심 매물 선정 규칙(동률·null 처리) / `topInterestProperty`에 `complexName` 포함 / 태그·매물 수 매핑 정확성 |
@@ -1440,12 +1541,12 @@ JPA 엔티티 스캔은 `AggregateConfiguration`이 `com.seoulchonnom.aggregate`
 | # | PR | 내용 | 산출물 |
 | --- | --- | --- | --- |
 | 1 ✅ | 공통 계약 | `SequenceName`, `FileType`, `FileConstant`, `FileBoxOwnerType`/`TargetType`, `FileBoxStore.findAllByOwnerTypeAndOwnerIdIn`, `StringListConverter` 공통 이동, `ErrorCode`, `InspectionConstant` | travel 테스트 포함 기존 테스트 전부 통과 |
-| 2 ✅ | spec 계약 | 엔티티 7종, VO/enum 4종, Facade 5종, sdo 33종, mapper 6종 | 컴파일 + mapper 테스트 24건 |
-| 3 | aggregate — 질문 | `InspectionQuestion`/`Version` JPO·Store·Logic, 버전 증가 규칙, 시드 SQL 문서화 | `InspectionQuestionLogicTest` |
+| 2 ✅ | spec 계약 | 엔티티 5종, VO 3종/enum 3종, Facade 5종, sdo 33종, mapper 6종 | 컴파일 + 엔티티·mapper 테스트 36건 |
+| 3 | aggregate — 질문 | `InspectionQuestion` JPO·Store·Logic(`versions` 컨버터 포함), 버전 추가 규칙, 시드 SQL 문서화 | `InspectionQuestionLogicTest` |
 | 4 | aggregate — 지역·태그 | `InspectionArea`, `InspectionTag` + 연결 테이블 JPO·Store·Logic | `InspectionAreaLogicTest`, `InspectionTagLogicTest` |
 | 5 | aggregate — 임장 | `InspectionVisit` JPO·Store·Logic + `InspectionVisitFlow`(등록/수정/삭제/상태) | `InspectionVisitFlowTest` |
-| 6 | aggregate — 매물·문답 | `ViewedProperty`(`complexName` 포함), `PropertyAnswer` JPO·Store·Logic + `ViewedPropertyFlow`(스냅샷 생성 포함) | `ViewedPropertyFlowTest`, `PropertyAnswerLogicTest` |
-| 7 | aggregate — 조회 | `InspectionVisitQueryFlow`, `InspectionAreaQueryFlow`, projection 4종, 목록·상세 배치 조회, 목록 필터, 미완료 요약, 정렬 갱신 | `InspectionVisitQueryFlowTest`, `InspectionAreaQueryFlowTest`, `IncompleteSummaryTest`, `InspectionOrderTest` |
+| 6 | aggregate — 매물·문답 | `ViewedProperty` JPO·Store·Logic(`answers` 컨버터, 파생 카운트 갱신, 타입별 값 검증 포함) + `ViewedPropertyFlow`(스냅샷 생성 포함) | `ViewedPropertyFlowTest`, `ViewedPropertyLogicTest` |
+| 7 | aggregate — 조회 | `InspectionVisitQueryFlow`, `InspectionAreaQueryFlow`, projection 2종(`answers` 제외), 목록·상세 배치 조회, 목록 필터, 미완료 요약, 질문 `answerCount`(본문 §11.5), 정렬 갱신 | `InspectionVisitQueryFlowTest`, `InspectionAreaQueryFlowTest`, `IncompleteSummaryTest`, `InspectionOrderTest` |
 | 8 | rest + 보안 | Resource 5종, `SecurityConfiguration`에 질문 쓰기 `ADMIN` matcher | `*ResourceTest`, `*ResourceJsonContractTest`, `SecurityConfigurationTest` |
 | 9 | 문서 | `docs/file-asset.md` 갱신, FE 연동 문서(`docs/field_research/api.md`), `01-spec-design.md` 대체 표기 | — |
 
@@ -1454,10 +1555,11 @@ JPA 엔티티 스캔은 `AggregateConfiguration`이 `com.seoulchonnom.aggregate`
 ### 15.1 배포 시 순서
 
 1. PR 1~8 머지 후 빌드
-2. **`id_sequence` 시드 3건 INSERT** (본문 §8.9)
-3. 애플리케이션 기동 → `ddl-auto=update`가 테이블 9개 생성
-4. 유니크 인덱스 **5건** 생성 여부 확인, 없으면 수동 생성 (본문 §8.8)
-5. 초기 질문 세트 등록 (`POST /inspection-questions` × N)
+2. **`id_sequence` 시드 3건 INSERT** (본문 §8.7)
+3. 애플리케이션 기동 → `ddl-auto=update`가 테이블 7개 생성
+4. 유니크 인덱스 **4건** 생성 여부 확인, 없으면 수동 생성 (본문 §8.6)
+5. `viewed_property.answers`와 `inspection_question.versions`가 `text`로 생성되었는지 확인 (본문 §8.6)
+6. 초기 질문 세트 등록 (`POST /inspection-questions` × N)
 
 ---
 
@@ -1468,6 +1570,10 @@ JPA 엔티티 스캔은 `AggregateConfiguration`이 `com.seoulchonnom.aggregate`
 | # | 항목 | 결정 | 반영 위치 |
 | --- | --- | --- | --- |
 | 1 | 질문 관리 권한 | **`ADMIN` 전용**(쓰기만). 조회는 `USER` 유지 | 본문 §10.4, §13 체크리스트, §14.3 테스트, PR 8 |
+| 2 | 문답의 모델링 | **`PropertyAnswer`는 VO.** `ViewedProperty`가 리스트로 품고 `viewed_property.answers` JSON 컬럼에 저장 | 본문 §3.1.1, §3.6, §5.3, 부록 F |
+| 3 | 질문 버전의 모델링 | **`QuestionVersion`은 VO.** `InspectionQuestion`이 리스트로 품고 `inspection_question.versions` JSON 컬럼에 저장 | 본문 §3.5, 부록 F |
+| 4 | 미완료 집계 | 매물 행에 `requiredAnswerCount` / `unansweredRequiredCount`를 **파생 저장** | 본문 §3.6.1, §11.0 |
+| 5 | 답변 스냅샷의 `unit` | 스냅샷에 **포함한다** | 본문 §3.6 |
 
 ### 16.2 미결정 항목
 
@@ -1508,13 +1614,18 @@ JPA 엔티티 스캔은 `AggregateConfiguration`이 `com.seoulchonnom.aggregate`
 | 관심도 | 없음(종합 평점은 미결정 항목) | `interestLevel` 1~5. DRAFT에서는 null 허용, COMPLETED 전이 시 필수 | 요구사항 §15 |
 | 장단점 | `List<String>` | 자유 텍스트 `pros`/`cons` | 요구사항 §28 |
 | 태그 | Place의 JSON 문자열 목록 | 마스터 + 연결 테이블, 임장/매물 각각 | 요구사항 §25 |
-| 질문 스냅샷 | 방문 등록 시 답변에 복사 | **매물 생성 시 빈 답변 행 미리 생성** | 요구사항 §24 |
+| 질문 스냅샷 | 방문 등록 시 답변에 복사 | **매물 생성 시 빈 답변 VO를 매물 안에 미리 생성** | 요구사항 §24 |
 | 답변 타입 | `TEXT, SCORE, BOOLEAN, NUMBER, SINGLE_CHOICE, MULTI_CHOICE` | `TEXT, LONG_TEXT, BOOLEAN, SINGLE_SELECT, MULTI_SELECT, NUMBER, RATING` | 요구사항 §21 |
 | 사진 카테고리 | `FileBoxItem.category` 추가 제안 | **추가하지 않음** | 요구사항에 카테고리 개념 없음. 공유 계약 변경 회피 |
 | 비교 기능 | `InspectionCompareQueryFlow` 포함 | 범위 제외 | 요구사항 §43·§44는 향후 확장 |
 | 중복 방문 차단 | 같은 날·시간대 409 | 차단하지 않음 | 요구사항 §6은 재임장을 자유롭게 허용한다. 지역 단위라면 하루에 오전·오후 두 번도 정상 기록이다 |
 
-유지되는 판단: 질문/버전 분리, 답변의 문구 스냅샷, `answerType` 변경 금지, 답변을 별도 테이블로 두는 것, 답변·버전 ID에 UUID 사용, `Flow` 우선 도입.
+| 답변 저장 | 별도 `property_answer` 테이블 | **`viewed_property.answers` JSON 컬럼(VO)** | 본문 §3.1.1, §5.3 |
+| 질문 버전 저장 | 별도 `inspection_question_version` 테이블 | **`inspection_question.versions` JSON 컬럼(VO)** | 본문 §3.5 |
+
+유지되는 판단: 질문과 버전의 개념적 분리, 답변의 문구 스냅샷, `answerType` 변경 금지, `Flow` 우선 도입.
+
+**뒤집힌 판단 하나를 명시한다.** 이전 판본과 이 문서의 초기 판본은 모두 답변을 별도 테이블로 두었다. 근거는 "문답 값으로 질의해야 한다"였는데, 요구사항 §42의 검색 축을 다시 확인하니 **문답 값이 축에 없다.** 요구되지 않는 능력을 위해 테이블 2개와 명시적 행 잠금을 떠안고 있었다. 본문 §3.1.1의 세 가지 기준으로 다시 판정해 VO로 내렸다.
 
 ---
 
@@ -1551,7 +1662,7 @@ JPA 엔티티 스캔은 `AggregateConfiguration`이 `com.seoulchonnom.aggregate`
 - 태그 마스터 + 연결 테이블(본문 §6) — §25 다이어그램 유지
 - DRAFT/COMPLETED 검증을 저장 제약이 아닌 상태 전이 조건으로 처리(본문 §4)
 - 완료 이후 수정 시 자동 DRAFT 복귀(본문 §4.4) — 요구사항에 여전히 명시 없음
-- 3개 시퀀스 + 나머지 UUID의 ID 전략(본문 §8.9)
+- 3개 시퀀스 + 나머지 UUID의 ID 전략(본문 §8.7)
 
 ### B.4 문서 자체의 변경
 
@@ -1615,10 +1726,10 @@ FE 화면 설계에서 제기된 6개 항목의 반영 결과다. 대부분 요�
 | 2 | DRAFT 미완료 요약 (개수 + 이름) | **부분.** 완료 검증 실패 `400` 메시지에만 담겼고 정상 조회 응답에는 없었다 | §10.9 `IncompleteSummaryRdo` | 없음 (인덱스 1건 조정) |
 | 3 | 지역 상세 한 번 호출 | **없음.** 지역 상세 + 임장 상세 2회 호출이었다 | §10.1 복합 응답, §11.2 | 없음 |
 | 4 | 문답에 질문 메타 동봉 | **거의 충족.** 8개 필드는 이미 스냅샷으로 있었고 `isCurrentVersion`·`questionEnabled` 2개가 없었다 | §10.8 | 없음 (질문 마스터 배치 조회 1회 추가) |
-| 5 | 질문별·버전별 `answerCount` | **없음** | §10.4, 인덱스 §8.4 | 없음 (인덱스 복합화) |
+| 5 | 질문별·버전별 `answerCount` | **없음** | §10.4, §11.5 | 없음 (전건 스캔. §11.5에 전환 임계값) |
 | 6 | 정렬 값 저장 엔드포인트 | **부분.** 매물 정렬은 있었고 사진 정렬 전용 엔드포인트가 없었다 | §10.10 | 없음 |
 
-**9개 테이블 스키마는 한 컬럼도 바뀌지 않았다.** 인덱스 2건을 복합 인덱스로 넓힌 것이 전부다(§8.4). 요구가 전부 집계·조회 조합이었고, 답변 행에 `required`·`answered`를 스냅샷으로 저장해 둔 설계(§3.6)가 미완료 집계를 단일 `GROUP BY`로 받아냈기 때문이다.
+**FE 요구 6건 중 어느 것도 스키마를 바꾸지 않았다.** 요구가 전부 집계·조회 조합이었고, 답변에 `required`·`answered`를 스냅샷으로 저장해 둔 설계(§3.6)가 미완료 집계를 단일 `GROUP BY`로 받아냈기 때문이다. 이후 답변을 VO로 내리면서(부록 F) 이 집계는 매물 행의 파생 정수 컬럼으로 옮겨갔고, 질의 횟수는 오히려 하나 줄었다(§11.0). 다만 요구 #5(버전별 `answerCount`)만 인덱스를 잃어 §11.5에 별도 처리 방법을 두었다.
 
 ### D.2 요구를 그대로 받지 않고 조정한 부분
 
@@ -1685,8 +1796,8 @@ FE가 "프런트에서 계산하므로 백엔드 변경 불필요"로 정리했�
 | 심각도 | 지적 | 처리 |
 | --- | --- | --- |
 | HIGH | **`PUT .../answers`에 완료 재검증이 걸려 있지 않아** `COMPLETED` 매물의 필수 문답을 비워도 상태가 그대로 남는다 | §4.4에 붕괴 시나리오와 함께 명시. 두 쓰기 경로가 `revalidateIfCompleted`를 공유하도록 규정 |
-| HIGH | 완료 전이가 "검증 SELECT → UPDATE"인데 잠금 전략이 없어, 검증 통과 후 커밋 전에 답변이 비워지면 필수 문항이 빈 `COMPLETED`가 생긴다 | §4.6 신설. `property_answer`에 `SELECT ... FOR UPDATE`. `@Version`은 같은 행만 보호한다는 점도 명시 |
-| HIGH | 지역명 중복 방지가 앱 레벨 check-then-act뿐. 더블클릭이면 "성수동"이 2건 생겨 **이 설계가 막으려던 결함이 그대로 재현** | `uk_inspection_area_name` 유니크 인덱스 추가. 유니크 인덱스 4건 → 5건 |
+| HIGH | 완료 전이가 "검증 SELECT → UPDATE"인데 잠금 전략이 없어, 검증 통과 후 커밋 전에 답변이 비워지면 필수 문항이 빈 `COMPLETED`가 생긴다 | §4.6 신설. 당시에는 `property_answer`에 `SELECT ... FOR UPDATE`로 막았다. 이후 답변을 매물 안으로 옮기면서(부록 F) 같은 행이 되어 `@Version`이 자동으로 막는다 |
+| HIGH | 지역명 중복 방지가 앱 레벨 check-then-act뿐. 더블클릭이면 "성수동"이 2건 생겨 **이 설계가 막으려던 결함이 그대로 재현** | `uk_inspection_area_name` 유니크 인덱스 추가 |
 | HIGH | 지역 삭제 전 "임장 0건" 검사도 TOCTOU. FK가 없어 고아 참조가 생기면 상세 조회가 깨진다 | §4.6에 행 잠금 규칙 명시 |
 | HIGH | **삭제 순서가 거꾸로였다.** FileBox를 먼저 지우고 RDB가 실패하면 사진만 복구 불가능하게 사라진다 | §12.1·§12.2에서 **순서를 뒤집었다.** 남는 것이 무해한 고아 문서여야 한다는 원칙으로 재정리 |
 | MEDIUM | `sortOrder` 중복을 허용하면서 2차 정렬 키가 없어 재조회마다 순서가 달라질 수 있다 | `ORDER BY sort_order, registered_time, id` 명시 |
@@ -1696,7 +1807,7 @@ FE가 "프런트에서 계산하므로 백엔드 변경 불필요"로 정리했�
 | MEDIUM | 질문 동시 수정 시 유니크 위반이 500으로 샐 수 있다 | §4.6에 `409` 매핑 규정 |
 | LOW | 사진 `targetId` 오류, 정렬 대상 오류에 대응하는 ErrorCode 부재 | `INVALID_INSPECTION_FILE`, `INVALID_INSPECTION_ORDER` 추가 |
 
-건전한 것으로 판단된 부분: 문답 스냅샷 materialization(§5), DRAFT/COMPLETED를 컬럼 제약이 아닌 전이 검증으로 분리한 결정(§4.5), `PropertyAnswer.inspectionVisitId` 비정규화(§8.4), UUID/`id_sequence` 분리(§8.9), FileBox 그룹 단위 부분 동기화 원칙(§7), 모듈·패키지 배치의 `module.md` 정합성.
+건전한 것으로 판단된 부분: 문답 스냅샷 materialization(§5), DRAFT/COMPLETED를 컬럼 제약이 아닌 전이 검증으로 분리한 결정(§4.5), UUID/`id_sequence` 분리(§8.7), FileBox 그룹 단위 부분 동기화 원칙(§7), 모듈·패키지 배치의 `module.md` 정합성.
 
 ### E.4 검토했으나 반영하지 않은 지적
 
@@ -1704,3 +1815,57 @@ FE가 "프런트에서 계산하므로 백엔드 변경 불필요"로 정리했�
 | --- | --- |
 | 질문 관리를 `InspectionQuestionAdminFacade`로 분리 (`module.md`의 `{Domain}AdminFacade` 규칙) | `module.md`는 "분리할 수 있습니다(추후 서비스가 커질 경우 대비)"로 선택지로 제시한다. 강제 규칙이 아니고 엔드포인트 7개 중 쓰기가 5개라 분리 실익이 작다. **본문 §16.2에 결정 항목으로 올리지 않고 여기 기록만 남긴다** |
 | `QuestionChoiceSdo` 네이밍이 `Sdo`(Save Data Object) 의미와 어긋남 | 생성·수정 양쪽 입력에 중첩되는 값이라 `Cdo`/`Udo` 어느 쪽으로도 맞지 않는다. 범용 저장 입력이라는 뜻의 `Sdo`가 가장 가깝다고 보고 유지 |
+
+---
+
+## 부록 F. 엔티티/VO 재판정 (2026-09-17)
+
+### F.1 물음
+
+"7종을 전부 엔티티로 둘 필요가 있는가. VO로 관리해도 되는 것이 있는가. 문답은 별도 테이블이 아니라 JSON 컬럼이어도 되지 않는가 — 그러면 질문 버전도 따로 관리할 필요가 없어 보인다."
+
+### F.2 판정
+
+본문 §3.1.1의 세 기준(**바깥에서 ID로 참조되는가 / 자기만의 생명주기가 있는가 / 자기 필드로 부모를 가로지르는 질의가 있는가**)으로 7종을 다시 판정했다. `PropertyAnswer`와 `InspectionQuestionVersion` 두 종이 **셋 다 아니었다.**
+
+| | 엔티티 7종 / 테이블 9개 | 엔티티 5종 / 테이블 7개 |
+| --- | --- | --- |
+| Store | 7 | 5 |
+| JPO | 10 | 7 |
+| 유니크 인덱스 | 5 | 4 |
+| 지역 목록 질의 | 7회 | **6회** |
+| 임장 상세 질의 | 8회 | **7회** |
+| 임장 삭제 단계 | 6 | **5** |
+| check-then-act 지점 | 4 | **3** |
+
+### F.3 결정을 뒤집은 근거
+
+초기 판본이 답변을 테이블로 둔 근거는 본문 §3.6의 이 한 줄이었다.
+
+> 문자열 하나에 몰면 "채광 4점 이상" 같은 질의가 불가능해진다.
+
+**요구사항 §42의 검색 축을 다시 읽으니 문답 값이 없다.** 임장 기준은 지역명·임장 기간·재방문 의사·태그, 매물 기준은 단지/건물명·매물명·관심도·태그다. 요구사항이 요구하지 않은 능력을 근거로 구조를 무겁게 하고 있었다. 요구사항 §43(매물 비교)의 비교 항목에 문답이 있지만 그것은 선택한 매물을 ID로 불러 나란히 그리는 기능이라 저장 형태와 무관하다.
+
+요구사항 §24는 오히려 이쪽을 가리킨다. 두 선택지 중 하나가 **"`ViewedProperty` 생성 시 적용되는 `QuestionVersion` 목록 Snapshot"** 이고, 이 문장을 문자 그대로 구현하면 매물이 자기 안에 스냅샷 목록을 품는 형태다.
+
+저장소에도 선례가 있다. `Travel`은 엔티티이고 `TravelDay`·`TravelPlace`는 `travel.days` TEXT 컬럼의 JSON VO다(`TravelJpo.java:38`). `TravelPlace.placeKey`는 그 JSON 안의 UUID인데 `FileBoxItem.targetId`로 쓰인다 — 답변보다 바깥 참조가 많은 데이터도 VO로 다루고 있다.
+
+### F.4 부수 효과
+
+의도하지 않았지만 검증에서 잡혔던 결함 하나가 **구조적으로** 사라졌다.
+
+설계 검증(부록 E.3)에서 HIGH로 잡힌 "완료 전이 레이스"는 `viewed_property.status`를 쓰기 전에 `property_answer`를 읽어 검증하는 교차 테이블 check-then-act였고, `SELECT ... FOR UPDATE`로 막았다. 답변이 매물 행 안으로 들어오면서 **읽는 대상과 쓰는 대상이 같은 행이 되어 `EntityJpo`의 `@Version`이 자동으로 막는다.** 질문 버전 동시 채번도 마찬가지로 유니크 제약 위반이 아니라 낙관적 잠금으로 처리된다.
+
+### F.5 받아들인 대가
+
+| 항목 | 내용 | 처리 |
+| --- | --- | --- |
+| 버전별 `answerCount` | 인덱스를 잃고 전건 스캔이 된다 | 본문 §11.5에 처리 방법과 전환 임계값(매물 2,000건) |
+| 미완료 집계 | `GROUP BY`를 잃는다 | 매물 행에 정수 컬럼으로 파생 저장(본문 §3.6.1). 결과적으로 **더 싸다** |
+| 매물 행 크기 | 매물당 수 KB | 목록·집계는 projection으로 `answers`를 읽지 않는다(본문 §3.6.2) |
+| 문답 값 검색 | 불가능해진다 | 요구사항에 없다. 필요해지면 JSON을 테이블로 펼치는 마이그레이션 한 번(본문 §5.3) |
+
+### F.6 함께 반영한 것
+
+`PropertyAnswer` 스냅샷에 **`unit`을 추가했다.** 빠져 있으면 `NUMBER` 답변이 값만 남고 "만원"인지 "m2"인지 잃는데, `unit` 변경은 새 버전을 만드는 변경이라 마스터를 되짚어 복원할 수도 없다. 요구사항 §20을 지키려면 값 옆에 있어야 한다.
+
