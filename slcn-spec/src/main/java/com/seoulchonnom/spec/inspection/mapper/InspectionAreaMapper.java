@@ -8,21 +8,16 @@ import org.springframework.stereotype.Component;
 
 import com.seoulchonnom.spec.filebox.facade.sdo.FileBoxItemRdo;
 import com.seoulchonnom.spec.inspection.entity.InspectionArea;
-import com.seoulchonnom.spec.inspection.entity.ViewedProperty;
 import com.seoulchonnom.spec.inspection.facade.sdo.IncompleteSummaryRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaCdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaDetailRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitDetailRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitSummaryRdo;
-
-import lombok.RequiredArgsConstructor;
+import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyBriefRdo;
 
 @Component
-@RequiredArgsConstructor
 public class InspectionAreaMapper {
-	private final ViewedPropertyMapper viewedPropertyMapper;
-
 	public InspectionArea toInspectionArea(String id, InspectionAreaCdo cdo) {
 		return new InspectionArea(id, cdo.getName(), cdo.getDescription());
 	}
@@ -34,8 +29,8 @@ public class InspectionAreaMapper {
 	 */
 	public InspectionAreaRdo toInspectionAreaRdo(InspectionArea area, int visitCount, LocalDateTime firstVisitedAt,
 		LocalDateTime lastVisitedAt, int totalPropertyCount, InspectionVisitSummaryRdo latestVisit,
-		ViewedProperty topProperty, IncompleteSummaryRdo incompleteSummary, List<FileBoxItemRdo> thumbnails,
-		int totalImageCount) {
+		ViewedPropertyBriefRdo topProperty, IncompleteSummaryRdo incompleteSummary,
+		List<FileBoxItemRdo> thumbnails, int totalImageCount) {
 		InspectionAreaRdo rdo = new InspectionAreaRdo();
 		rdo.setAreaId(area.getId());
 		rdo.setName(area.getName());
@@ -45,7 +40,7 @@ public class InspectionAreaMapper {
 		rdo.setLastVisitedAt(InspectionVisitMapper.toText(lastVisitedAt));
 		rdo.setTotalPropertyCount(totalPropertyCount);
 		rdo.setLatestVisit(latestVisit);
-		rdo.setTopProperty(viewedPropertyMapper.toViewedPropertyBriefRdo(topProperty));
+		rdo.setTopProperty(topProperty);
 		rdo.setIncompleteSummary(incompleteSummary);
 		rdo.setThumbnails(thumbnails == null ? new ArrayList<>() : new ArrayList<>(thumbnails));
 		rdo.setTotalImageCount(totalImageCount);

@@ -10,7 +10,6 @@ import com.seoulchonnom.spec.filebox.entity.vo.FileBoxTargetType;
 import com.seoulchonnom.spec.filebox.facade.sdo.FileBoxItemRdo;
 import com.seoulchonnom.spec.inspection.entity.InspectionArea;
 import com.seoulchonnom.spec.inspection.entity.InspectionVisit;
-import com.seoulchonnom.spec.inspection.entity.ViewedProperty;
 import com.seoulchonnom.spec.inspection.entity.vo.InspectionStatus;
 import com.seoulchonnom.spec.inspection.facade.sdo.IncompleteSummaryRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaBriefRdo;
@@ -18,15 +17,11 @@ import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitCdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitDetailRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitSummaryRdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyBriefRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyDetailRdo;
 
-import lombok.RequiredArgsConstructor;
-
 @Component
-@RequiredArgsConstructor
 public class InspectionVisitMapper {
-	private final ViewedPropertyMapper viewedPropertyMapper;
-
 	public InspectionVisit toInspectionVisit(String id, String areaId, InspectionVisitCdo cdo) {
 		InspectionVisit visit = new InspectionVisit(id, areaId, toLocalDateTime(cdo.getVisitedAt()));
 		visit.setMemo(cdo.getMemo());
@@ -38,8 +33,12 @@ public class InspectionVisitMapper {
 		return visit;
 	}
 
+	/**
+	 * topInterestProperty는 이미 만들어진 Rdo로 받는다. 목록 조립이 엔티티가 아니라
+	 * projection으로 매물을 읽으므로 여기서 엔티티를 요구하면 변환이 두 번 일어난다.
+	 */
 	public InspectionVisitRdo toInspectionVisitRdo(InspectionVisit visit, InspectionArea area, int propertyCount,
-		ViewedProperty topInterestProperty, List<String> tags, FileBoxItemRdo cover,
+		ViewedPropertyBriefRdo topInterestProperty, List<String> tags, FileBoxItemRdo cover,
 		IncompleteSummaryRdo incompleteSummary) {
 		InspectionVisitRdo rdo = new InspectionVisitRdo();
 		rdo.setInspectionVisitId(visit.getId());
@@ -49,7 +48,7 @@ public class InspectionVisitMapper {
 		rdo.setRevisitIntent(visit.getRevisitIntent());
 		rdo.setStatus(visit.getStatus());
 		rdo.setPropertyCount(propertyCount);
-		rdo.setTopInterestProperty(viewedPropertyMapper.toViewedPropertyBriefRdo(topInterestProperty));
+		rdo.setTopInterestProperty(topInterestProperty);
 		rdo.setTags(tags == null ? new ArrayList<>() : new ArrayList<>(tags));
 		rdo.setCover(cover);
 		rdo.setIncompleteSummary(incompleteSummary);
