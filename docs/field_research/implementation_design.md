@@ -1032,11 +1032,13 @@ selectedVisit             회차 상세 1건. 임장 상세 응답과 동일 형
 `SecurityConfiguration`의 기본 체인에 메서드별 matcher를 추가한다. `.anyRequest().hasAuthority(USER_AUTHORITY)`보다 **앞에** 놓아야 적용된다.
 
 ```java
-// SecurityConfiguration에 import org.springframework.http.HttpMethod; 추가 필요 — 현재 import되어 있지 않다
-.requestMatchers(HttpMethod.POST,  "/inspection-questions/**").hasAuthority(ADMIN_AUTHORITY)
-.requestMatchers(HttpMethod.PUT,   "/inspection-questions/**").hasAuthority(ADMIN_AUTHORITY)
-.requestMatchers(HttpMethod.PATCH, "/inspection-questions/**").hasAuthority(ADMIN_AUTHORITY)
+// SecurityConfiguration에 import org.springframework.http.HttpMethod; 를 함께 추가한다
+.requestMatchers(HttpMethod.POST,  "/inspection-questions", "/inspection-questions/**").hasAuthority(ADMIN_AUTHORITY)
+.requestMatchers(HttpMethod.PUT,   "/inspection-questions", "/inspection-questions/**").hasAuthority(ADMIN_AUTHORITY)
+.requestMatchers(HttpMethod.PATCH, "/inspection-questions", "/inspection-questions/**").hasAuthority(ADMIN_AUTHORITY)
 ```
+
+**패턴을 두 개씩 쓴다.** `POST /inspection-questions`는 하위 경로가 없어 `/**` 패턴에 의존하면 매처 구현에 따라 빠질 수 있다. 하나라도 새면 ADMIN 전용 API가 `USER`에게 열리므로 명시한다. `SecurityConfigurationTest`가 `USER` 토큰으로 네 경로를 찔러 이 동작을 고정한다.
 
 `/users/register`가 이미 `.anyRequest()`보다 앞에서 `hasAuthority(ADMIN_AUTHORITY)`를 쓰고 있으므로(`SecurityConfiguration.java:80-81`) 같은 패턴을 그대로 따른다.
 
@@ -1481,7 +1483,7 @@ List<FileBoxDoc> findAllByOwnerTypeAndOwnerIdIn(FileBoxOwnerType ownerType, Coll
 - [x] `docs/inspection/01-spec-design.md` 상단에 "이 문서는 `docs/field_research/implementation_design.md`로 대체됨" 표기
 - [ ] 오브젝트 스토리지 사전 준비 **불필요** 확인 완료 — `FileType` 값 추가만으로 `originals/inspection/`·`derived/inspection/` 키가 생성된다 (본문 §7.5-4)
 - [ ] FE 연동 문서에 다중 업로드 상한(요청 60 MB / 파일 10 MB ≈ 6장)과 `variant` 사용 규칙 명시 (본문 §7.5-1, §7.5-2)
-- [ ] `SecurityConfiguration`에 `/inspection-questions` **쓰기 메서드(POST/PUT/PATCH) `ADMIN` matcher 추가** — `anyRequest()`보다 앞에 배치. `import org.springframework.http.HttpMethod;`를 함께 추가한다 (본문 §10.4)
+- [x] `SecurityConfiguration`에 `/inspection-questions` **쓰기 메서드(POST/PUT/PATCH) `ADMIN` matcher 추가** — `anyRequest()`보다 앞에 배치. `import org.springframework.http.HttpMethod;`를 함께 추가한다 (본문 §10.4)
 - [ ] 관리자 계정이 `USER` + `ADMIN` 권한을 함께 보유하는지 운영 DB에서 확인 (본문 §10.4)
 
 JPA 엔티티 스캔은 `AggregateConfiguration`이 `com.seoulchonnom.aggregate` 전체를 훑으므로 **설정 변경이 필요 없다.**
@@ -1565,7 +1567,7 @@ JPA 엔티티 스캔은 `AggregateConfiguration`이 `com.seoulchonnom.aggregate`
 | 5 | aggregate — 임장 | `InspectionVisit` JPO·Store·Logic + `InspectionPhotoSupport` + `InspectionVisitFlow`(등록/수정) | `InspectionVisitLogicTest`, `InspectionVisitFlowTest`, `InspectionPhotoSupportTest` |
 | 6 | aggregate — 매물·문답·상태·삭제 | `ViewedProperty` JPO·Store·Logic(`answers` 컨버터, 파생 카운트 갱신, 타입별 값 검증 포함) + `ViewedPropertyFlow`(스냅샷 생성 포함) + **양쪽 상태 전이와 삭제** | `ViewedPropertyFlowTest`, `ViewedPropertyLogicTest` |
 | 7 | aggregate — 조회 | `InspectionVisitQueryFlow`, `InspectionAreaQueryFlow`, `InspectionQuestionQueryFlow`, `InspectionSummarySupport`, `ViewedPropertySummaryPdo`, 목록·상세 배치 조회, 목록 필터, 미완료 요약, 질문 `answerCount`(본문 §11.5) | `InspectionVisitQueryFlowTest`, `InspectionAreaQueryFlowTest`, `InspectionQuestionQueryFlowTest`, `InspectionSummarySupportTest` |
-| 8 | rest + 보안 | Resource 5종, `SecurityConfiguration`에 질문 쓰기 `ADMIN` matcher | `*ResourceTest`, `*ResourceJsonContractTest`, `SecurityConfigurationTest` |
+| 8 ✅ | rest + 보안 | Resource 5종, `InspectionAreaFlow`, `SecurityConfiguration`에 질문 쓰기 `ADMIN` matcher | `*ResourceTest` 4종, `SecurityConfigurationTest` 6건 추가 |
 | 9 | 문서 | `docs/file-asset.md` 갱신, FE 연동 문서(`docs/field_research/api.md`), `01-spec-design.md` 대체 표기 | — |
 
 3~4번은 서로 독립이라 병행 가능하다. 5번은 4번, 6번은 3·5번에 의존한다.
