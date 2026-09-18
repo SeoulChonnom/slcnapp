@@ -60,13 +60,13 @@ public class InspectionQuestionQueryFlow {
 
 	private Map<String, Integer> countByQuestionId() {
 		Map<String, Integer> counts = new HashMap<>();
-		forEachAnswer(answer -> counts.merge(answer.getQuestionId(), 1, Integer::sum));
+		forEachAnsweredAnswer(answer -> counts.merge(answer.getQuestionId(), 1, Integer::sum));
 		return counts;
 	}
 
 	private Map<Integer, Integer> countByVersionNo(String questionId) {
 		Map<Integer, Integer> counts = new HashMap<>();
-		forEachAnswer(answer -> {
+		forEachAnsweredAnswer(answer -> {
 			if (questionId.equals(answer.getQuestionId())) {
 				counts.merge(answer.getQuestionVersionNo(), 1, Integer::sum);
 			}
@@ -74,12 +74,18 @@ public class InspectionQuestionQueryFlow {
 		return counts;
 	}
 
-	private void forEachAnswer(Consumer<PropertyAnswer> consumer) {
+	/**
+	 * **실제로 답한 것만 센다.** 매물을 만들면 활성 질문이 전부 빈 항목으로 깔리므로,
+	 * 거르지 않으면 "이 질문이 깔린 매물 수"가 되어 이름과 다른 값이 나간다.
+	 */
+	private void forEachAnsweredAnswer(Consumer<PropertyAnswer> consumer) {
 		for (ViewedProperty property : viewedPropertyStore.findAll()) {
 			if (property.getAnswers() == null) {
 				continue;
 			}
-			property.getAnswers().forEach(consumer);
+			property.getAnswers().stream()
+				.filter(PropertyAnswer::isAnswered)
+				.forEach(consumer);
 		}
 	}
 }

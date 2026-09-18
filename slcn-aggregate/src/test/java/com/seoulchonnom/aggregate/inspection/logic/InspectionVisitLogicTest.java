@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import com.seoulchonnom.aggregate.inspection.exception.InvalidInspectionVisitException;
 import com.seoulchonnom.aggregate.inspection.store.InspectionVisitStore;
 import com.seoulchonnom.spec.inspection.entity.InspectionVisit;
+import com.seoulchonnom.spec.inspection.entity.vo.InspectionStatus;
 import com.seoulchonnom.spec.inspection.entity.vo.RevisitIntent;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitUdo;
 
@@ -81,6 +82,37 @@ class InspectionVisitLogicTest {
 
 		assertThatThrownBy(() -> inspectionVisitLogic.applyUpdate(visit(), udo))
 			.isInstanceOf(InvalidInspectionVisitException.class);
+	}
+
+	@Test
+	void revalidateIfCompleted_shouldRejectClearingRevisitIntentOnCompletedVisit() {
+		InspectionVisit visit = visit();
+		visit.setRevisitIntent(RevisitIntent.YES);
+		visit.changeStatus(InspectionStatus.COMPLETED);
+
+		// PUT은 전체 교체라 revisitIntent를 빼고 보내면 null이 된다.
+		// 막지 않으면 완료 조건을 못 지키는 COMPLETED 임장이 영구히 남는다
+		inspectionVisitLogic.applyUpdate(visit, udo("2026-09-17T14:00:00"));
+
+		assertThatThrownBy(() -> inspectionVisitLogic.revalidateIfCompleted(visit))
+			.isInstanceOf(InvalidInspectionVisitException.class)
+			.hasMessageContaining("revisitIntent");
+	}
+
+	@Test
+	void revalidateIfCompleted_shouldDoNothingForDraft() {
+		InspectionVisit visit = visit();
+
+		assertThatCode(() -> inspectionVisitLogic.revalidateIfCompleted(visit)).doesNotThrowAnyException();
+	}
+
+	@Test
+	void revalidateIfCompleted_shouldPassWhenConditionsStillHold() {
+		InspectionVisit visit = visit();
+		visit.setRevisitIntent(RevisitIntent.MAYBE);
+		visit.changeStatus(InspectionStatus.COMPLETED);
+
+		assertThatCode(() -> inspectionVisitLogic.revalidateIfCompleted(visit)).doesNotThrowAnyException();
 	}
 
 	@Test

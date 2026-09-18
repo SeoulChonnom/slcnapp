@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import com.seoulchonnom.aggregate.common.generator.store.entity.SequenceName;
+import com.seoulchonnom.aggregate.common.transaction.AfterCommitExecutor;
 import com.seoulchonnom.aggregate.inspection.exception.InvalidInspectionVisitException;
 import com.seoulchonnom.aggregate.inspection.logic.InspectionAreaLogic;
 import com.seoulchonnom.aggregate.inspection.logic.InspectionTagLogic;
@@ -70,6 +71,9 @@ public class InspectionVisitFlow {
 	public InspectionVisit modifyInspectionVisit(String visitId, InspectionVisitUdo inspectionVisitUdo) {
 		InspectionVisit visit = inspectionVisitLogic.getInspectionVisit(visitId);
 		inspectionVisitLogic.applyUpdate(visit, inspectionVisitUdo);
+		// 스칼라 전체 교체라 revisitIntent를 생략한 요청이 COMPLETED 임장의 완료 조건을 깬다.
+		// 매물 쪽 revalidateIfCompleted와 같은 이유로 여기서도 막는다.
+		inspectionVisitLogic.revalidateIfCompleted(visit);
 
 		InspectionVisit saved = inspectionVisitLogic.save(visit);
 		if (inspectionVisitUdo.getTags() != null) {
@@ -116,8 +120,11 @@ public class InspectionVisitFlow {
 	/**
 	 * RDB를 먼저 커밋하고 FileBox를 나중에 지운다.
 	 *
-	 * 순서를 뒤집으면 RDB 삭제가 실패했을 때 fileAssetId 목록 자체를 잃어 사진을 복구할 수 없다.
+	 * 순서를 뒤집으면 RDB 커밋이 실패했을 때 fileAssetId 목록 자체를 잃어 사진을 복구할 수 없다.
 	 * 이 방향에서 남는 것은 아무도 참조하지 않는 고아 FileBox 문서 하나뿐이고 정리 배치로 지운다.
+	 *
+	 * Mongo 삭제를 메서드 본문에 두면 트랜잭션 프록시가 commit을 호출하기 전에 실행되어
+	 * 순서가 반대가 된다. 그래서 afterCommit으로 미룬다.
 	 */
 	@Transactional
 	public void deleteInspectionVisit(String visitId) {
@@ -127,7 +134,7 @@ public class InspectionVisitFlow {
 		inspectionTagStore.deleteVisitLinks(visitId);
 		inspectionVisitLogic.delete(visitId);
 
-		inspectionPhotoSupport.deleteAll(visitId);
+		AfterCommitExecutor.run(() -> inspectionPhotoSupport.deleteAll(visitId));
 	}
 
 	/**

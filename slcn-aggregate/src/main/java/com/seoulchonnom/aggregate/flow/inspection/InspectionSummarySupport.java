@@ -49,6 +49,22 @@ public class InspectionSummarySupport {
 	}
 
 	/**
+	 * 상세 화면처럼 매물 엔티티를 이미 로드한 경우에 쓴다. 같은 값을 얻자고 projection을
+	 * 한 번 더 조회하지 않는다 — status와 unansweredRequiredCount는 엔티티에도 있다.
+	 */
+	public IncompleteSummaryRdo ofVisitWithProperties(InspectionVisit visit, List<ViewedProperty> properties) {
+		IncompleteSummaryRdo summary = new IncompleteSummaryRdo();
+		summary.setUnansweredRequiredCount(properties.stream()
+			.mapToInt(ViewedProperty::getUnansweredRequiredCount)
+			.sum());
+		summary.setDraftPropertyCount((int)properties.stream()
+			.filter(property -> InspectionStatus.COMPLETED != property.getStatus())
+			.count());
+		summary.setVisitMissingFields(missingVisitFields(visit));
+		return summary;
+	}
+
+	/**
 	 * 지역 목록용. 개수만 담는다 — 목록 N행마다 질문 문구를 끌어오면
 	 * 정수 합산이던 집계가 답변 본문 조회로 바뀐다.
 	 */

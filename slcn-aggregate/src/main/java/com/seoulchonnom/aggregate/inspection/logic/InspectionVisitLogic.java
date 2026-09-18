@@ -102,6 +102,23 @@ public class InspectionVisitLogic {
 		return InspectionStatus.COMPLETED == visit.getStatus();
 	}
 
+	/**
+	 * COMPLETED 임장의 기본 정보를 고칠 때 완료 조건이 깨지지 않는지 다시 본다.
+	 *
+	 * 하위 매물 조건은 여기서 보지 않는다. 임장 기본 정보 수정으로는 매물 상태가 바뀌지 않으므로
+	 * 이 경로가 깰 수 있는 것은 임장 자신의 필드뿐이다.
+	 */
+	public void revalidateIfCompleted(InspectionVisit visit) {
+		if (!isCompleted(visit)) {
+			return;
+		}
+		List<String> missing = findMissingFieldsForCompletion(visit);
+		if (!missing.isEmpty()) {
+			throw new InvalidInspectionVisitException(
+				"완료된 임장의 필수 항목을 비울 수 없습니다. 먼저 상태를 DRAFT로 되돌리세요. missingFields=" + missing);
+		}
+	}
+
 	private void validateTexts(String oneLineReview, String memo, String pros, String cons) {
 		if (oneLineReview != null && oneLineReview.length() > MAX_ONE_LINE_REVIEW_LENGTH) {
 			throw new InvalidInspectionVisitException("한줄평이 너무 깁니다.");

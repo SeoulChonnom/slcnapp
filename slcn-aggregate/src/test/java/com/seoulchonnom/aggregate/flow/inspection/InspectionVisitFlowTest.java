@@ -9,6 +9,8 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.seoulchonnom.aggregate.inspection.exception.InvalidInspectionVisitException;
 import com.seoulchonnom.aggregate.inspection.logic.InspectionAreaLogic;
@@ -203,20 +205,59 @@ class InspectionVisitFlowTest {
 	}
 
 	@Test
-	void deleteInspectionVisit_shouldCommitRdbBeforeTouchingFileBox() {
+	void modifyInspectionVisit_shouldRevalidateBeforeSaving() {
+		InspectionVisit visit = new InspectionVisit("INSPECTION_VISIT-0001", "INSPECTION_AREA-0001",
+			LocalDateTime.of(2026, 9, 17, 14, 0));
+		when(inspectionVisitLogic.getInspectionVisit("INSPECTION_VISIT-0001")).thenReturn(visit);
+		when(inspectionVisitLogic.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+		InspectionVisitUdo udo = new InspectionVisitUdo();
+		udo.setVisitedAt("2026-09-17T14:00:00");
+		inspectionVisitFlow.modifyInspectionVisit("INSPECTION_VISIT-0001", udo);
+
+		// 완료 조건을 깨는 저장은 커밋 전에 막아야 한다
+		InOrder order = inOrder(inspectionVisitLogic);
+		order.verify(inspectionVisitLogic).applyUpdate(visit, udo);
+		order.verify(inspectionVisitLogic).revalidateIfCompleted(visit);
+		order.verify(inspectionVisitLogic).save(visit);
+	}
+
+	/**
+	 * Mongo는 JPA 트랜잭션에 참여하지 않는다. FileBox 삭제를 메서드 본문에 두면 RDB 커밋보다
+	 * 먼저 확정되어, 커밋이 실패했을 때 임장은 남고 사진 목록만 사라진다.
+	 */
+	@Test
+	void deleteInspectionVisit_shouldDeferFileBoxDeletionUntilAfterCommit() {
+		InspectionVisit visit = new InspectionVisit("INSPECTION_VISIT-0001", "INSPECTION_AREA-0001",
+			LocalDateTime.of(2026, 9, 17, 14, 0));
+		when(inspectionVisitLogic.getInspectionVisit("INSPECTION_VISIT-0001")).thenReturn(visit);
+		TransactionSynchronizationManager.initSynchronization();
+		try {
+			inspectionVisitFlow.deleteInspectionVisit("INSPECTION_VISIT-0001");
+
+			// 메서드가 끝난 시점(= 아직 커밋 전)에는 사진이 그대로여야 한다
+			verify(inspectionPhotoSupport, never()).deleteAll(anyString());
+			assertThat(TransactionSynchronizationManager.getSynchronizations()).hasSize(1);
+
+			TransactionSynchronizationManager.getSynchronizations().forEach(TransactionSynchronization::afterCommit);
+			verify(inspectionPhotoSupport).deleteAll("INSPECTION_VISIT-0001");
+		} finally {
+			TransactionSynchronizationManager.clearSynchronization();
+		}
+	}
+
+	@Test
+	void deleteInspectionVisit_shouldClearEveryRdbTableBeforeReturning() {
 		InspectionVisit visit = new InspectionVisit("INSPECTION_VISIT-0001", "INSPECTION_AREA-0001",
 			LocalDateTime.of(2026, 9, 17, 14, 0));
 		when(inspectionVisitLogic.getInspectionVisit("INSPECTION_VISIT-0001")).thenReturn(visit);
 
 		inspectionVisitFlow.deleteInspectionVisit("INSPECTION_VISIT-0001");
 
-		// 사진을 먼저 지우면 RDB 삭제 실패 시 fileAssetId 목록을 잃어 복구가 불가능해진다
-		InOrder order = inOrder(inspectionTagStore, viewedPropertyLogic, inspectionVisitLogic,
-			inspectionPhotoSupport);
+		InOrder order = inOrder(inspectionTagStore, viewedPropertyLogic, inspectionVisitLogic);
 		order.verify(inspectionTagStore).deletePropertyLinksByVisitId("INSPECTION_VISIT-0001");
 		order.verify(viewedPropertyLogic).deleteByVisitId("INSPECTION_VISIT-0001");
 		order.verify(inspectionTagStore).deleteVisitLinks("INSPECTION_VISIT-0001");
 		order.verify(inspectionVisitLogic).delete("INSPECTION_VISIT-0001");
-		order.verify(inspectionPhotoSupport).deleteAll("INSPECTION_VISIT-0001");
 	}
 }

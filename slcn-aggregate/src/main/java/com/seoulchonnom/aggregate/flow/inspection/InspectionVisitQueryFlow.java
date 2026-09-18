@@ -73,7 +73,9 @@ public class InspectionVisitQueryFlow {
 
 	/**
 	 * visitedAt 내림차순. 모든 필터는 선택이며 null이면 적용하지 않는다.
-	 * 조회 5회로 고정된다.
+	 *
+	 * 저장소 왕복 7회로 고정된다: 임장 1 + 태그 2(연결+마스터) + 지역 1 + 매물 요약 1
+	 * + FileBox 1 + FileAsset 1. **임장 건수에 비례해 늘지 않는 것이 요점이다.**
 	 */
 	public List<InspectionVisitRdo> getInspectionVisits(String areaId, InspectionStatus status,
 		RevisitIntent revisitIntent, List<String> tags, LocalDateTime from, LocalDateTime to) {
@@ -108,7 +110,11 @@ public class InspectionVisitQueryFlow {
 	}
 
 	/**
-	 * 임장 상세. 조회 7회로 고정되며 매물 수에 비례해 늘지 않는다.
+	 * 임장 상세. 저장소 왕복 10회로 고정되며 **매물 수와 문답 수에 비례해 늘지 않는다.**
+	 *
+	 * 내역: 임장 1 + 지역 1 + 매물 1 + 질문 마스터 1 + 임장 태그 2(연결+마스터)
+	 * + 매물 태그 2(연결+마스터) + FileBox 1 + FileAsset 1.
+	 * 설계 문서 §11.2가 적은 "7회"는 논리 단계를 센 값이라 태그 마스터와 FileAsset 조회가 빠져 있었다.
 	 */
 	public InspectionVisitDetailRdo getInspectionVisit(String visitId) {
 		InspectionVisit visit = inspectionVisitStore.findById(visitId);
@@ -127,7 +133,7 @@ public class InspectionVisitQueryFlow {
 			.toList();
 
 		return inspectionVisitMapper.toInspectionVisitDetailRdo(visit, area, visitTags, propertyRdos, files,
-			inspectionSummarySupport.ofVisit(visit, viewedPropertyStore.findSummariesByVisitIds(List.of(visitId))));
+			inspectionSummarySupport.ofVisitWithProperties(visit, properties));
 	}
 
 	public ViewedPropertyDetailRdo getViewedProperty(String visitId, String propertyId) {

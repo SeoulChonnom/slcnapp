@@ -28,6 +28,11 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class InspectionTagLogic {
 	static final int MAX_TAG_COUNT = 10;
+	/**
+	 * inspection_tag.name 컬럼 길이와 같다. 여기서 막지 않으면 flush 시점에
+	 * DataIntegrityViolationException이 나고 전역 핸들러가 잡지 못해 500이 된다.
+	 */
+	static final int MAX_TAG_NAME_LENGTH = 50;
 
 	private final InspectionTagStore inspectionTagStore;
 	private final InspectionTagMapper inspectionTagMapper;
@@ -61,9 +66,13 @@ public class InspectionTagLogic {
 		Set<String> normalized = new LinkedHashSet<>();
 		for (String rawName : rawNames) {
 			String name = inspectionTagMapper.normalizeName(rawName);
-			if (name != null) {
-				normalized.add(name);
+			if (name == null) {
+				continue;
 			}
+			if (name.length() > MAX_TAG_NAME_LENGTH) {
+				throw new BadRequestException("태그는 " + MAX_TAG_NAME_LENGTH + "자를 넘을 수 없습니다. tag=" + name);
+			}
+			normalized.add(name);
 		}
 		if (normalized.size() > MAX_TAG_COUNT) {
 			throw new BadRequestException("태그는 최대 " + MAX_TAG_COUNT + "개까지 등록할 수 있습니다.");

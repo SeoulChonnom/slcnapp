@@ -210,6 +210,29 @@ class ViewedPropertyLogicTest {
 		assertThat(property.getComplexName()).isEqualTo("트리마제 1차");
 	}
 
+	/**
+	 * viewed_property.complex_name / name이 varchar(200)이다.
+	 * 앞에서 막지 않으면 flush 시점 제약 위반이 500으로 새어나간다.
+	 */
+	@Test
+	void applyUpdate_shouldRejectNamesLongerThanColumn() {
+		assertThatThrownBy(() -> viewedPropertyLogic.applyUpdate(property(),
+			propertyUdo("가".repeat(201), "101동")))
+			.isInstanceOf(InvalidViewedPropertyException.class);
+		assertThatThrownBy(() -> viewedPropertyLogic.applyUpdate(property(),
+			propertyUdo("트리마제", "가".repeat(201))))
+			.isInstanceOf(InvalidViewedPropertyException.class);
+	}
+
+	@Test
+	void applyUpdate_shouldAcceptNamesAtColumnLimit() {
+		ViewedProperty property = property();
+
+		viewedPropertyLogic.applyUpdate(property, propertyUdo("가".repeat(200), "나".repeat(200)));
+
+		assertThat(property.getComplexName()).hasSize(200);
+	}
+
 	@Test
 	void applyUpdate_shouldRejectInterestLevelOutOfRange() {
 		ViewedPropertyUdo udo = propertyUdo("트리마제", "101동");

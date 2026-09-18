@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import com.seoulchonnom.aggregate.common.transaction.AfterCommitExecutor;
 import com.seoulchonnom.aggregate.inspection.exception.InvalidInspectionOrderException;
 import com.seoulchonnom.aggregate.inspection.exception.InvalidViewedPropertyException;
 import com.seoulchonnom.aggregate.inspection.exception.ViewedPropertyNotFoundException;
@@ -115,8 +116,9 @@ public class ViewedPropertyFlow {
 		findOwnedProperty(visitId, propertyId);
 		inspectionTagStore.deletePropertyLinks(propertyId);
 		viewedPropertyLogic.deleteViewedProperty(propertyId);
-		// RDB 커밋 방향과 같다. 사진 연결은 마지막에 끊는다
-		inspectionPhotoSupport.removePropertyPhotos(visitId, propertyId);
+		// RDB 커밋이 끝난 뒤에 사진 연결을 끊는다. 본문에서 바로 지우면 커밋보다 먼저 확정되어
+		// 커밋 실패 시 매물은 남고 사진만 사라진다
+		AfterCommitExecutor.run(() -> inspectionPhotoSupport.removePropertyPhotos(visitId, propertyId));
 	}
 
 	/**

@@ -52,6 +52,26 @@ class InspectionTagLogicTest {
 		verify(inspectionTagStore, never()).getOrCreateAll(anyList());
 	}
 
+	/**
+	 * inspection_tag.name이 varchar(50)이다. 여기서 막지 않으면 flush 시점에
+	 * DataIntegrityViolationException이 나고 전역 핸들러가 잡지 못해 500이 된다.
+	 */
+	@Test
+	void resolveTags_shouldRejectTagNameLongerThanColumn() {
+		assertThatThrownBy(() -> inspectionTagLogic.resolveTags(List.of("가".repeat(51))))
+			.isInstanceOf(BadRequestException.class);
+		verify(inspectionTagStore, never()).getOrCreateAll(anyList());
+	}
+
+	@Test
+	void resolveTags_shouldAcceptTagNameAtColumnLimit() {
+		when(inspectionTagStore.getOrCreateAll(anyList())).thenReturn(List.of());
+
+		inspectionTagLogic.resolveTags(List.of("가".repeat(50)));
+
+		verify(inspectionTagStore).getOrCreateAll(anyList());
+	}
+
 	@Test
 	void resolveTags_shouldTreatNullAsNoChange() {
 		assertThat(inspectionTagLogic.resolveTags(null)).isEmpty();

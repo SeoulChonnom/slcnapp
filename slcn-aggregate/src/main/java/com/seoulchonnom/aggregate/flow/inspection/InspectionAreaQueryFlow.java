@@ -42,7 +42,8 @@ import lombok.RequiredArgsConstructor;
  * 지역 목록과 지역 상세를 조립한다.
  *
  * 지역마다 회차를 끌어오면 지역 수 x 회차 수만큼 매물·태그·FileBox를 읽게 된다.
- * 지역 수와 무관하게 6회로 고정한다.
+ * 저장소 왕복 7회로 고정한다: 지역 1 + 임장 1 + 매물 요약 1 + 태그 2(연결+마스터)
+ * + FileBox 1 + FileAsset 1. **지역 수에 비례해 늘지 않는 것이 요점이다.**
  *
  * 집계는 전부 저장하지 않고 여기서 계산한다. 임장 등록/삭제와 동기화가 어긋날 여지를 만들지 않는다.
  */
@@ -81,9 +82,21 @@ public class InspectionAreaQueryFlow {
 			visitsByArea));
 		Map<String, FileBox> fileBoxes = fileBoxesOf(visitIds);
 
+		// 썸네일 FileAsset을 지역마다 조회하면 지역 수에 비례하는 왕복이 생긴다.
+		// 전 지역의 썸네일을 먼저 골라 한 번에 읽는다
+		Map<String, List<FileBoxItem>> thumbnailsByArea = new HashMap<>();
+		for (InspectionArea area : areas) {
+			thumbnailsByArea.put(area.getId(),
+				thumbnails(visitsByArea.getOrDefault(area.getId(), List.of()), fileBoxes));
+		}
+		Map<String, FileAsset> assets = assetMap(thumbnailsByArea.values().stream()
+			.flatMap(List::stream)
+			.map(FileBoxItem::getFileAssetId)
+			.toList());
+
 		return areas.stream()
 			.map(area -> toAreaRdo(area, visitsByArea.getOrDefault(area.getId(), List.of()), propertiesByVisit,
-				tagNames, fileBoxes))
+				tagNames, fileBoxes, thumbnailsByArea.get(area.getId()), assets))
 			.toList();
 	}
 
@@ -111,7 +124,10 @@ public class InspectionAreaQueryFlow {
 		Map<String, List<ViewedPropertySummaryPdo>> allProperties = allVisitIds.equals(shownIds)
 			? propertiesByVisit
 			: inspectionVisitQueryFlow.propertiesByVisitId(allVisitIds);
-		InspectionAreaRdo areaRdo = toAreaRdo(area, visits, allProperties, tagNames, fileBoxesOf(allVisitIds));
+		Map<String, FileBox> fileBoxes = fileBoxesOf(allVisitIds);
+		List<FileBoxItem> thumbnailItems = thumbnails(visits, fileBoxes);
+		InspectionAreaRdo areaRdo = toAreaRdo(area, visits, allProperties, tagNames, fileBoxes, thumbnailItems,
+			assetMap(thumbnailItems.stream().map(FileBoxItem::getFileAssetId).toList()));
 
 		String selectedVisitId = resolveSelectedVisitId(visitId, visits);
 		return inspectionAreaMapper.toInspectionAreaDetailRdo(areaRdo, summaries, hasMoreVisits,
@@ -135,7 +151,7 @@ public class InspectionAreaQueryFlow {
 
 	private InspectionAreaRdo toAreaRdo(InspectionArea area, List<InspectionVisit> visits,
 		Map<String, List<ViewedPropertySummaryPdo>> propertiesByVisit, Map<String, List<String>> tagNames,
-		Map<String, FileBox> fileBoxes) {
+		Map<String, FileBox> fileBoxes, List<FileBoxItem> thumbnailItems, Map<String, FileAsset> assets) {
 		List<ViewedPropertySummaryPdo> allProperties = visits.stream()
 			.flatMap(visit -> propertiesByVisit.getOrDefault(visit.getId(), List.<ViewedPropertySummaryPdo>of())
 				.stream())
@@ -147,11 +163,6 @@ public class InspectionAreaQueryFlow {
 		InspectionVisitSummaryRdo latestSummary = latest == null ? null
 			: inspectionVisitMapper.toInspectionVisitSummaryRdo(latest,
 				tagNames.getOrDefault(latest.getId(), List.of()), null, null, null);
-
-		List<FileBoxItem> thumbnailItems = thumbnails(visits, fileBoxes);
-		Map<String, FileAsset> assets = assetMap(thumbnailItems.stream()
-			.map(FileBoxItem::getFileAssetId)
-			.toList());
 
 		return inspectionAreaMapper.toInspectionAreaRdo(area, visits.size(),
 			visits.stream().map(InspectionVisit::getVisitedAt).min(Comparator.naturalOrder()).orElse(null),

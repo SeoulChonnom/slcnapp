@@ -251,8 +251,12 @@ DRAFT ──(조건 충족)──> COMPLETED ──(언제든)──> DRAFT
 **① `COMPLETED` 임장에 매물을 추가하거나 매물을 `DRAFT`로 되돌리면 임장도 `DRAFT`로 내려간다.**
 에러가 아니라 정상 동작이다. 응답에 바뀐 임장 상태가 담기므로 배지를 갱신한다.
 
-**② `COMPLETED` 매물의 필수 문답을 비우는 저장은 `400`으로 거절된다.** 기본 정보 수정과
-문답 저장 양쪽 모두 해당한다. 고쳐야 하면 먼저 `status`를 `DRAFT`로 되돌린 뒤 수정한다.
+**② 완료된 기록의 필수 항목을 비우는 저장은 `400`으로 거절된다.**
+- 매물: 기본 정보 수정과 문답 저장 양쪽 모두. 필수 문답을 비울 수 없다.
+- 임장: `PUT /inspection-visits/{id}`에서 `revisitIntent`를 빠뜨리면 거절된다. PUT은 전체
+  교체라 **생략 = null**이고, 그러면 완료 조건이 깨지기 때문이다.
+
+고쳐야 하면 먼저 `status`를 `DRAFT`로 되돌린 뒤 수정한다.
 
 ### 미완료 요약
 
@@ -376,6 +380,9 @@ GET /api/inspection-tags?keyword=한
 - 단위(`unit`)는 `NUMBER`에만 쓸 수 있다.
 - 선택지 `code`는 질문 안에서 유일해야 한다.
 
+`answerCount`는 **실제로 답이 채워진 건수**다. 매물을 만들면 활성 질문이 전부 빈 항목으로 깔리는데
+그건 세지 않는다.
+
 `?withAnswerCount=true`는 전건 스캔이라 느리다. **관리자 화면에서만 켜고 평소에는 끈다.**
 
 두 관리자가 같은 질문을 동시에 고치면 나중 요청이 `409`로 거절된다. "질문이 이미
@@ -391,7 +398,7 @@ GET /api/inspection-tags?keyword=한
 | `INSPECTION_AREA_IN_USE` | 409 | 임장 기록이 있는 지역 삭제 |
 | `INSPECTION_AREA_DUPLICATED` | 409 | 동일 지역명 존재. 메시지에 기존 `areaId` |
 | `INSPECTION_VISIT_NOT_FOUND` | 400 | 임장 없음 |
-| `INVALID_INSPECTION_VISIT` | 400 | 임장 입력/완료 조건 위반 |
+| `INVALID_INSPECTION_VISIT` | 400 | 임장 입력/완료 조건 위반. 완료된 임장의 필수 항목을 비우는 수정 포함 |
 | `VIEWED_PROPERTY_NOT_FOUND` | 400 | 매물 없음, 또는 다른 임장의 매물 |
 | `INVALID_VIEWED_PROPERTY` | 400 | 매물 입력/완료 조건 위반 |
 | `INSPECTION_QUESTION_NOT_FOUND` | 400 | 질문 없음, 또는 이 매물의 문답에 없는 `questionId` |
@@ -402,3 +409,6 @@ GET /api/inspection-tags?keyword=한
 | `INVALID_INSPECTION_FILE` | 400 | 사진 연결 정보 오류 |
 | `INVALID_INSPECTION_ORDER` | 400 | 정렬 대상이 이 임장 소속이 아님 |
 | `PAYLOAD_TOO_LARGE` | 413 | 업로드 요청이 60 MB 초과 |
+
+입력 길이 상한(초과 시 `400`): 지역명 100자, 지역 설명 300자, 단지명·매물명 각 200자,
+한줄평 300자, 메모·장단점 5,000자, 태그 이름 50자, 질문 문구 300자, 질문 설명 500자, 단위 20자.

@@ -39,6 +39,11 @@ public class ViewedPropertyLogic {
 	private static final int MAX_TEXT_LENGTH = 500;
 	private static final int MAX_LONG_TEXT_LENGTH = 5000;
 	private static final int MAX_ONE_LINE_REVIEW_LENGTH = 300;
+	/**
+	 * viewed_property.complex_name / name 컬럼 길이와 같다. 여기서 막지 않으면
+	 * flush 시점 DataIntegrityViolationException이 500으로 새어나간다.
+	 */
+	private static final int MAX_NAME_LENGTH = 200;
 	private static final int MIN_INTEREST_LEVEL = 1;
 	private static final int MAX_INTEREST_LEVEL = 5;
 	private static final int MIN_RATING = 1;
@@ -116,8 +121,8 @@ public class ViewedPropertyLogic {
 	}
 
 	public void applyUpdate(ViewedProperty property, ViewedPropertyUdo viewedPropertyUdo) {
-		String complexName = requireText(viewedPropertyUdo.getComplexName(), "단지/건물명은 필수입니다.");
-		String name = requireText(viewedPropertyUdo.getName(), "매물명은 필수입니다.");
+		String complexName = requireText(viewedPropertyUdo.getComplexName(), "단지/건물명은 필수입니다.", "단지/건물명이 너무 깁니다.");
+		String name = requireText(viewedPropertyUdo.getName(), "매물명은 필수입니다.", "매물명이 너무 깁니다.");
 		validateInterestLevel(viewedPropertyUdo.getInterestLevel());
 		validateTexts(viewedPropertyUdo.getOneLineReview(), viewedPropertyUdo.getMemo(), viewedPropertyUdo.getPros(),
 			viewedPropertyUdo.getCons());
@@ -314,11 +319,15 @@ public class ViewedPropertyLogic {
 		}
 	}
 
-	private String requireText(String value, String message) {
+	private String requireText(String value, String blankMessage, String tooLongMessage) {
 		if (!StringUtils.hasText(value)) {
-			throw new InvalidViewedPropertyException(message);
+			throw new InvalidViewedPropertyException(blankMessage);
 		}
-		return value.trim().replaceAll("\\s+", " ");
+		String normalized = value.trim().replaceAll("\\s+", " ");
+		if (normalized.length() > MAX_NAME_LENGTH) {
+			throw new InvalidViewedPropertyException(tooLongMessage);
+		}
+		return normalized;
 	}
 
 	private String nullToEmpty(String value) {

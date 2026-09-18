@@ -14,6 +14,7 @@ import com.seoulchonnom.spec.inspection.entity.InspectionQuestion;
 import com.seoulchonnom.spec.inspection.entity.ViewedProperty;
 import com.seoulchonnom.spec.inspection.entity.vo.QuestionAnswerType;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionQuestionRdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.PropertyAnswerUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionQuestionVersionRdo;
 import com.seoulchonnom.spec.inspection.mapper.InspectionQuestionMapper;
 import com.seoulchonnom.spec.inspection.mapper.PropertyAnswerMapper;
@@ -33,9 +34,21 @@ class InspectionQuestionQueryFlowTest {
 	}
 
 	/**
-	 * v1 문구로 답한 매물과 v2 문구로 답한 매물을 각각 만든다.
+	 * 그 질문의 현재 버전으로 실제 답을 채운 매물을 만든다.
 	 */
 	private ViewedProperty propertyAnsweringVersion(InspectionQuestion question, String propertyId) {
+		ViewedProperty property = materializedProperty(question, propertyId);
+		PropertyAnswerUdo udo = new PropertyAnswerUdo();
+		udo.setQuestionId(question.getId());
+		udo.setTextValue("답변");
+		viewedPropertyLogic.applyAnswers(property, List.of(udo));
+		return property;
+	}
+
+	/**
+	 * 질문이 깔리기만 하고 답은 비어 있는 매물.
+	 */
+	private ViewedProperty materializedProperty(InspectionQuestion question, String propertyId) {
 		ViewedProperty property = new ViewedProperty("INSPECTION_VISIT-0001", "트리마제", "101동", 1);
 		property.setId(propertyId);
 		viewedPropertyLogic.materializeAnswers(property, List.of(question));
@@ -64,6 +77,17 @@ class InspectionQuestionQueryFlowTest {
 		List<InspectionQuestionRdo> questions = inspectionQuestionQueryFlow.getInspectionQuestions(false, true);
 
 		assertThat(questions.get(0).getAnswerCount()).isEqualTo(2);
+	}
+
+	@Test
+	void getInspectionQuestions_shouldNotCountMaterializedButUnansweredEntries() {
+		InspectionQuestion question = question("q1");
+		when(inspectionQuestionStore.findAllEnabled()).thenReturn(List.of(question));
+		// 매물을 만들면 활성 질문이 빈 항목으로 깔린다. 이건 "답변"이 아니다
+		when(viewedPropertyStore.findAll()).thenReturn(List.of(materializedProperty(question, "p1")));
+
+		assertThat(inspectionQuestionQueryFlow.getInspectionQuestions(false, true).get(0).getAnswerCount())
+			.isZero();
 	}
 
 	@Test

@@ -1283,7 +1283,9 @@ DRAFT 상태에서 "무엇이 남았는지"를 화면에 적기 위한 요약이
 
 ### 11.0 지역 목록 화면 (FE 설계 요구)
 
-지역 N건 각각에 대해 회차 전체를 가로지르는 집계가 필요하다(본문 §10.1). 지역마다 회차를 끌어오면 N × 회차 수만큼 매물·태그·FileBox를 읽게 된다. `InspectionAreaQueryFlow`에서 **지역 수와 무관하게 6회로 고정한다.**
+지역 N건 각각에 대해 회차 전체를 가로지르는 집계가 필요하다(본문 §10.1). 지역마다 회차를 끌어오면 N × 회차 수만큼 매물·태그·FileBox를 읽게 된다. `InspectionAreaQueryFlow`에서 **지역 수와 무관하게 고정한다.**
+
+아래 단계는 논리 단위이고, **실제 저장소 왕복은 7회**다. 태그 조회가 연결 테이블과 태그 마스터 2회로 갈라지고 사진에 `FileAsset` 조회가 1회 붙는다. 처음에는 이 둘을 세지 않아 "6회"로 적었는데, 세는 기준을 저장소 왕복으로 통일했다.
 
 ```text
 1) InspectionAreaStore.findPage(조건)                        → 지역 목록 (1회)
@@ -1347,11 +1349,13 @@ List<FileBoxDoc> findAllByOwnerTypeAndOwnerIdIn(FileBoxOwnerType ownerType, Coll
 6) FileBoxStore.findOptionalByOwner               (1회, 임장+매물 사진 모두 포함)
 ```
 
-총 **7회** 고정. 매물 수에 비례해 늘지 않는다. 답변 조회가 3번에 흡수되어 한 번 줄었다 — 상세 화면은 어차피 문답을 그려야 하므로 여기서는 `answers`를 통째로 읽는 것이 맞다.
+실제 저장소 왕복은 **10회**다(임장 1 + 지역 1 + 매물 1 + 질문 마스터 1 + 임장 태그 2 + 매물 태그 2 + FileBox 1 + FileAsset 1). 위 단계 수와 다른 이유는 §11.0과 같다 — 태그는 연결+마스터 2회, 사진은 FileBox+FileAsset 2회다.
+
+**중요한 것은 절대 횟수가 아니라 매물 수와 문답 수에 비례해 늘지 않는다는 점이다.** 답변 조회가 3번에 흡수되어 한 번 줄었다 — 상세 화면은 어차피 문답을 그려야 하므로 여기서는 `answers`를 통째로 읽는 것이 맞고, 미완료 요약도 이미 로드한 매물로 만든다(같은 값을 얻자고 projection을 다시 조회하지 않는다).
 
 4번은 **배지 계산에만 쓴다.** 질문 마스터 조회가 실패하거나 비어도 문답 렌더링은 스냅샷으로 정상 동작해야 한다 — `isCurrentVersion`/`questionEnabled`를 `null`로 두고 FE가 배지를 생략한다. 이 조회를 렌더링의 전제로 만들면 요구사항 §20의 독립성이 깨진다.
 
-지역 상세의 복합 응답(본문 §10.1)은 위 7회에 `visits[]` 요약용 2회(회차 목록 + 회차별 매물 수·미완료 수)를 더해 **9회**다. 회차 요약에 사진을 싣지 않으므로 FileBox 추가 조회는 없다.
+지역 상세의 복합 응답(본문 §10.1)은 위 10회에 `visits[]` 요약용 조회를 더한다. 회차 요약에 사진을 싣지 않으므로 FileBox 추가 조회는 없다.
 
 **단지별 그룹핑은 서버가 하지 않는다.** 요구사항 §41은 "UI에서는 필요에 따라 단지명을 기준으로 매물을 묶어서 표시할 수 있다"고 쓴다 — 표시 방식의 선택지이지 데이터 구조가 아니다. 응답은 `sortOrder` 오름차순 평면 배열로 내려주고, 각 항목에 `complexName`을 담는다. FE가 필요할 때 `complexName`으로 묶는다.
 
@@ -1391,8 +1395,10 @@ List<FileBoxDoc> findAllByOwnerTypeAndOwnerIdIn(FileBoxOwnerType ownerType, Coll
 
 | 조회 | 방법 |
 | --- | --- |
-| `GET /inspection-questions?withAnswerCount=true` | 질문별 **총계**. `viewed_property`의 `answers`를 전건 읽어 애플리케이션에서 `questionId`로 집계한다 |
+| `GET /inspection-questions?withAnswerCount=true` | 질문별 **총계**. `viewed_property`의 `answers`를 전건 읽어 `questionId`로 집계한다 |
 | `GET /inspection-questions/{questionId}/versions` | 그 질문의 버전별 집계. 같은 스캔에서 `questionVersionNo`로 한 번 더 나눈다 |
+
+**`answered = true`인 항목만 센다.** 매물을 만들면 활성 질문이 전부 빈 항목으로 깔리므로, 거르지 않으면 "이 질문이 깔린 매물 수"가 되어 `answerCount`라는 이름과 다른 값이 나간다.
 
 - 두 API 모두 **관리자 화면 전용이고 저빈도**다. 일반 사용자 흐름(매물 작성)은 `withAnswerCount` 없이 호출하므로 이 스캔을 타지 않는다.
 - 기본값은 `withAnswerCount=false`다. FE가 명시적으로 켜야 한다.
@@ -1442,7 +1448,7 @@ List<FileBoxDoc> findAllByOwnerTypeAndOwnerIdIn(FileBoxOwnerType ownerType, Coll
 - `Logic`은 `@Transactional(readOnly = true)`를 클래스에, 커맨드 메서드에 `@Transactional`을 다는 기존 패턴(`TravelLogic`)을 따른다.
 - `Flow`도 커맨드 메서드에 `@Transactional`을 단다.
 - **FileBox는 MongoDB라 PostgreSQL 트랜잭션에 참여하지 않는다.** 기존 `TravelLogic`과 동일하게 등록·수정은 "RDB 저장 성공 후 FileBox 동기화" 순서를 지킨다. 반대로 하면 RDB 롤백 시 고아 FileBox가 남는다.
-- **삭제도 등록과 같은 방향이다. RDB 트랜잭션을 커밋한 뒤에 FileBox를 지운다**(본문 §12.1). 어느 쪽이든 실패 창은 남지만, 남는 것이 "무해한 고아 Mongo 문서"이지 "복구 불가능한 사진 소실"이어서는 안 된다.
+- **삭제도 등록과 같은 방향이다. RDB 트랜잭션을 커밋한 뒤에 FileBox를 지운다**(본문 §12.1). 이것은 `@Transactional` 메서드 본문에 Mongo 삭제를 마지막 줄로 두는 것으로는 달성되지 않는다 — 트랜잭션 프록시는 **메서드가 반환된 뒤에** 커밋하므로 본문의 Mongo 삭제는 언제나 커밋보다 먼저 확정된다. `AfterCommitExecutor.run(...)`으로 `TransactionSynchronization.afterCommit`에 등록해야 실제로 순서가 지켜진다. 어느 쪽이든 실패 창은 남지만, 남는 것이 "무해한 고아 Mongo 문서"이지 "복구 불가능한 사진 소실"이어서는 안 된다.
 - 두 저장소를 한 트랜잭션으로 묶을 방법이 없으므로 **교차 저장소 연산의 원칙을 하나로 통일한다: PostgreSQL이 진실의 원천이고, FileBox 쪽 불일치는 사후에 정리 가능한 형태로만 남긴다.** 등록·수정 실패든 삭제 실패든 남는 것은 고아 FileBox 문서 하나이고, 같은 정리 배치가 처리한다.
 - 고아 FileBox 정리 배치는 이 기능의 범위 밖이다. `ownerId`가 더 이상 존재하지 않는 문서를 지우는 작업은 travel/trip에도 필요하므로 파일 도메인 공통 과제로 남긴다.
 
