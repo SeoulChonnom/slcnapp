@@ -1451,14 +1451,14 @@ List<FileBoxDoc> findAllByOwnerTypeAndOwnerIdIn(FileBoxOwnerType ownerType, Coll
 ## 13. 공통 코드 변경 체크리스트
 
 - [x] `SequenceName`에 `INSPECTION_AREA`, `INSPECTION_VISIT`, `INSPECTION_QUESTION` 추가
-- [ ] `slcn.id_sequence`에 시드 행 3건 INSERT (본문 §8.7) — **빠뜨리면 등록이 `ID NOT EXIST`로 실패**
+- [ ] **(배포 작업)** `slcn.id_sequence`에 시드 행 3건 INSERT (본문 §8.7) — **빠뜨리면 등록이 `ID NOT EXIST`로 실패**
 - [x] `FileType`에 `INSPECTION("inspection")` 추가
 - [x] `FileConstant.AVAILABLE_PATH`에 `inspection` 추가 — **빠뜨리면 업로드가 `FilePathInvalidException`**
 - [x] `FileBoxOwnerType`에 `INSPECTION_VISIT` 추가
 - [x] `FileBoxTargetType`에 `INSPECTION_VISIT`, `VIEWED_PROPERTY` 추가
 - [x] `FileBoxStore`에 `findAllByOwnerTypeAndOwnerIdIn` **래퍼 메서드** 추가 — 리포지터리 파생 질의(`FileBoxRepository.java:17`)는 이미 존재하는 미사용 메서드다 (본문 §11.1)
 - [x] `StringListConverter`를 `aggregate/common/store/converter/`로 이동 + `TravelJpo`/테스트 참조 수정 (본문 §9.1)
-- [ ] `PropertyAnswerListConverter`, `QuestionVersionListConverter` 작성 — `TravelDayListConverter`와 같은 형태. **JPO 필드에 `@Column(columnDefinition = "TEXT")`를 반드시 함께 붙인다**(본문 §8.6)
+- [x] `PropertyAnswerListConverter`, `QuestionVersionListConverter` 작성 — `TravelDayListConverter`와 같은 형태. **JPO 필드에 `@Column(columnDefinition = "TEXT")`를 반드시 함께 붙인다**(본문 §8.6)
 - [x] `InspectionConstant`에 에러 메시지 상수 정의
 - [x] `ErrorCode`에 아래 추가
 
@@ -1481,10 +1481,10 @@ List<FileBoxDoc> findAllByOwnerTypeAndOwnerIdIn(FileBoxOwnerType ownerType, Coll
 
 - [x] `docs/file-asset.md`에 `INSPECTION_VISIT` owner / `INSPECTION_VISIT`·`VIEWED_PROPERTY` target, `inspection` 파일 타입 추가
 - [x] `docs/inspection/01-spec-design.md` 상단에 "이 문서는 `docs/field_research/implementation_design.md`로 대체됨" 표기
-- [ ] 오브젝트 스토리지 사전 준비 **불필요** 확인 완료 — `FileType` 값 추가만으로 `originals/inspection/`·`derived/inspection/` 키가 생성된다 (본문 §7.5-4)
-- [ ] FE 연동 문서에 다중 업로드 상한(요청 60 MB / 파일 10 MB ≈ 6장)과 `variant` 사용 규칙 명시 (본문 §7.5-1, §7.5-2)
+- [x] 오브젝트 스토리지 사전 준비 **불필요** 확인 완료 — `FileType` 값 추가만으로 `originals/inspection/`·`derived/inspection/` 키가 생성된다 (본문 §7.5-4)
+- [x] FE 연동 문서에 다중 업로드 상한(요청 60 MB / 파일 10 MB ≈ 6장)과 `variant` 사용 규칙 명시 (본문 §7.5-1, §7.5-2) — `docs/field_research/api.md` §7
 - [x] `SecurityConfiguration`에 `/inspection-questions` **쓰기 메서드(POST/PUT/PATCH) `ADMIN` matcher 추가** — `anyRequest()`보다 앞에 배치. `import org.springframework.http.HttpMethod;`를 함께 추가한다 (본문 §10.4)
-- [ ] 관리자 계정이 `USER` + `ADMIN` 권한을 함께 보유하는지 운영 DB에서 확인 (본문 §10.4)
+- [ ] **(배포 작업)** 관리자 계정이 `USER` + `ADMIN` 권한을 함께 보유하는지 운영 DB에서 확인 (본문 §10.4) — 없으면 질문 등록을 아무도 못 한다
 
 JPA 엔티티 스캔은 `AggregateConfiguration`이 `com.seoulchonnom.aggregate` 전체를 훑으므로 **설정 변경이 필요 없다.**
 
@@ -1562,17 +1562,19 @@ JPA 엔티티 스캔은 `AggregateConfiguration`이 `com.seoulchonnom.aggregate`
 | --- | --- | --- | --- |
 | 1 ✅ | 공통 계약 | `SequenceName`, `FileType`, `FileConstant`, `FileBoxOwnerType`/`TargetType`, `FileBoxStore.findAllByOwnerTypeAndOwnerIdIn`, `StringListConverter` 공통 이동, `ErrorCode`, `InspectionConstant` | travel 테스트 포함 기존 테스트 전부 통과 |
 | 2 ✅ | spec 계약 | 엔티티 5종, VO 3종/enum 3종, Facade 5종, sdo 33종, mapper 6종 | 컴파일 + 엔티티·mapper 테스트 36건 |
-| 3 | aggregate — 질문 | `InspectionQuestion` JPO·Store·Logic(`versions` 컨버터 포함), 버전 추가 규칙, 시드 SQL 문서화 | `InspectionQuestionLogicTest` |
-| 4 | aggregate — 지역·태그 | `InspectionArea`, `InspectionTag` + 연결 테이블 JPO·Store·Logic | `InspectionAreaLogicTest`, `InspectionTagLogicTest` |
-| 5 | aggregate — 임장 | `InspectionVisit` JPO·Store·Logic + `InspectionPhotoSupport` + `InspectionVisitFlow`(등록/수정) | `InspectionVisitLogicTest`, `InspectionVisitFlowTest`, `InspectionPhotoSupportTest` |
-| 6 | aggregate — 매물·문답·상태·삭제 | `ViewedProperty` JPO·Store·Logic(`answers` 컨버터, 파생 카운트 갱신, 타입별 값 검증 포함) + `ViewedPropertyFlow`(스냅샷 생성 포함) + **양쪽 상태 전이와 삭제** | `ViewedPropertyFlowTest`, `ViewedPropertyLogicTest` |
-| 7 | aggregate — 조회 | `InspectionVisitQueryFlow`, `InspectionAreaQueryFlow`, `InspectionQuestionQueryFlow`, `InspectionSummarySupport`, `ViewedPropertySummaryPdo`, 목록·상세 배치 조회, 목록 필터, 미완료 요약, 질문 `answerCount`(본문 §11.5) | `InspectionVisitQueryFlowTest`, `InspectionAreaQueryFlowTest`, `InspectionQuestionQueryFlowTest`, `InspectionSummarySupportTest` |
+| 3 ✅ | aggregate — 질문 | `InspectionQuestion` JPO·Store·Logic(`versions` 컨버터 포함), 버전 추가 규칙, 시드 SQL 문서화 | `InspectionQuestionLogicTest` 14건 |
+| 4 ✅ | aggregate — 지역·태그 | `InspectionArea`, `InspectionTag` + 연결 테이블 JPO·Store·Logic | `InspectionAreaLogicTest`, `InspectionTagLogicTest` |
+| 5 ✅ | aggregate — 임장 | `InspectionVisit` JPO·Store·Logic + `InspectionPhotoSupport` + `InspectionVisitFlow`(등록/수정) | `InspectionVisitLogicTest`, `InspectionVisitFlowTest`, `InspectionPhotoSupportTest` |
+| 6 ✅ | aggregate — 매물·문답·상태·삭제 | `ViewedProperty` JPO·Store·Logic(`answers` 컨버터, 파생 카운트 갱신, 타입별 값 검증 포함) + `ViewedPropertyFlow`(스냅샷 생성 포함) + **양쪽 상태 전이와 삭제** | `ViewedPropertyFlowTest`, `ViewedPropertyLogicTest` |
+| 7 ✅ | aggregate — 조회 | `InspectionVisitQueryFlow`, `InspectionAreaQueryFlow`, `InspectionQuestionQueryFlow`, `InspectionSummarySupport`, `ViewedPropertySummaryPdo`, 목록·상세 배치 조회, 목록 필터, 미완료 요약, 질문 `answerCount`(본문 §11.5) | `InspectionVisitQueryFlowTest`, `InspectionAreaQueryFlowTest`, `InspectionQuestionQueryFlowTest`, `InspectionSummarySupportTest` |
 | 8 ✅ | rest + 보안 | Resource 5종, `InspectionAreaFlow`, `SecurityConfiguration`에 질문 쓰기 `ADMIN` matcher | `*ResourceTest` 4종, `SecurityConfigurationTest` 6건 추가 |
-| 9 | 문서 | `docs/file-asset.md` 갱신, FE 연동 문서(`docs/field_research/api.md`), `01-spec-design.md` 대체 표기 | — |
+| 9 ✅ | 문서 | `docs/file-asset.md` 갱신, FE 연동 문서(`docs/field_research/api.md`), `01-spec-design.md` 대체 표기 | — |
 
 3~4번은 서로 독립이라 병행 가능하다. 5번은 4번, 6번은 3·5번에 의존한다.
 
 **상태 전이와 삭제는 5번이 아니라 6번에 둔다.** 임장 완료 조건(본문 §4.3-4)이 "모든 매물이 COMPLETED"이고 임장 삭제가 하위 매물 삭제를 포함하므로, 두 기능 다 `ViewedProperty`가 있어야 성립한다. 5번에 두면 매물을 모르는 반쪽짜리 구현을 만들었다가 6번에서 다시 고치게 된다.
+
+**PR 1~9 구현이 완료되었다.** 아래 §15.1은 배포 시 사람이 해야 하는 작업이며 코드로 대신할 수 없다.
 
 ### 15.1 배포 시 순서
 
