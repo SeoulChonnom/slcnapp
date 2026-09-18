@@ -889,7 +889,6 @@ slcn-aggregate/src/main/java/com/seoulchonnom/aggregate/inspection/
     │       └── QuestionVersionListConverter.java   # inspection_question.versions
     ├── mapper/                                 # *JpoMapper
     ├── projection/
-    │   ├── InspectionVisitSummaryPdo.java      # 목록 화면용(본문 §11.1)
     │   └── ViewedPropertySummaryPdo.java       # answers를 읽지 않는다(본문 §3.6.2)
     └── repository/                             # *Repository
 
@@ -898,7 +897,9 @@ slcn-aggregate/src/main/java/com/seoulchonnom/aggregate/flow/inspection/
 ├── ViewedPropertyFlow.java                     # 매물 등록/수정/상태 전이 + 문답 스냅샷 생성
 ├── InspectionVisitQueryFlow.java               # 임장 목록/상세 조합
 ├── InspectionAreaQueryFlow.java                # 지역 목록/복합 상세 조합 (본문 §11.0, §10.1)
-└── InspectionPhotoSupport.java                 # FileBox 부분 동기화 공통 (본문 §7.3)
+├── InspectionQuestionQueryFlow.java            # 질문 조회 + answerCount (본문 §11.5)
+├── InspectionPhotoSupport.java                 # FileBox 부분 동기화 공통 (본문 §7.3)
+└── InspectionSummarySupport.java               # 미완료 요약 생성 공통 (본문 §10.9)
 
 slcn-rest/src/main/java/com/seoulchonnom/rest/inspection/
 ├── InspectionAreaResource.java
@@ -922,6 +923,10 @@ Store가 7종에서 **5종**으로, JPO가 10종에서 **7종**으로 줄었다.
 | B | inspection 패키지에 동일 구현을 하나 더 둔다 | 중복 13줄. travel을 건드리지 않는다 |
 
 **A안을 권장한다.** 이동은 컴파일 단위 변경이라 런타임 동작에 영향이 없고, 여기서 미루면 세 번째 도메인에서 같은 판단을 다시 하게 된다. 단, 공통화 이동은 **PR 1(공통 변경)에 포함**시켜 도메인 PR의 diff에 섞이지 않게 한다.
+
+`InspectionQuestionQueryFlow`와 `InspectionSummarySupport`는 초기 트리에 없던 것이다. 전자는 질문과 매물이라는 **두 aggregate를 가로지르는 집계**(본문 §11.5)라 어느 한쪽 Logic에 넣으면 도메인 경계가 무너진다. 후자는 미완료 요약을 임장 목록·임장 상세·지역 목록·매물 상세 네 곳에서 같은 기준으로 만들어야 하는데, 구현이 갈라지면 본문 §10.9가 경고한 "0개 남았는데 완료가 안 되는" 상태가 생긴다.
+
+`InspectionVisitSummaryPdo`는 만들지 않았다. `inspection_visit`에는 `answers` 같은 대형 JSON 컬럼이 없어 엔티티를 그대로 읽어도 목록 비용이 크게 달라지지 않는다. projection의 존재 이유는 "읽지 말아야 할 컬럼이 있을 때"이고 `viewed_property`만 그에 해당한다.
 
 ### 9.2 Flow를 도입하는 이유
 
@@ -1559,7 +1564,7 @@ JPA 엔티티 스캔은 `AggregateConfiguration`이 `com.seoulchonnom.aggregate`
 | 4 | aggregate — 지역·태그 | `InspectionArea`, `InspectionTag` + 연결 테이블 JPO·Store·Logic | `InspectionAreaLogicTest`, `InspectionTagLogicTest` |
 | 5 | aggregate — 임장 | `InspectionVisit` JPO·Store·Logic + `InspectionPhotoSupport` + `InspectionVisitFlow`(등록/수정) | `InspectionVisitLogicTest`, `InspectionVisitFlowTest`, `InspectionPhotoSupportTest` |
 | 6 | aggregate — 매물·문답·상태·삭제 | `ViewedProperty` JPO·Store·Logic(`answers` 컨버터, 파생 카운트 갱신, 타입별 값 검증 포함) + `ViewedPropertyFlow`(스냅샷 생성 포함) + **양쪽 상태 전이와 삭제** | `ViewedPropertyFlowTest`, `ViewedPropertyLogicTest` |
-| 7 | aggregate — 조회 | `InspectionVisitQueryFlow`, `InspectionAreaQueryFlow`, projection 2종(`answers` 제외), 목록·상세 배치 조회, 목록 필터, 미완료 요약, 질문 `answerCount`(본문 §11.5), 정렬 갱신 | `InspectionVisitQueryFlowTest`, `InspectionAreaQueryFlowTest`, `IncompleteSummaryTest`, `InspectionOrderTest` |
+| 7 | aggregate — 조회 | `InspectionVisitQueryFlow`, `InspectionAreaQueryFlow`, `InspectionQuestionQueryFlow`, `InspectionSummarySupport`, `ViewedPropertySummaryPdo`, 목록·상세 배치 조회, 목록 필터, 미완료 요약, 질문 `answerCount`(본문 §11.5) | `InspectionVisitQueryFlowTest`, `InspectionAreaQueryFlowTest`, `InspectionQuestionQueryFlowTest`, `InspectionSummarySupportTest` |
 | 8 | rest + 보안 | Resource 5종, `SecurityConfiguration`에 질문 쓰기 `ADMIN` matcher | `*ResourceTest`, `*ResourceJsonContractTest`, `SecurityConfigurationTest` |
 | 9 | 문서 | `docs/file-asset.md` 갱신, FE 연동 문서(`docs/field_research/api.md`), `01-spec-design.md` 대체 표기 | — |
 

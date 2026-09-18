@@ -16,14 +16,12 @@ import com.seoulchonnom.spec.inspection.entity.InspectionArea;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaCdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaUdo;
 import com.seoulchonnom.spec.inspection.mapper.InspectionAreaMapper;
-import com.seoulchonnom.spec.inspection.mapper.PropertyAnswerMapper;
-import com.seoulchonnom.spec.inspection.mapper.ViewedPropertyMapper;
 
 class InspectionAreaLogicTest {
 	private final InspectionAreaStore inspectionAreaStore = mock(InspectionAreaStore.class);
 	private final IdGenerator idGenerator = mock(IdGenerator.class);
 	private final InspectionAreaLogic inspectionAreaLogic = new InspectionAreaLogic(inspectionAreaStore,
-		new InspectionAreaMapper(new ViewedPropertyMapper(new PropertyAnswerMapper())), idGenerator);
+		new InspectionAreaMapper(), idGenerator);
 
 	private void echoSave() {
 		when(inspectionAreaStore.save(any())).thenAnswer(invocation -> invocation.getArgument(0));

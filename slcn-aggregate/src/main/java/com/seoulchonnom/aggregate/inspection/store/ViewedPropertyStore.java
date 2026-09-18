@@ -67,6 +67,15 @@ public class ViewedPropertyStore {
 		return viewedPropertyRepository.findAllByInspectionVisitIdIn(inspectionVisitIds);
 	}
 
+	/**
+	 * 질문별 답변 수 집계 전용 전건 조회. answers가 전부 따라오므로 관리자 화면에서만 쓴다.
+	 */
+	public List<ViewedProperty> findAll() {
+		return viewedPropertyRepository.findAll().stream()
+			.map(viewedPropertyJpoMapper::toDomain)
+			.toList();
+	}
+
 	public long countByVisitId(String inspectionVisitId) {
 		return viewedPropertyRepository.countByInspectionVisitId(inspectionVisitId);
 	}
