@@ -19,6 +19,7 @@ import com.seoulchonnom.aggregate.inspection.logic.ViewedPropertyLogic;
 import com.seoulchonnom.aggregate.inspection.store.InspectionTagStore;
 import com.seoulchonnom.spec.inspection.entity.InspectionVisit;
 import com.seoulchonnom.spec.inspection.entity.ViewedProperty;
+import com.seoulchonnom.spec.inspection.entity.vo.ComplexNameScope;
 import com.seoulchonnom.spec.inspection.entity.vo.InspectionStatus;
 import com.seoulchonnom.spec.inspection.facade.sdo.PropertyAnswerBulkUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyCdo;
@@ -229,13 +230,27 @@ class ViewedPropertyFlowTest {
 	}
 
 	@Test
-	void getComplexNames_shouldReturnDistinctSortedNames() {
-		ViewedProperty first = property("p1", InspectionStatus.DRAFT, 1);
-		ViewedProperty second = property("p2", InspectionStatus.DRAFT, 2);
-		second.setComplexName("갤러리아포레");
-		ViewedProperty third = property("p3", InspectionStatus.DRAFT, 3);
-		when(viewedPropertyLogic.getViewedProperties(VISIT_ID)).thenReturn(List.of(first, second, third));
+	void getComplexNames_shouldDelegateVisitScopeToLogicWithOnlyThisVisit() {
+		when(viewedPropertyLogic.getDistinctComplexNames(List.of(VISIT_ID)))
+			.thenReturn(List.of("갤러리아포레", "트리마제"));
 
-		assertThat(viewedPropertyFlow.getComplexNames(VISIT_ID)).containsExactly("갤러리아포레", "트리마제");
+		assertThat(viewedPropertyFlow.getComplexNames(VISIT_ID, ComplexNameScope.VISIT))
+			.containsExactly("갤러리아포레", "트리마제");
+		verifyNoInteractions(inspectionVisitLogic);
+	}
+
+	@Test
+	void getComplexNames_shouldDelegateAreaScopeToLogicWithAllVisitsOfTheArea() {
+		InspectionVisit visit = visit(InspectionStatus.DRAFT);
+		InspectionVisit otherVisit = new InspectionVisit("INSPECTION_VISIT-0002", "INSPECTION_AREA-0001",
+			LocalDateTime.of(2026, 6, 2, 10, 0));
+		when(inspectionVisitLogic.getInspectionVisit(VISIT_ID)).thenReturn(visit);
+		when(inspectionVisitLogic.getInspectionVisitsByAreaId("INSPECTION_AREA-0001"))
+			.thenReturn(List.of(visit, otherVisit));
+		when(viewedPropertyLogic.getDistinctComplexNames(List.of(VISIT_ID, "INSPECTION_VISIT-0002")))
+			.thenReturn(List.of("갤러리아포레", "트리마제"));
+
+		assertThat(viewedPropertyFlow.getComplexNames(VISIT_ID, ComplexNameScope.AREA))
+			.containsExactly("갤러리아포레", "트리마제");
 	}
 }

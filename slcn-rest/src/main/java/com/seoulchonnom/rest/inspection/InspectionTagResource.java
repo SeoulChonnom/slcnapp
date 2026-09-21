@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.seoulchonnom.aggregate.inspection.logic.InspectionTagLogic;
+import com.seoulchonnom.spec.inspection.entity.vo.InspectionTagScope;
 import com.seoulchonnom.spec.inspection.facade.InspectionTagFacade;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionTagRdo;
 
@@ -24,7 +25,8 @@ public class InspectionTagResource implements InspectionTagFacade {
 	@Override
 	@GetMapping
 	public ResponseEntity<List<InspectionTagRdo>> getInspectionTags(
-		@RequestParam(value = "keyword", required = false) String keyword) {
-		return new ResponseEntity<>(inspectionTagLogic.getInspectionTags(keyword), HttpStatus.OK);
+		@RequestParam(value = "keyword", required = false) String keyword,
+		@RequestParam(value = "scope", required = false) InspectionTagScope scope) {
+		return new ResponseEntity<>(inspectionTagLogic.getInspectionTags(keyword, scope), HttpStatus.OK);
 	}
 }

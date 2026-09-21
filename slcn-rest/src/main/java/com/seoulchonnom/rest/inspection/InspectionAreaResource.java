@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.seoulchonnom.aggregate.flow.inspection.InspectionAreaFlow;
 import com.seoulchonnom.aggregate.flow.inspection.InspectionAreaQueryFlow;
 import com.seoulchonnom.spec.inspection.facade.InspectionAreaFacade;
+import com.seoulchonnom.spec.inspection.facade.sdo.AreaViewedPropertyRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaCdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaDetailRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaRdo;
@@ -45,6 +46,12 @@ public class InspectionAreaResource implements InspectionAreaFacade {
 		@RequestParam(value = "includeProperties", defaultValue = "true") boolean includeProperties) {
 		return new ResponseEntity<>(inspectionAreaQueryFlow.getInspectionArea(areaId, visitId, includeProperties),
 			HttpStatus.OK);
+	}
+
+	@Override
+	@GetMapping("/{areaId}/properties")
+	public ResponseEntity<List<AreaViewedPropertyRdo>> getAreaProperties(@PathVariable("areaId") String areaId) {
+		return new ResponseEntity<>(inspectionAreaQueryFlow.getAreaProperties(areaId), HttpStatus.OK);
 	}
 
 	@Override

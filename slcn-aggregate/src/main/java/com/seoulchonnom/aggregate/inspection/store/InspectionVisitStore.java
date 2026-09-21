@@ -4,8 +4,10 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Repository;
 
+import com.seoulchonnom.aggregate.inspection.exception.InspectionVisitConflictException;
 import com.seoulchonnom.aggregate.inspection.exception.InspectionVisitNotFoundException;
 import com.seoulchonnom.aggregate.inspection.store.jpo.InspectionVisitJpo;
 import com.seoulchonnom.aggregate.inspection.store.mapper.InspectionVisitJpoMapper;
@@ -20,9 +22,18 @@ public class InspectionVisitStore {
 	private final InspectionVisitRepository inspectionVisitRepository;
 	private final InspectionVisitJpoMapper inspectionVisitJpoMapper;
 
+	/**
+	 * EntityJpo의 @Version이 모든 엔티티에 낙관적 잠금을 건다. 두 사용자가 같은 임장을
+	 * 동시에 저장하면 이 충돌이 난다. 커밋 시점까지 미루면 예외가 트랜잭션 밖에서 500으로
+	 * 새어나가므로 saveAndFlush로 당겨 이 메서드 안에서 409로 바꾼다.
+	 */
 	public InspectionVisit save(InspectionVisit visit) {
-		return inspectionVisitJpoMapper.toDomain(
-			inspectionVisitRepository.save(inspectionVisitJpoMapper.toJpo(visit)));
+		try {
+			return inspectionVisitJpoMapper.toDomain(
+				inspectionVisitRepository.saveAndFlush(inspectionVisitJpoMapper.toJpo(visit)));
+		} catch (ObjectOptimisticLockingFailureException e) {
+			throw new InspectionVisitConflictException();
+		}
 	}
 
 	public InspectionVisit findById(String visitId) {

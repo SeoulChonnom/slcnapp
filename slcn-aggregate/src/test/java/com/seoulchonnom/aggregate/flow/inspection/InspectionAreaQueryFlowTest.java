@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 
 import com.seoulchonnom.aggregate.file.store.FileAssetStore;
 import com.seoulchonnom.aggregate.filebox.store.FileBoxStore;
+import com.seoulchonnom.aggregate.inspection.exception.InspectionAreaNotFoundException;
 import com.seoulchonnom.aggregate.inspection.store.InspectionAreaStore;
 import com.seoulchonnom.aggregate.inspection.store.InspectionTagStore;
 import com.seoulchonnom.aggregate.inspection.store.InspectionVisitStore;
@@ -27,6 +28,7 @@ import com.seoulchonnom.spec.filebox.mapper.FileBoxMapper;
 import com.seoulchonnom.spec.inspection.entity.InspectionArea;
 import com.seoulchonnom.spec.inspection.entity.InspectionVisit;
 import com.seoulchonnom.spec.inspection.entity.vo.InspectionStatus;
+import com.seoulchonnom.spec.inspection.facade.sdo.AreaViewedPropertyRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaDetailRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaRdo;
 import com.seoulchonnom.spec.inspection.mapper.InspectionAreaMapper;
@@ -64,6 +66,18 @@ class InspectionAreaQueryFlowTest {
 			.role(role)
 			.sortOrder(sortOrder)
 			.build();
+	}
+
+	private static ViewedPropertySummaryPdo pdo(String id, String visitId, String complexName, int sortOrder) {
+		ViewedPropertySummaryPdo pdo = mock(ViewedPropertySummaryPdo.class);
+		when(pdo.getId()).thenReturn(id);
+		when(pdo.getInspectionVisitId()).thenReturn(visitId);
+		when(pdo.getComplexName()).thenReturn(complexName);
+		when(pdo.getName()).thenReturn("101동 " + id);
+		when(pdo.getInterestLevel()).thenReturn(5);
+		when(pdo.getStatus()).thenReturn(InspectionStatus.DRAFT);
+		when(pdo.getSortOrder()).thenReturn(sortOrder);
+		return pdo;
 	}
 
 	private void noProperties() {
@@ -235,7 +249,7 @@ class InspectionAreaQueryFlowTest {
 		inspectionAreaQueryFlow.getInspectionAreas(null);
 
 		// 최신 회차가 아니라 지역 전체에서 고른다
-		verify(inspectionVisitQueryFlow).topInterestProperty(List.of(olderTop));
+		verify(inspectionVisitQueryFlow).topInterestProperty(eq(List.of(olderTop)), anyMap());
 	}
 
 	@Test
@@ -252,5 +266,47 @@ class InspectionAreaQueryFlowTest {
 		InspectionAreaRdo rdo = inspectionAreaQueryFlow.getInspectionAreas(null).get(0);
 
 		assertThat(rdo.getIncompleteSummary().getDraftVisitCount()).isEqualTo(1);
+	}
+
+	@Test
+	void getAreaProperties_shouldSortByVisitedAtDescThenSortOrderAsc() {
+		when(inspectionVisitStore.findAllByAreaId("INSPECTION_AREA-0001")).thenReturn(List.of(
+			visit("v1", "INSPECTION_AREA-0001", LocalDateTime.of(2026, 9, 17, 14, 0)),
+			visit("v2", "INSPECTION_AREA-0001", LocalDateTime.of(2026, 9, 3, 10, 0))));
+		// pdo(...)가 내부에서 when().thenReturn()으로 각 getter를 스텁하므로, 바깥쪽
+		// when(...).thenReturn(...)의 인자로 바로 넣으면 미완료 스텁 상태에서 또 다른
+		// mock 메서드를 호출하게 되어 Mockito가 UnfinishedStubbingException을 던진다.
+		// 그래서 먼저 완성된 mock을 변수로 만들어 둔다.
+		ViewedPropertySummaryPdo p1 = pdo("p1", "v1", "트리마제", 1);
+		ViewedPropertySummaryPdo p2 = pdo("p2", "v1", "트리마제", 2);
+		ViewedPropertySummaryPdo p3 = pdo("p3", "v2", "갤러리아포레", 1);
+		when(inspectionVisitQueryFlow.propertiesByVisitId(anyList()))
+			.thenReturn(Map.of("v1", List.of(p2, p1), "v2", List.of(p3)));
+
+		List<AreaViewedPropertyRdo> result = inspectionAreaQueryFlow.getAreaProperties("INSPECTION_AREA-0001");
+
+		// v1(최신)의 sortOrder 오름차순 다음 v2(과거)가 이어진다
+		assertThat(result).extracting(AreaViewedPropertyRdo::getPropertyId).containsExactly("p1", "p2", "p3");
+		assertThat(result.get(0).getVisitId()).isEqualTo("v1");
+		assertThat(result.get(0).getVisitedAt()).isEqualTo(LocalDateTime.of(2026, 9, 17, 14, 0).toString());
+	}
+
+	@Test
+	void getAreaProperties_shouldReturnEmptyForAreaWithoutAnyVisit() {
+		when(inspectionAreaStore.findById("INSPECTION_AREA-0001"))
+			.thenReturn(new InspectionArea("INSPECTION_AREA-0001", "성수동", null));
+		when(inspectionVisitStore.findAllByAreaId("INSPECTION_AREA-0001")).thenReturn(List.of());
+
+		assertThat(inspectionAreaQueryFlow.getAreaProperties("INSPECTION_AREA-0001")).isEmpty();
+		verifyNoInteractions(inspectionVisitQueryFlow);
+	}
+
+	@Test
+	void getAreaProperties_shouldThrowWhenAreaDoesNotExist() {
+		when(inspectionAreaStore.findById("INSPECTION_AREA-9999")).thenThrow(new InspectionAreaNotFoundException());
+		when(inspectionVisitStore.findAllByAreaId("INSPECTION_AREA-9999")).thenReturn(List.of());
+
+		assertThatThrownBy(() -> inspectionAreaQueryFlow.getAreaProperties("INSPECTION_AREA-9999"))
+			.isInstanceOf(InspectionAreaNotFoundException.class);
 	}
 }

@@ -23,6 +23,7 @@ import com.seoulchonnom.aggregate.inspection.store.repository.InspectionTagRepos
 import com.seoulchonnom.aggregate.inspection.store.repository.InspectionVisitTagRepository;
 import com.seoulchonnom.aggregate.inspection.store.repository.ViewedPropertyTagRepository;
 import com.seoulchonnom.spec.inspection.entity.InspectionTag;
+import com.seoulchonnom.spec.inspection.entity.vo.InspectionTagScope;
 
 import lombok.RequiredArgsConstructor;
 
@@ -81,17 +82,26 @@ public class InspectionTagStore {
 	}
 
 	/**
-	 * 자동완성 정렬 기준인 사용 빈도. 임장 연결과 매물 연결을 합쳐 센다.
+	 * 자동완성 정렬 기준인 사용 빈도.
+	 *
+	 * scope가 없으면(하위호환) 임장 연결과 매물 연결을 합쳐 센다. scope가 있으면 해당 연결
+	 * 리포지토리 하나만 조회한다 — 임장 태그와 매물 태그는 용도가 다른데(B-⑨) 지금까지는 합산만
+	 * 지원해 매물 입력창에 임장 전용 태그가 1순위로 뜨는 문제가 있었다. 둘 다 조회하지 않으므로
+	 * scope 지정 시 오히려 저장소 왕복이 하나 줄어든다.
 	 */
-	public Map<String, Integer> countUsageByTagIds(Collection<String> tagIds) {
+	public Map<String, Integer> countUsageByTagIds(Collection<String> tagIds, InspectionTagScope scope) {
 		if (tagIds == null || tagIds.isEmpty()) {
 			return Map.of();
 		}
 		Map<String, Integer> usage = new HashMap<>();
-		inspectionVisitTagRepository.findAllByTagIdIn(tagIds)
-			.forEach(link -> usage.merge(link.getTagId(), 1, Integer::sum));
-		viewedPropertyTagRepository.findAllByTagIdIn(tagIds)
-			.forEach(link -> usage.merge(link.getTagId(), 1, Integer::sum));
+		if (scope != InspectionTagScope.PROPERTY) {
+			inspectionVisitTagRepository.findAllByTagIdIn(tagIds)
+				.forEach(link -> usage.merge(link.getTagId(), 1, Integer::sum));
+		}
+		if (scope != InspectionTagScope.VISIT) {
+			viewedPropertyTagRepository.findAllByTagIdIn(tagIds)
+				.forEach(link -> usage.merge(link.getTagId(), 1, Integer::sum));
+		}
 		return usage;
 	}
 

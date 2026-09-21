@@ -1,5 +1,6 @@
 package com.seoulchonnom.aggregate.flow.inspection;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -30,6 +31,7 @@ import com.seoulchonnom.spec.filebox.facade.sdo.FileBoxItemRdo;
 import com.seoulchonnom.spec.filebox.mapper.FileBoxMapper;
 import com.seoulchonnom.spec.inspection.entity.InspectionArea;
 import com.seoulchonnom.spec.inspection.entity.InspectionVisit;
+import com.seoulchonnom.spec.inspection.facade.sdo.AreaViewedPropertyRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaDetailRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitSummaryRdo;
@@ -136,6 +138,44 @@ public class InspectionAreaQueryFlow {
 				: null);
 	}
 
+	/**
+	 * 지역 전체 매물 경량 목록(A-②). FE가 complexName+name으로 회차 간 매물을 이어 보여주는
+	 * 재료다. 그룹핑은 FE가 하므로 여기서는 정렬된 평면 목록만 만든다.
+	 *
+	 * 저장소 왕복 2회로 유지한다: 임장 목록 1(findAllByAreaId) + 매물 요약 1
+	 * (inspectionVisitQueryFlow.propertiesByVisitId가 감싼 findSummariesByVisitIds).
+	 * 회차가 하나도 없을 때만 지역 자체의 존재를 추가로 확인한다 — 존재하는 지역은 매물 없이도
+	 * 정상이라 빈 배열을 돌려줘야 하고, 없는 지역은 기존 InspectionAreaNotFoundException 규약을
+	 * 따라야 하기 때문이다. 이 한 번의 추가 조회는 그 드문 경우에만 든다.
+	 */
+	public List<AreaViewedPropertyRdo> getAreaProperties(String areaId) {
+		List<InspectionVisit> visits = inspectionVisitStore.findAllByAreaId(areaId);
+		if (visits.isEmpty()) {
+			inspectionAreaStore.findById(areaId);
+			return List.of();
+		}
+
+		List<String> visitIds = visits.stream().map(InspectionVisit::getId).toList();
+		Map<String, List<ViewedPropertySummaryPdo>> propertiesByVisit =
+			inspectionVisitQueryFlow.propertiesByVisitId(visitIds);
+
+		// visits는 이미 visitedAt 내림차순이다(findAllByAreaIdOrderByVisitedAtDescIdAsc).
+		// 회차 안에서는 sortOrder 오름차순으로만 더 정렬하면 전체 요구 정렬이 완성된다.
+		List<AreaViewedPropertyRdo> result = new ArrayList<>();
+		for (InspectionVisit visit : visits) {
+			propertiesByVisit.getOrDefault(visit.getId(), List.<ViewedPropertySummaryPdo>of()).stream()
+				.sorted(Comparator.comparingInt(ViewedPropertySummaryPdo::getSortOrder))
+				.forEach(property -> result.add(toAreaViewedPropertyRdo(property, visit)));
+		}
+		return result;
+	}
+
+	private AreaViewedPropertyRdo toAreaViewedPropertyRdo(ViewedPropertySummaryPdo property, InspectionVisit visit) {
+		String visitedAt = visit.getVisitedAt() == null ? null : visit.getVisitedAt().toString();
+		return new AreaViewedPropertyRdo(property.getId(), visit.getId(), visitedAt, property.getComplexName(),
+			property.getName(), property.getInterestLevel(), property.getStatus());
+	}
+
 	private String resolveSelectedVisitId(String visitId, List<InspectionVisit> visits) {
 		if (StringUtils.hasText(visitId)) {
 			return visits.stream()
@@ -163,13 +203,17 @@ public class InspectionAreaQueryFlow {
 		InspectionVisitSummaryRdo latestSummary = latest == null ? null
 			: inspectionVisitMapper.toInspectionVisitSummaryRdo(latest,
 				tagNames.getOrDefault(latest.getId(), List.of()), null, null, null);
+		// topProperty는 지역 전체에서 고르므로 동점이면 최신 회차가 이기게 visitedAt을 함께 넘긴다
+		Map<String, LocalDateTime> visitedAtByVisitId = visits.stream()
+			.collect(Collectors.toMap(InspectionVisit::getId, InspectionVisit::getVisitedAt));
 
 		return inspectionAreaMapper.toInspectionAreaRdo(area, visits.size(),
 			visits.stream().map(InspectionVisit::getVisitedAt).min(Comparator.naturalOrder()).orElse(null),
 			visits.stream().map(InspectionVisit::getVisitedAt).max(Comparator.naturalOrder()).orElse(null),
 			allProperties.size(),
 			latestSummary,
-			inspectionVisitQueryFlow.toBriefRdo(inspectionVisitQueryFlow.topInterestProperty(allProperties)),
+			inspectionVisitQueryFlow.toBriefRdo(
+				inspectionVisitQueryFlow.topInterestProperty(allProperties, visitedAtByVisitId)),
 			inspectionSummarySupport.ofArea(visits, allProperties),
 			thumbnailItems.stream()
 				.map(item -> fileBoxMapper.toFileBoxItemRdo(item, rdoOf(assets, item.getFileAssetId())))

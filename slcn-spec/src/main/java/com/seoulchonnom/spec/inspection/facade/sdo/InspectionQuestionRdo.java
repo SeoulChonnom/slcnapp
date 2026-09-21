@@ -28,4 +28,9 @@ public class InspectionQuestionRdo {
 	private List<QuestionChoiceSdo> choices = new ArrayList<>();
 	private String unit;
 	private Integer answerCount;
+	/**
+	 * 낙관적 잠금 대조 키. 수정 요청은 이 값을 그대로 되돌려 보내야 한다(C-1).
+	 * currentVersionNo는 문구 수정에만 오르고 policy/status 변경에는 안 올라서 충돌 키로 못 쓴다.
+	 */
+	private long entityVersion;
 }

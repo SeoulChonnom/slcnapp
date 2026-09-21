@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.seoulchonnom.aggregate.common.exception.BadRequestException;
 import com.seoulchonnom.aggregate.inspection.store.InspectionTagStore;
 import com.seoulchonnom.spec.inspection.entity.InspectionTag;
+import com.seoulchonnom.spec.inspection.entity.vo.InspectionTagScope;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionTagRdo;
 import com.seoulchonnom.spec.inspection.mapper.InspectionTagMapper;
 
@@ -39,12 +40,16 @@ public class InspectionTagLogic {
 
 	/**
 	 * 자동완성. 사용 빈도 내림차순, 동률이면 이름순.
+	 *
+	 * scope는 usageCount 집계에만 쓰인다. 이름 매칭(findAllByKeyword)은 임장/매물이 태그 풀을
+	 * 공유하므로 scope와 무관하다 — 그 scope에서 한 번도 안 쓰인 태그도 이름이 걸리면 결과에
+	 * 포함되고 usageCount만 0이 된다.
 	 */
-	public List<InspectionTagRdo> getInspectionTags(String keyword) {
+	public List<InspectionTagRdo> getInspectionTags(String keyword, InspectionTagScope scope) {
 		List<InspectionTag> tags = inspectionTagStore.findAllByKeyword(keyword);
 		Map<String, Integer> usage = inspectionTagStore.countUsageByTagIds(tags.stream()
 			.map(InspectionTag::getId)
-			.collect(Collectors.toSet()));
+			.collect(Collectors.toSet()), scope);
 
 		return tags.stream()
 			.map(tag -> inspectionTagMapper.toInspectionTagRdo(tag, usage.getOrDefault(tag.getId(), 0)))

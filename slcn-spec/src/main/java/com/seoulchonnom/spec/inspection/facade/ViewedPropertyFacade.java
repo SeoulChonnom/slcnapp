@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 
+import com.seoulchonnom.spec.inspection.entity.vo.ComplexNameScope;
 import com.seoulchonnom.spec.inspection.facade.sdo.PropertyAnswerBulkUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyCdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyDetailRdo;
@@ -20,10 +21,13 @@ public interface ViewedPropertyFacade {
 	ResponseEntity<ViewedPropertyDetailRdo> getViewedProperty(String visitId, String propertyId);
 
 	/**
-	 * 이 임장에 이미 등록된 단지/건물명. 자유 입력의 표기 흔들림을 줄이는 자동완성 후보다.
-	 * 전역 단지명 마스터는 만들지 않는다.
+	 * 단지/건물명 자동완성 후보. 자유 입력의 표기 흔들림을 줄인다. 전역 단지명 마스터는 만들지 않는다.
+	 *
+	 * scope=VISIT(기본값)은 이 임장에서 이미 쓴 이름만 준다(하위호환). scope=AREA는 이 임장이
+	 * 속한 지역의 모든 회차에서 쓴 이름을 준다 — "같은 이름이어야 회차 간 매물이 연결됩니다"가
+	 * 자동완성의 목적이라, 이 임장이 첫 회차라 이름이 하나도 없을 때 과거 회차의 이름이 후보가 된다.
 	 */
-	ResponseEntity<List<String>> getComplexNames(String visitId);
+	ResponseEntity<List<String>> getComplexNames(String visitId, ComplexNameScope scope);
 
 	ResponseEntity<ViewedPropertyDetailRdo> modifyViewedProperty(String visitId, String propertyId,
 		ViewedPropertyUdo viewedPropertyUdo);

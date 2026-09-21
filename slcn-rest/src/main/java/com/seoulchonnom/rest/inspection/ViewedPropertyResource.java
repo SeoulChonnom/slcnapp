@@ -12,10 +12,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.seoulchonnom.aggregate.flow.inspection.InspectionVisitQueryFlow;
 import com.seoulchonnom.aggregate.flow.inspection.ViewedPropertyFlow;
+import com.seoulchonnom.spec.inspection.entity.vo.ComplexNameScope;
 import com.seoulchonnom.spec.inspection.facade.ViewedPropertyFacade;
 import com.seoulchonnom.spec.inspection.facade.sdo.PropertyAnswerBulkUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyCdo;
@@ -49,8 +51,9 @@ public class ViewedPropertyResource implements ViewedPropertyFacade {
 
 	@Override
 	@GetMapping("/complex-names")
-	public ResponseEntity<List<String>> getComplexNames(@PathVariable("visitId") String visitId) {
-		return new ResponseEntity<>(viewedPropertyFlow.getComplexNames(visitId), HttpStatus.OK);
+	public ResponseEntity<List<String>> getComplexNames(@PathVariable("visitId") String visitId,
+		@RequestParam(value = "scope", defaultValue = "VISIT") ComplexNameScope scope) {
+		return new ResponseEntity<>(viewedPropertyFlow.getComplexNames(visitId, scope), HttpStatus.OK);
 	}
 
 	@Override

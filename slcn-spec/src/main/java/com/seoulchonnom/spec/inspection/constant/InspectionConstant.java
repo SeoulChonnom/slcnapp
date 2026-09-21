@@ -7,9 +7,11 @@ public final class InspectionConstant {
 
 	public static final String INSPECTION_VISIT_NOT_FOUND_ERROR_MESSAGE = "임장 기록을 찾을 수 없습니다.";
 	public static final String INVALID_INSPECTION_VISIT_ERROR_MESSAGE = "임장 기록의 입력값 또는 완료 조건이 올바르지 않습니다.";
+	public static final String INSPECTION_VISIT_CONFLICT_ERROR_MESSAGE = "임장 기록이 이미 수정되었습니다. 새로고침 후 다시 시도하세요.";
 
 	public static final String VIEWED_PROPERTY_NOT_FOUND_ERROR_MESSAGE = "확인 매물을 찾을 수 없습니다.";
 	public static final String INVALID_VIEWED_PROPERTY_ERROR_MESSAGE = "매물의 입력값 또는 완료 조건이 올바르지 않습니다.";
+	public static final String VIEWED_PROPERTY_CONFLICT_ERROR_MESSAGE = "매물 정보가 이미 수정되었습니다. 새로고침 후 다시 시도하세요.";
 
 	public static final String INSPECTION_QUESTION_NOT_FOUND_ERROR_MESSAGE = "임장 질문을 찾을 수 없습니다.";
 	public static final String INVALID_INSPECTION_QUESTION_ERROR_MESSAGE = "허용되지 않은 질문 수정입니다.";

@@ -12,6 +12,10 @@ import lombok.Setter;
 
 /**
  * 매물 상세. 문답을 포함하므로 임장 상세의 properties[]도 이 타입을 쓴다.
+ *
+ * areaId/areaName/visitedAt은 breadcrumb(임장 › 성수동 › 2026.09.17 임장 › 트리마제 101동 1203호)을
+ * 그리기 위한 문맥이고, prevProperty/nextProperty는 같은 임장 안에서 매물 정렬 순서 기준
+ * 이전/다음 1건이다(없으면 null). visitId 없이 매물을 직행 조회하는 화면에서 필요해졌다.
  */
 @Getter
 @Setter
@@ -19,6 +23,9 @@ import lombok.Setter;
 public class ViewedPropertyDetailRdo {
 	private String propertyId;
 	private String inspectionVisitId;
+	private String areaId;
+	private String areaName;
+	private String visitedAt;
 	private String complexName;
 	private String name;
 	private String memo;
@@ -33,4 +40,6 @@ public class ViewedPropertyDetailRdo {
 	private List<FileBoxItemRdo> photos = new ArrayList<>();
 	private List<PropertyAnswerRdo> answers = new ArrayList<>();
 	private IncompleteSummaryRdo incompleteSummary;
+	private ViewedPropertyBriefRdo prevProperty;
+	private ViewedPropertyBriefRdo nextProperty;
 }

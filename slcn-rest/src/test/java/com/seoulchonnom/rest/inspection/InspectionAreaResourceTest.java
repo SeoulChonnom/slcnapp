@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 
 import com.seoulchonnom.aggregate.flow.inspection.InspectionAreaFlow;
 import com.seoulchonnom.aggregate.flow.inspection.InspectionAreaQueryFlow;
+import com.seoulchonnom.spec.inspection.facade.sdo.AreaViewedPropertyRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaCdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaDetailRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaRdo;
@@ -38,6 +39,17 @@ class InspectionAreaResourceTest {
 		inspectionAreaResource.getInspectionArea("INSPECTION_AREA-0001", "v1", false);
 
 		verify(inspectionAreaQueryFlow).getInspectionArea("INSPECTION_AREA-0001", "v1", false);
+	}
+
+	@Test
+	void getAreaProperties_shouldDelegateToQueryFlow() {
+		List<AreaViewedPropertyRdo> properties = List.of(new AreaViewedPropertyRdo());
+		when(inspectionAreaQueryFlow.getAreaProperties("INSPECTION_AREA-0001")).thenReturn(properties);
+
+		var response = inspectionAreaResource.getAreaProperties("INSPECTION_AREA-0001");
+
+		assertThat(response.getBody()).isSameAs(properties);
+		verify(inspectionAreaQueryFlow).getAreaProperties("INSPECTION_AREA-0001");
 	}
 
 	@Test

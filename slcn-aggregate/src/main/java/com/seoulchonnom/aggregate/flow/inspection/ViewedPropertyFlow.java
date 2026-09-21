@@ -1,7 +1,6 @@
 package com.seoulchonnom.aggregate.flow.inspection;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +22,7 @@ import com.seoulchonnom.spec.filebox.facade.sdo.FileBoxItemUdo;
 import com.seoulchonnom.spec.inspection.entity.InspectionTag;
 import com.seoulchonnom.spec.inspection.entity.InspectionVisit;
 import com.seoulchonnom.spec.inspection.entity.ViewedProperty;
+import com.seoulchonnom.spec.inspection.entity.vo.ComplexNameScope;
 import com.seoulchonnom.spec.inspection.entity.vo.InspectionStatus;
 import com.seoulchonnom.spec.inspection.facade.sdo.PropertyAnswerBulkUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyCdo;
@@ -149,15 +149,19 @@ public class ViewedPropertyFlow {
 	}
 
 	/**
-	 * 이 임장에 이미 등록된 단지명. 자유 입력의 표기 흔들림을 줄이는 자동완성 후보다.
+	 * 단지명 자동완성 후보. scope=VISIT(기본)은 이 임장에서 이미 쓴 이름만, scope=AREA는
+	 * 이 임장이 속한 지역의 모든 회차에서 쓴 이름을 준다. 첫 회차라 이 임장에 이름이 하나도
+	 * 없을 때 과거 회차의 이름이야말로 "같은 이름이어야 회차 간 매물이 연결됩니다"의 후보다.
 	 */
-	public List<String> getComplexNames(String visitId) {
-		return viewedPropertyLogic.getViewedProperties(visitId).stream()
-			.map(ViewedProperty::getComplexName)
-			.filter(StringUtils::hasText)
-			.distinct()
-			.sorted(Comparator.naturalOrder())
-			.toList();
+	public List<String> getComplexNames(String visitId, ComplexNameScope scope) {
+		if (ComplexNameScope.AREA == scope) {
+			InspectionVisit visit = inspectionVisitLogic.getInspectionVisit(visitId);
+			List<String> areaVisitIds = inspectionVisitLogic.getInspectionVisitsByAreaId(visit.getAreaId()).stream()
+				.map(InspectionVisit::getId)
+				.toList();
+			return viewedPropertyLogic.getDistinctComplexNames(areaVisitIds);
+		}
+		return viewedPropertyLogic.getDistinctComplexNames(List.of(visitId));
 	}
 
 	private ViewedProperty findOwnedProperty(String visitId, String propertyId) {

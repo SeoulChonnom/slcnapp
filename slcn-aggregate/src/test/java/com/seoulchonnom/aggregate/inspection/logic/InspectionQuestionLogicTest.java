@@ -9,6 +9,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import com.seoulchonnom.aggregate.inspection.exception.InspectionQuestionConflictException;
 import com.seoulchonnom.aggregate.inspection.exception.InvalidInspectionQuestionException;
 import com.seoulchonnom.aggregate.inspection.store.InspectionQuestionStore;
 import com.seoulchonnom.spec.common.generator.IdGenerator;
@@ -41,8 +42,13 @@ class InspectionQuestionLogicTest {
 	}
 
 	private static InspectionQuestionContentUdo contentUdo(String content) {
+		return contentUdo(content, 0L);
+	}
+
+	private static InspectionQuestionContentUdo contentUdo(String content, Long entityVersion) {
 		InspectionQuestionContentUdo udo = new InspectionQuestionContentUdo();
 		udo.setContent(content);
+		udo.setEntityVersion(entityVersion);
 		return udo;
 	}
 
@@ -150,6 +156,35 @@ class InspectionQuestionLogicTest {
 	}
 
 	@Test
+	void modifyInspectionQuestionContent_shouldRejectMismatchedEntityVersion() {
+		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001",
+			QuestionAnswerType.LONG_TEXT, true, 1);
+		question.addVersion("거실 채광은 어떤가?", null, null, null);
+		when(inspectionQuestionStore.findById("INSPECTION_QUESTION-0001")).thenReturn(question);
+
+		// 조회 시 내려준 entityVersion(0)과 다른 값을 보내면 다른 관리자가 먼저 저장한 것이므로 막는다
+		assertThatThrownBy(() -> inspectionQuestionLogic.modifyInspectionQuestionContent(
+			"INSPECTION_QUESTION-0001", contentUdo("거실 및 방의 채광은 어떤가?", 1L)))
+			.isInstanceOf(InspectionQuestionConflictException.class);
+		assertThat(question.getCurrentVersionNo()).isEqualTo(1);
+		verify(inspectionQuestionStore, never()).save(any());
+	}
+
+	@Test
+	void modifyInspectionQuestionContent_shouldRejectMissingEntityVersion() {
+		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001",
+			QuestionAnswerType.LONG_TEXT, true, 1);
+		question.addVersion("거실 채광은 어떤가?", null, null, null);
+		when(inspectionQuestionStore.findById("INSPECTION_QUESTION-0001")).thenReturn(question);
+
+		// entityVersion을 아예 안 보내면 선택 파라미터로 검사를 우회하는 셈이라 400으로 거절한다
+		assertThatThrownBy(() -> inspectionQuestionLogic.modifyInspectionQuestionContent(
+			"INSPECTION_QUESTION-0001", contentUdo("거실 및 방의 채광은 어떤가?", null)))
+			.isInstanceOf(InvalidInspectionQuestionException.class);
+		verify(inspectionQuestionStore, never()).save(any());
+	}
+
+	@Test
 	void modifyInspectionQuestionPolicy_shouldKeepVersion() {
 		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001", QuestionAnswerType.TEXT,
 			true, 1);
@@ -158,12 +193,38 @@ class InspectionQuestionLogicTest {
 		echoSave();
 
 		InspectionQuestionRdo rdo = inspectionQuestionLogic.modifyInspectionQuestionPolicy(
-			"INSPECTION_QUESTION-0001", new InspectionQuestionPolicyUdo(false, 9));
+			"INSPECTION_QUESTION-0001", new InspectionQuestionPolicyUdo(false, 9, 0L));
 
 		assertThat(rdo.isRequired()).isFalse();
 		assertThat(rdo.getSortOrder()).isEqualTo(9);
 		assertThat(rdo.getCurrentVersionNo()).isEqualTo(1);
 		assertThat(question.getVersions()).hasSize(1);
+	}
+
+	@Test
+	void modifyInspectionQuestionPolicy_shouldRejectMismatchedEntityVersion() {
+		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001", QuestionAnswerType.TEXT,
+			true, 1);
+		question.addVersion("메모", null, null, null);
+		when(inspectionQuestionStore.findById("INSPECTION_QUESTION-0001")).thenReturn(question);
+
+		assertThatThrownBy(() -> inspectionQuestionLogic.modifyInspectionQuestionPolicy(
+			"INSPECTION_QUESTION-0001", new InspectionQuestionPolicyUdo(false, 9, 1L)))
+			.isInstanceOf(InspectionQuestionConflictException.class);
+		verify(inspectionQuestionStore, never()).save(any());
+	}
+
+	@Test
+	void modifyInspectionQuestionPolicy_shouldRejectMissingEntityVersion() {
+		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001", QuestionAnswerType.TEXT,
+			true, 1);
+		question.addVersion("메모", null, null, null);
+		when(inspectionQuestionStore.findById("INSPECTION_QUESTION-0001")).thenReturn(question);
+
+		assertThatThrownBy(() -> inspectionQuestionLogic.modifyInspectionQuestionPolicy(
+			"INSPECTION_QUESTION-0001", new InspectionQuestionPolicyUdo(false, 9, null)))
+			.isInstanceOf(InvalidInspectionQuestionException.class);
+		verify(inspectionQuestionStore, never()).save(any());
 	}
 
 	@Test
@@ -175,10 +236,36 @@ class InspectionQuestionLogicTest {
 		echoSave();
 
 		InspectionQuestionRdo rdo = inspectionQuestionLogic.changeInspectionQuestionStatus(
-			"INSPECTION_QUESTION-0001", new InspectionQuestionStatusUdo(false));
+			"INSPECTION_QUESTION-0001", new InspectionQuestionStatusUdo(false, 0L));
 
 		assertThat(rdo.isEnabled()).isFalse();
 		assertThat(rdo.getCurrentVersionNo()).isEqualTo(1);
+	}
+
+	@Test
+	void changeInspectionQuestionStatus_shouldRejectMismatchedEntityVersion() {
+		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001", QuestionAnswerType.TEXT,
+			true, 1);
+		question.addVersion("메모", null, null, null);
+		when(inspectionQuestionStore.findById("INSPECTION_QUESTION-0001")).thenReturn(question);
+
+		assertThatThrownBy(() -> inspectionQuestionLogic.changeInspectionQuestionStatus(
+			"INSPECTION_QUESTION-0001", new InspectionQuestionStatusUdo(false, 1L)))
+			.isInstanceOf(InspectionQuestionConflictException.class);
+		verify(inspectionQuestionStore, never()).save(any());
+	}
+
+	@Test
+	void changeInspectionQuestionStatus_shouldRejectMissingEntityVersion() {
+		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001", QuestionAnswerType.TEXT,
+			true, 1);
+		question.addVersion("메모", null, null, null);
+		when(inspectionQuestionStore.findById("INSPECTION_QUESTION-0001")).thenReturn(question);
+
+		assertThatThrownBy(() -> inspectionQuestionLogic.changeInspectionQuestionStatus(
+			"INSPECTION_QUESTION-0001", new InspectionQuestionStatusUdo(false, null)))
+			.isInstanceOf(InvalidInspectionQuestionException.class);
+		verify(inspectionQuestionStore, never()).save(any());
 	}
 
 	@Test

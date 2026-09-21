@@ -61,16 +61,23 @@ public class ViewedPropertyMapper {
 	/**
 	 * 문답은 매물 안에 있으므로 따로 받지 않는다.
 	 * questions는 배지 계산용이며 비어 있어도 문답 렌더링은 스냅샷으로 정상 동작한다.
+	 *
+	 * areaId/areaName/visitedAt과 prevProperty/nextProperty는 호출자가 이미 로드한
+	 * 임장/지역/매물 목록에서 계산해 넘긴다. 여기서 추가로 조회하지 않는다.
 	 */
 	public ViewedPropertyDetailRdo toViewedPropertyDetailRdo(ViewedProperty property, List<String> tags,
 		List<FileBoxItemRdo> files, Map<String, InspectionQuestion> questions,
-		IncompleteSummaryRdo incompleteSummary) {
+		IncompleteSummaryRdo incompleteSummary, String areaId, String areaName, String visitedAt,
+		ViewedPropertyBriefRdo prevProperty, ViewedPropertyBriefRdo nextProperty) {
 		ViewedPropertyRdo base = toViewedPropertyRdo(property, tags, files);
 		Map<String, InspectionQuestion> questionMap = questions == null ? Map.of() : questions;
 
 		ViewedPropertyDetailRdo detailRdo = new ViewedPropertyDetailRdo();
 		detailRdo.setPropertyId(base.getPropertyId());
 		detailRdo.setInspectionVisitId(base.getInspectionVisitId());
+		detailRdo.setAreaId(areaId);
+		detailRdo.setAreaName(areaName);
+		detailRdo.setVisitedAt(visitedAt);
 		detailRdo.setComplexName(base.getComplexName());
 		detailRdo.setName(base.getName());
 		detailRdo.setMemo(base.getMemo());
@@ -85,6 +92,8 @@ public class ViewedPropertyMapper {
 		detailRdo.setPhotos(base.getPhotos());
 		detailRdo.setAnswers(toPropertyAnswerRdos(property.getAnswers(), questionMap));
 		detailRdo.setIncompleteSummary(incompleteSummary);
+		detailRdo.setPrevProperty(prevProperty);
+		detailRdo.setNextProperty(nextProperty);
 		return detailRdo;
 	}
 

@@ -47,12 +47,29 @@ class ViewedPropertyMapperTest {
 	void toViewedPropertyDetailRdo_shouldKeepAnswerOrderAsGiven() {
 		ViewedProperty property = new ViewedProperty("INSPECTION_VISIT-0001", "트리마제", "101동", 1);
 
-		var detailRdo = viewedPropertyMapper.toViewedPropertyDetailRdo(property, null, null, Map.of(), null);
+		var detailRdo = viewedPropertyMapper.toViewedPropertyDetailRdo(property, null, null, Map.of(), null,
+			null, null, null, null, null);
 
 		assertThat(detailRdo.getAnswers()).isEmpty();
 		assertThat(detailRdo.getTags()).isEmpty();
 		assertThat(detailRdo.getPhotos()).isEmpty();
 		assertThat(detailRdo.getComplexName()).isEqualTo("트리마제");
+	}
+
+	@Test
+	void toViewedPropertyDetailRdo_shouldCarryAreaContextAndNeighbors() {
+		ViewedProperty property = new ViewedProperty("INSPECTION_VISIT-0001", "트리마제", "101동", 1);
+		ViewedPropertyBriefRdo prev = new ViewedPropertyBriefRdo("p0", "트리마제", "101동 1202호", 4);
+		ViewedPropertyBriefRdo next = new ViewedPropertyBriefRdo("p2", "트리마제", "101동 1204호", 3);
+
+		var detailRdo = viewedPropertyMapper.toViewedPropertyDetailRdo(property, null, null, Map.of(), null,
+			"INSPECTION_AREA-0001", "성수동", "2026-09-17T14:00:00", prev, next);
+
+		assertThat(detailRdo.getAreaId()).isEqualTo("INSPECTION_AREA-0001");
+		assertThat(detailRdo.getAreaName()).isEqualTo("성수동");
+		assertThat(detailRdo.getVisitedAt()).isEqualTo("2026-09-17T14:00:00");
+		assertThat(detailRdo.getPrevProperty()).isSameAs(prev);
+		assertThat(detailRdo.getNextProperty()).isSameAs(next);
 	}
 
 	@Test

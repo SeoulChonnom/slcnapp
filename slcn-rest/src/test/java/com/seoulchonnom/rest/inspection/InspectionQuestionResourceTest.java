@@ -65,8 +65,8 @@ class InspectionQuestionResourceTest {
 
 	@Test
 	void modifyInspectionQuestionPolicyAndStatus_shouldDelegateToLogic() {
-		InspectionQuestionPolicyUdo policyUdo = new InspectionQuestionPolicyUdo(false, 3);
-		InspectionQuestionStatusUdo statusUdo = new InspectionQuestionStatusUdo(false);
+		InspectionQuestionPolicyUdo policyUdo = new InspectionQuestionPolicyUdo(false, 3, 0L);
+		InspectionQuestionStatusUdo statusUdo = new InspectionQuestionStatusUdo(false, 0L);
 		when(inspectionQuestionLogic.modifyInspectionQuestionPolicy("q1", policyUdo))
 			.thenReturn(new InspectionQuestionRdo());
 		when(inspectionQuestionLogic.changeInspectionQuestionStatus("q1", statusUdo))

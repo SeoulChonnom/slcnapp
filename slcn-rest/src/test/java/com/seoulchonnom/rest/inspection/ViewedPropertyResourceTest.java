@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import com.seoulchonnom.aggregate.flow.inspection.InspectionVisitQueryFlow;
 import com.seoulchonnom.aggregate.flow.inspection.ViewedPropertyFlow;
 import com.seoulchonnom.spec.inspection.entity.ViewedProperty;
+import com.seoulchonnom.spec.inspection.entity.vo.ComplexNameScope;
 import com.seoulchonnom.spec.inspection.entity.vo.InspectionStatus;
 import com.seoulchonnom.spec.inspection.facade.sdo.PropertyAnswerBulkUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyCdo;
@@ -56,9 +57,19 @@ class ViewedPropertyResourceTest {
 
 	@Test
 	void getComplexNames_shouldDelegateToFlow() {
-		when(viewedPropertyFlow.getComplexNames(VISIT_ID)).thenReturn(List.of("트리마제"));
+		when(viewedPropertyFlow.getComplexNames(VISIT_ID, ComplexNameScope.VISIT)).thenReturn(List.of("트리마제"));
 
-		assertThat(viewedPropertyResource.getComplexNames(VISIT_ID).getBody()).containsExactly("트리마제");
+		assertThat(viewedPropertyResource.getComplexNames(VISIT_ID, ComplexNameScope.VISIT).getBody())
+			.containsExactly("트리마제");
+	}
+
+	@Test
+	void getComplexNames_shouldPassAreaScopeThrough() {
+		when(viewedPropertyFlow.getComplexNames(VISIT_ID, ComplexNameScope.AREA))
+			.thenReturn(List.of("갤러리아포레", "트리마제"));
+
+		assertThat(viewedPropertyResource.getComplexNames(VISIT_ID, ComplexNameScope.AREA).getBody())
+			.containsExactly("갤러리아포레", "트리마제");
 	}
 
 	@Test

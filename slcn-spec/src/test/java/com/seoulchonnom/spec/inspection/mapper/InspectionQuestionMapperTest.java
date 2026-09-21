@@ -71,6 +71,19 @@ class InspectionQuestionMapperTest {
 		assertThat(rdo.getAnswerCount()).isNull();
 	}
 
+	/**
+	 * C-1: 응답에 실린 entityVersion을 프런트가 그대로 되돌려 보내야 충돌 감지가 가능하다.
+	 */
+	@Test
+	void toInspectionQuestionRdo_shouldExposeEntityVersionForConflictDetection() {
+		InspectionQuestion question = inspectionQuestionMapper.toInspectionQuestion("INSPECTION_QUESTION-0001", cdo());
+		question.setEntityVersion(3L);
+
+		InspectionQuestionRdo rdo = inspectionQuestionMapper.toInspectionQuestionRdo(question, null);
+
+		assertThat(rdo.getEntityVersion()).isEqualTo(3L);
+	}
+
 	@Test
 	void toInspectionQuestionRdo_shouldTolerateQuestionWithoutVersion() {
 		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0002", QuestionAnswerType.TEXT,

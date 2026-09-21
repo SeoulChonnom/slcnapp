@@ -3,8 +3,10 @@ package com.seoulchonnom.aggregate.inspection.store;
 import java.util.Collection;
 import java.util.List;
 
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Repository;
 
+import com.seoulchonnom.aggregate.inspection.exception.ViewedPropertyConflictException;
 import com.seoulchonnom.aggregate.inspection.exception.ViewedPropertyNotFoundException;
 import com.seoulchonnom.aggregate.inspection.store.mapper.ViewedPropertyJpoMapper;
 import com.seoulchonnom.aggregate.inspection.store.projection.ViewedPropertySummaryPdo;
@@ -19,17 +21,30 @@ public class ViewedPropertyStore {
 	private final ViewedPropertyRepository viewedPropertyRepository;
 	private final ViewedPropertyJpoMapper viewedPropertyJpoMapper;
 
+	/**
+	 * EntityJpo의 @Version이 모든 엔티티에 낙관적 잠금을 건다. 두 사용자가 같은 매물을
+	 * 동시에 저장하면 이 충돌이 난다. 커밋 시점까지 미루면 예외가 트랜잭션 밖에서 500으로
+	 * 새어나가므로 saveAndFlush로 당겨 이 메서드 안에서 409로 바꾼다.
+	 */
 	public ViewedProperty save(ViewedProperty property) {
-		return viewedPropertyJpoMapper.toDomain(
-			viewedPropertyRepository.save(viewedPropertyJpoMapper.toJpo(property)));
+		try {
+			return viewedPropertyJpoMapper.toDomain(
+				viewedPropertyRepository.saveAndFlush(viewedPropertyJpoMapper.toJpo(property)));
+		} catch (ObjectOptimisticLockingFailureException e) {
+			throw new ViewedPropertyConflictException();
+		}
 	}
 
 	public List<ViewedProperty> saveAll(List<ViewedProperty> properties) {
-		return viewedPropertyRepository.saveAll(properties.stream()
-				.map(viewedPropertyJpoMapper::toJpo)
-				.toList()).stream()
-			.map(viewedPropertyJpoMapper::toDomain)
-			.toList();
+		try {
+			return viewedPropertyRepository.saveAllAndFlush(properties.stream()
+					.map(viewedPropertyJpoMapper::toJpo)
+					.toList()).stream()
+				.map(viewedPropertyJpoMapper::toDomain)
+				.toList();
+		} catch (ObjectOptimisticLockingFailureException e) {
+			throw new ViewedPropertyConflictException();
+		}
 	}
 
 	public ViewedProperty findById(String propertyId) {

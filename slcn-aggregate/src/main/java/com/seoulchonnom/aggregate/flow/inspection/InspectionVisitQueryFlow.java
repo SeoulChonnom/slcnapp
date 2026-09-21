@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import org.springframework.stereotype.Service;
@@ -95,6 +96,9 @@ public class InspectionVisitQueryFlow {
 		Map<String, InspectionArea> areas = areaMap(visits);
 		Map<String, List<ViewedPropertySummaryPdo>> properties = propertiesByVisitId(visitIds);
 		Map<String, FileBoxItemRdo> covers = visitCovers(visitIds);
+		// 회차 안에서만 고르므로 이 맵의 값은 항상 그 자신의 visitedAt 하나뿐이라 동점 규칙이 결과를 바꾸지 않는다
+		Map<String, LocalDateTime> visitedAtByVisitId = visits.stream()
+			.collect(Collectors.toMap(InspectionVisit::getId, InspectionVisit::getVisitedAt));
 
 		List<ViewedPropertySummaryPdo> emptyProperties = List.of();
 		return visits.stream()
@@ -102,7 +106,7 @@ public class InspectionVisitQueryFlow {
 				List<ViewedPropertySummaryPdo> visitProperties = properties.getOrDefault(visit.getId(),
 					emptyProperties);
 				return inspectionVisitMapper.toInspectionVisitRdo(visit, areas.get(visit.getAreaId()),
-					visitProperties.size(), toBriefRdo(topInterestProperty(visitProperties)),
+					visitProperties.size(), toBriefRdo(topInterestProperty(visitProperties, visitedAtByVisitId)),
 					tagNames.getOrDefault(visit.getId(), List.of()), covers.get(visit.getId()),
 					inspectionSummarySupport.ofVisitCountsOnly(visit, visitProperties));
 			})
@@ -125,11 +129,18 @@ public class InspectionVisitQueryFlow {
 		List<String> visitTags = inspectionTagStore.findVisitTagNames(visitId);
 		Map<String, List<String>> propertyTags = inspectionTagStore.findPropertyTagNamesByVisitId(visitId);
 		List<FileBoxItemRdo> files = fileItems(visitId);
+		String visitedAtText = toText(visit.getVisitedAt());
 
-		List<ViewedPropertyDetailRdo> propertyRdos = properties.stream()
-			.map(property -> viewedPropertyMapper.toViewedPropertyDetailRdo(property,
-				propertyTags.getOrDefault(property.getId(), List.of()), files, questions,
-				inspectionSummarySupport.ofProperty(property)))
+		// prev/next는 이미 로드한 properties 리스트(정렬 순서 그대로)의 앞/뒤 1건이다.
+		// area도 이미 로드했으므로 문맥 필드를 채우는 데 저장소 왕복이 늘지 않는다.
+		List<ViewedPropertyDetailRdo> propertyRdos = IntStream.range(0, properties.size())
+			.mapToObj(index -> {
+				ViewedProperty property = properties.get(index);
+				return viewedPropertyMapper.toViewedPropertyDetailRdo(property,
+					propertyTags.getOrDefault(property.getId(), List.of()), files, questions,
+					inspectionSummarySupport.ofProperty(property), area.getId(), area.getName(), visitedAtText,
+					briefRdoAt(properties, index - 1), briefRdoAt(properties, index + 1));
+			})
 			.toList();
 
 		return inspectionVisitMapper.toInspectionVisitDetailRdo(visit, area, visitTags, propertyRdos, files,
@@ -137,18 +148,66 @@ public class InspectionVisitQueryFlow {
 	}
 
 	public ViewedPropertyDetailRdo getViewedProperty(String visitId, String propertyId) {
-		ViewedProperty property = viewedPropertyStore.findById(propertyId);
-		if (!visitId.equals(property.getInspectionVisitId())) {
+		InspectionVisit visit = inspectionVisitStore.findById(visitId);
+		List<ViewedProperty> siblings = viewedPropertyStore.findAllByVisitId(visitId);
+		int index = indexOfProperty(siblings, propertyId);
+		if (index < 0) {
 			throw new ViewedPropertyNotFoundException(
 				"이 임장에 속한 매물이 아닙니다. propertyId=" + propertyId);
 		}
+		InspectionArea area = inspectionAreaStore.findById(visit.getAreaId());
+		return buildPropertyDetail(siblings, index, visit, area);
+	}
+
+	/**
+	 * visitId 없이 매물 단건을 조회한다. A-① 요구사항: FE 라우트가 /property/:propertyId로
+	 * 확정되어 링크 직행·새로고침에서 visitId를 알 수 없다. 임장/지역에 소유자 필드가 없어
+	 * (멀티테넌시 없음) 별도 소유 검증은 필요 없다.
+	 */
+	public ViewedPropertyDetailRdo getInspectionProperty(String propertyId) {
+		ViewedProperty property = viewedPropertyStore.findById(propertyId);
+		InspectionVisit visit = inspectionVisitStore.findById(property.getInspectionVisitId());
+		InspectionArea area = inspectionAreaStore.findById(visit.getAreaId());
+		List<ViewedProperty> siblings = viewedPropertyStore.findAllByVisitId(visit.getId());
+		int index = indexOfProperty(siblings, propertyId);
+		return buildPropertyDetail(siblings, index, visit, area);
+	}
+
+	/**
+	 * 매물 단건 조립 공용 로직. visitId로 들어오든 propertyId만으로 들어오든 문맥
+	 * (지역/일시/이전·다음 매물)까지 같은 방식으로 채운다.
+	 */
+	private ViewedPropertyDetailRdo buildPropertyDetail(List<ViewedProperty> siblings, int index,
+		InspectionVisit visit, InspectionArea area) {
+		ViewedProperty property = siblings.get(index);
 		Map<String, InspectionQuestion> questions = questionMapOf(List.of(property));
 		Map<String, List<String>> propertyTags = inspectionTagStore.findPropertyTagNamesByPropertyIds(
-			List.of(propertyId));
+			List.of(property.getId()));
 
 		return viewedPropertyMapper.toViewedPropertyDetailRdo(property,
-			propertyTags.getOrDefault(propertyId, List.of()), fileItems(visitId), questions,
-			inspectionSummarySupport.ofProperty(property));
+			propertyTags.getOrDefault(property.getId(), List.of()), fileItems(visit.getId()), questions,
+			inspectionSummarySupport.ofProperty(property), area.getId(), area.getName(), toText(visit.getVisitedAt()),
+			briefRdoAt(siblings, index - 1), briefRdoAt(siblings, index + 1));
+	}
+
+	private int indexOfProperty(List<ViewedProperty> properties, String propertyId) {
+		for (int i = 0; i < properties.size(); i++) {
+			if (properties.get(i).getId().equals(propertyId)) {
+				return i;
+			}
+		}
+		return -1;
+	}
+
+	private ViewedPropertyBriefRdo briefRdoAt(List<ViewedProperty> properties, int index) {
+		if (index < 0 || index >= properties.size()) {
+			return null;
+		}
+		return viewedPropertyMapper.toViewedPropertyBriefRdo(properties.get(index));
+	}
+
+	private String toText(LocalDateTime value) {
+		return value == null ? null : value.toString();
 	}
 
 	/**
@@ -172,13 +231,23 @@ public class InspectionVisitQueryFlow {
 	}
 
 	/**
-	 * interestLevel 내림차순, 동률이면 sortOrder 오름차순. null은 최하위다.
+	 * interestLevel 내림차순 → visitedAt 내림차순(동점이면 최신 회차 우선) → sortOrder 오름차순.
+	 * null interestLevel은 최하위다.
+	 *
+	 * visitedAt은 ViewedPropertySummaryPdo에 없고 inspectionVisitId만 있어 호출자가
+	 * 이미 손에 든 List<InspectionVisit>에서 만든 맵으로 받는다 — 추가 저장소 조회를 만들지 않는다.
+	 * 회차 안에서만 고르는 호출(임장 목록의 topInterestProperty)은 모든 매물의 visitedAt이
+	 * 같아 이 동점 규칙이 결과를 바꾸지 않는다.
 	 */
-	public ViewedPropertySummaryPdo topInterestProperty(List<ViewedPropertySummaryPdo> properties) {
+	public ViewedPropertySummaryPdo topInterestProperty(List<ViewedPropertySummaryPdo> properties,
+		Map<String, LocalDateTime> visitedAtByVisitId) {
 		return properties.stream()
 			.max(Comparator
 				.comparingInt((ViewedPropertySummaryPdo property) ->
 					property.getInterestLevel() == null ? Integer.MIN_VALUE : property.getInterestLevel())
+				.thenComparing(
+					(ViewedPropertySummaryPdo property) -> visitedAtByVisitId.get(property.getInspectionVisitId()),
+					Comparator.nullsFirst(Comparator.naturalOrder()))
 				.thenComparing(ViewedPropertySummaryPdo::getSortOrder, Comparator.reverseOrder()))
 			.orElse(null);
 	}

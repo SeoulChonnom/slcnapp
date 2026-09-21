@@ -1,6 +1,8 @@
 package com.seoulchonnom.aggregate.inspection.logic;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -14,6 +16,7 @@ import com.seoulchonnom.aggregate.inspection.exception.InspectionQuestionNotFoun
 import com.seoulchonnom.aggregate.inspection.exception.InvalidPropertyAnswerException;
 import com.seoulchonnom.aggregate.inspection.exception.InvalidViewedPropertyException;
 import com.seoulchonnom.aggregate.inspection.store.ViewedPropertyStore;
+import com.seoulchonnom.aggregate.inspection.store.projection.ViewedPropertySummaryPdo;
 import com.seoulchonnom.spec.inspection.entity.InspectionQuestion;
 import com.seoulchonnom.spec.inspection.entity.ViewedProperty;
 import com.seoulchonnom.spec.inspection.entity.vo.InspectionStatus;
@@ -58,6 +61,19 @@ public class ViewedPropertyLogic {
 
 	public List<ViewedProperty> getViewedProperties(String inspectionVisitId) {
 		return viewedPropertyStore.findAllByVisitId(inspectionVisitId);
+	}
+
+	/**
+	 * 단지명 자동완성 후보. VISIT/AREA 스코프 둘 다 answers TEXT 컬럼을 읽지 않는
+	 * summary projection만 쓴다.
+	 */
+	public List<String> getDistinctComplexNames(Collection<String> visitIds) {
+		return viewedPropertyStore.findSummariesByVisitIds(visitIds).stream()
+			.map(ViewedPropertySummaryPdo::getComplexName)
+			.filter(StringUtils::hasText)
+			.distinct()
+			.sorted(Comparator.naturalOrder())
+			.toList();
 	}
 
 	@Transactional

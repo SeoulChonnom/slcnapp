@@ -7,11 +7,13 @@ import static org.mockito.Mockito.*;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 
 import com.seoulchonnom.aggregate.file.store.FileAssetStore;
 import com.seoulchonnom.aggregate.filebox.store.FileBoxStore;
+import com.seoulchonnom.aggregate.inspection.exception.ViewedPropertyNotFoundException;
 import com.seoulchonnom.aggregate.inspection.logic.InspectionQuestionLogic;
 import com.seoulchonnom.aggregate.inspection.store.InspectionAreaStore;
 import com.seoulchonnom.aggregate.inspection.store.InspectionTagStore;
@@ -21,9 +23,12 @@ import com.seoulchonnom.aggregate.inspection.store.projection.ViewedPropertySumm
 import com.seoulchonnom.spec.filebox.mapper.FileBoxMapper;
 import com.seoulchonnom.spec.inspection.entity.InspectionArea;
 import com.seoulchonnom.spec.inspection.entity.InspectionVisit;
+import com.seoulchonnom.spec.inspection.entity.ViewedProperty;
 import com.seoulchonnom.spec.inspection.entity.vo.InspectionStatus;
 import com.seoulchonnom.spec.inspection.entity.vo.RevisitIntent;
+import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitDetailRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitRdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyDetailRdo;
 import com.seoulchonnom.spec.inspection.mapper.InspectionVisitMapper;
 import com.seoulchonnom.spec.inspection.mapper.PropertyAnswerMapper;
 import com.seoulchonnom.spec.inspection.mapper.ViewedPropertyMapper;
@@ -49,6 +54,12 @@ class InspectionVisitQueryFlowTest {
 		return visit;
 	}
 
+	private static ViewedProperty property(String id, String visitId, int sortOrder) {
+		ViewedProperty property = new ViewedProperty(visitId, "트리마제", "101동 " + id, sortOrder);
+		property.setId(id);
+		return property;
+	}
+
 	private static ViewedPropertySummaryPdo pdo(String id, String visitId, Integer interestLevel, int sortOrder) {
 		ViewedPropertySummaryPdo pdo = mock(ViewedPropertySummaryPdo.class);
 		when(pdo.getId()).thenReturn(id);
@@ -69,26 +80,49 @@ class InspectionVisitQueryFlowTest {
 		when(fileAssetStore.findAllByIds(anyList())).thenReturn(List.of());
 	}
 
+	private static Map<String, LocalDateTime> visitedAtOf(String visitId, LocalDateTime visitedAt) {
+		return Map.of(visitId, visitedAt);
+	}
+
 	@Test
 	void topInterestProperty_shouldPreferHigherInterestThenLowerSortOrder() {
 		ViewedPropertySummaryPdo low = pdo("p1", "v1", 3, 1);
 		ViewedPropertySummaryPdo high = pdo("p2", "v1", 5, 9);
 		ViewedPropertySummaryPdo tie = pdo("p3", "v1", 5, 2);
+		Map<String, LocalDateTime> visitedAtByVisitId = visitedAtOf("v1", LocalDateTime.of(2026, 9, 17, 14, 0));
 
-		assertThat(inspectionVisitQueryFlow.topInterestProperty(List.of(low, high, tie)).getId()).isEqualTo("p3");
+		assertThat(inspectionVisitQueryFlow.topInterestProperty(List.of(low, high, tie), visitedAtByVisitId).getId())
+			.isEqualTo("p3");
 	}
 
 	@Test
 	void topInterestProperty_shouldTreatNullInterestAsLowest() {
 		ViewedPropertySummaryPdo none = pdo("p1", "v1", null, 1);
 		ViewedPropertySummaryPdo some = pdo("p2", "v1", 1, 2);
+		Map<String, LocalDateTime> visitedAtByVisitId = visitedAtOf("v1", LocalDateTime.of(2026, 9, 17, 14, 0));
 
-		assertThat(inspectionVisitQueryFlow.topInterestProperty(List.of(none, some)).getId()).isEqualTo("p2");
+		assertThat(inspectionVisitQueryFlow.topInterestProperty(List.of(none, some), visitedAtByVisitId).getId())
+			.isEqualTo("p2");
 	}
 
 	@Test
 	void topInterestProperty_shouldReturnNullForEmptyVisit() {
-		assertThat(inspectionVisitQueryFlow.topInterestProperty(List.of())).isNull();
+		assertThat(inspectionVisitQueryFlow.topInterestProperty(List.of(), Map.of())).isNull();
+	}
+
+	@Test
+	void topInterestProperty_shouldPreferLatestVisitOnInterestLevelTie() {
+		// 두 회차 모두 관심도 5로 동점이다. sortOrder만 보면 순서가 임의였던 버그를 검증한다
+		ViewedPropertySummaryPdo older = pdo("p1", "v1", 5, 1);
+		ViewedPropertySummaryPdo newer = pdo("p2", "v2", 5, 1);
+		Map<String, LocalDateTime> visitedAtByVisitId = Map.of(
+			"v1", LocalDateTime.of(2026, 9, 3, 10, 0),
+			"v2", LocalDateTime.of(2026, 9, 17, 14, 0));
+
+		ViewedPropertySummaryPdo result = inspectionVisitQueryFlow.topInterestProperty(List.of(older, newer),
+			visitedAtByVisitId);
+
+		assertThat(result.getId()).isEqualTo("p2");
 	}
 
 	@Test
@@ -180,5 +214,92 @@ class InspectionVisitQueryFlowTest {
 
 		assertThat(inspectionVisitQueryFlow.getInspectionVisits(null, null, null, null, null, null)).isEmpty();
 		verifyNoInteractions(viewedPropertyStore, fileBoxStore);
+	}
+
+	private void noPropertyDetailExtras(String visitId) {
+		when(inspectionTagStore.findVisitTagNames(visitId)).thenReturn(List.of());
+		when(inspectionTagStore.findPropertyTagNamesByVisitId(visitId)).thenReturn(Map.of());
+		when(inspectionTagStore.findPropertyTagNamesByPropertyIds(anyList())).thenReturn(Map.of());
+		when(fileBoxStore.findOptionalByOwner(any(), anyString())).thenReturn(Optional.empty());
+		when(inspectionQuestionLogic.getQuestionMap(anyList())).thenReturn(Map.of());
+	}
+
+	@Test
+	void getInspectionVisit_shouldLeavePrevNullOnFirstAndNextNullOnLast() {
+		InspectionVisit visit = visit("v1", "INSPECTION_AREA-0001", LocalDateTime.of(2026, 9, 17, 14, 0),
+			InspectionStatus.DRAFT, null);
+		List<ViewedProperty> properties = List.of(property("p1", "v1", 1), property("p2", "v1", 2),
+			property("p3", "v1", 3));
+		when(inspectionVisitStore.findById("v1")).thenReturn(visit);
+		when(inspectionAreaStore.findById("INSPECTION_AREA-0001"))
+			.thenReturn(new InspectionArea("INSPECTION_AREA-0001", "성수동", null));
+		when(viewedPropertyStore.findAllByVisitId("v1")).thenReturn(properties);
+		noPropertyDetailExtras("v1");
+
+		InspectionVisitDetailRdo detail = inspectionVisitQueryFlow.getInspectionVisit("v1");
+
+		assertThat(detail.getProperties().get(0).getPrevProperty()).isNull();
+		assertThat(detail.getProperties().get(0).getNextProperty().getPropertyId()).isEqualTo("p2");
+		assertThat(detail.getProperties().get(1).getPrevProperty().getPropertyId()).isEqualTo("p1");
+		assertThat(detail.getProperties().get(1).getNextProperty().getPropertyId()).isEqualTo("p3");
+		assertThat(detail.getProperties().get(2).getNextProperty()).isNull();
+		assertThat(detail.getProperties().get(2).getPrevProperty().getPropertyId()).isEqualTo("p2");
+		// 문맥 필드도 이미 로드한 area/visit에서 채워진다
+		assertThat(detail.getProperties().get(0).getAreaId()).isEqualTo("INSPECTION_AREA-0001");
+		assertThat(detail.getProperties().get(0).getAreaName()).isEqualTo("성수동");
+		assertThat(detail.getProperties().get(0).getVisitedAt())
+			.isEqualTo(LocalDateTime.of(2026, 9, 17, 14, 0).toString());
+	}
+
+	@Test
+	void getViewedProperty_shouldCarryAreaContextAndNeighbors() {
+		InspectionVisit visit = visit("v1", "INSPECTION_AREA-0001", LocalDateTime.of(2026, 9, 17, 14, 0),
+			InspectionStatus.DRAFT, null);
+		List<ViewedProperty> properties = List.of(property("p1", "v1", 1), property("p2", "v1", 2),
+			property("p3", "v1", 3));
+		when(inspectionVisitStore.findById("v1")).thenReturn(visit);
+		when(inspectionAreaStore.findById("INSPECTION_AREA-0001"))
+			.thenReturn(new InspectionArea("INSPECTION_AREA-0001", "성수동", null));
+		when(viewedPropertyStore.findAllByVisitId("v1")).thenReturn(properties);
+		noPropertyDetailExtras("v1");
+
+		ViewedPropertyDetailRdo detail = inspectionVisitQueryFlow.getViewedProperty("v1", "p2");
+
+		assertThat(detail.getAreaId()).isEqualTo("INSPECTION_AREA-0001");
+		assertThat(detail.getAreaName()).isEqualTo("성수동");
+		assertThat(detail.getPrevProperty().getPropertyId()).isEqualTo("p1");
+		assertThat(detail.getNextProperty().getPropertyId()).isEqualTo("p3");
+	}
+
+	@Test
+	void getViewedProperty_shouldRejectPropertyOfAnotherVisit() {
+		InspectionVisit visit = visit("v1", "INSPECTION_AREA-0001", LocalDateTime.of(2026, 9, 17, 14, 0),
+			InspectionStatus.DRAFT, null);
+		when(inspectionVisitStore.findById("v1")).thenReturn(visit);
+		when(viewedPropertyStore.findAllByVisitId("v1")).thenReturn(List.of(property("p1", "v1", 1)));
+
+		assertThatThrownBy(() -> inspectionVisitQueryFlow.getViewedProperty("v1", "p9"))
+			.isInstanceOf(ViewedPropertyNotFoundException.class);
+	}
+
+	@Test
+	void getInspectionProperty_shouldResolveVisitAndAreaWithoutVisitId() {
+		ViewedProperty property = property("p2", "v1", 2);
+		InspectionVisit visit = visit("v1", "INSPECTION_AREA-0001", LocalDateTime.of(2026, 9, 17, 14, 0),
+			InspectionStatus.DRAFT, null);
+		List<ViewedProperty> siblings = List.of(property("p1", "v1", 1), property, property("p3", "v1", 3));
+		when(viewedPropertyStore.findById("p2")).thenReturn(property);
+		when(inspectionVisitStore.findById("v1")).thenReturn(visit);
+		when(inspectionAreaStore.findById("INSPECTION_AREA-0001"))
+			.thenReturn(new InspectionArea("INSPECTION_AREA-0001", "성수동", null));
+		when(viewedPropertyStore.findAllByVisitId("v1")).thenReturn(siblings);
+		noPropertyDetailExtras("v1");
+
+		ViewedPropertyDetailRdo detail = inspectionVisitQueryFlow.getInspectionProperty("p2");
+
+		assertThat(detail.getInspectionVisitId()).isEqualTo("v1");
+		assertThat(detail.getAreaName()).isEqualTo("성수동");
+		assertThat(detail.getPrevProperty().getPropertyId()).isEqualTo("p1");
+		assertThat(detail.getNextProperty().getPropertyId()).isEqualTo("p3");
 	}
 }

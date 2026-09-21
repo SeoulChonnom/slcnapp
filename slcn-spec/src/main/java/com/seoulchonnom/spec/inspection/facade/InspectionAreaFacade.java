@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 
+import com.seoulchonnom.spec.inspection.facade.sdo.AreaViewedPropertyRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaCdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaDetailRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaRdo;
@@ -11,6 +12,13 @@ import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaUdo;
 
 public interface InspectionAreaFacade {
 	ResponseEntity<List<InspectionAreaRdo>> getInspectionAreas(String keyword);
+
+	/**
+	 * 지역 전체 매물 경량 목록. 회차 하나만 담는 지역 상세와 달리 모든 회차의 매물을 평면으로 준다.
+	 * complexName+name으로 회차 간 매물을 잇는 FE 기능의 재료다. answers는 읽지 않는다.
+	 * 정렬은 visitedAt 내림차순, 같은 회차 안에서는 sortOrder 오름차순이다.
+	 */
+	ResponseEntity<List<AreaViewedPropertyRdo>> getAreaProperties(String areaId);
 
 	/**
 	 * 회차 요약 목록과 선택 회차 상세를 한 번에 반환한다.
