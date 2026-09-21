@@ -5,10 +5,12 @@ import java.util.List;
 
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Repository;
+import org.springframework.util.StringUtils;
 
 import com.seoulchonnom.aggregate.inspection.exception.ViewedPropertyConflictException;
 import com.seoulchonnom.aggregate.inspection.exception.ViewedPropertyNotFoundException;
 import com.seoulchonnom.aggregate.inspection.store.mapper.ViewedPropertyJpoMapper;
+import com.seoulchonnom.aggregate.inspection.store.projection.MatchedPropertyPdo;
 import com.seoulchonnom.aggregate.inspection.store.projection.ViewedPropertySummaryPdo;
 import com.seoulchonnom.aggregate.inspection.store.repository.ViewedPropertyRepository;
 import com.seoulchonnom.spec.inspection.entity.ViewedProperty;
@@ -89,6 +91,17 @@ public class ViewedPropertyStore {
 		return viewedPropertyRepository.findAll().stream()
 			.map(viewedPropertyJpoMapper::toDomain)
 			.toList();
+	}
+
+	/**
+	 * 지역 목록 검색(A-③)의 matchedProperty 후보. areaIds는 이미 페이징된 현재 페이지
+	 * 지역들이라 이 조회는 지역 수에 비례해 늘지 않는다.
+	 */
+	public List<MatchedPropertyPdo> findMatchedProperties(Collection<String> areaIds, String keyword) {
+		if (areaIds == null || areaIds.isEmpty() || !StringUtils.hasText(keyword)) {
+			return List.of();
+		}
+		return viewedPropertyRepository.findMatchedByAreaIdsAndKeyword(areaIds, "%" + keyword.trim() + "%");
 	}
 
 	public long countByVisitId(String inspectionVisitId) {

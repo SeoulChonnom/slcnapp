@@ -35,4 +35,9 @@ public class InspectionAreaRdo {
 	 */
 	private List<FileBoxItemRdo> thumbnails = new ArrayList<>();
 	private int totalImageCount;
+	/**
+	 * keyword가 단지명/매물명에 걸렸을 때만 채워진다. 지역명·설명·태그로만 걸렸으면 null이고
+	 * topProperty를 그대로 쓴다.
+	 */
+	private MatchedPropertyRdo matchedProperty;
 }

@@ -6,6 +6,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -13,12 +14,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import com.seoulchonnom.aggregate.common.util.PageRequestSupport;
 import com.seoulchonnom.aggregate.file.store.FileAssetStore;
 import com.seoulchonnom.aggregate.filebox.store.FileBoxStore;
 import com.seoulchonnom.aggregate.inspection.exception.InspectionVisitNotFoundException;
 import com.seoulchonnom.aggregate.inspection.store.InspectionAreaStore;
 import com.seoulchonnom.aggregate.inspection.store.InspectionTagStore;
 import com.seoulchonnom.aggregate.inspection.store.InspectionVisitStore;
+import com.seoulchonnom.aggregate.inspection.store.ViewedPropertyStore;
+import com.seoulchonnom.aggregate.inspection.store.projection.MatchedPropertyPdo;
 import com.seoulchonnom.aggregate.inspection.store.projection.ViewedPropertySummaryPdo;
 import com.seoulchonnom.spec.file.entity.FileAsset;
 import com.seoulchonnom.spec.file.facade.sdo.FileAssetRdo;
@@ -31,10 +35,16 @@ import com.seoulchonnom.spec.filebox.facade.sdo.FileBoxItemRdo;
 import com.seoulchonnom.spec.filebox.mapper.FileBoxMapper;
 import com.seoulchonnom.spec.inspection.entity.InspectionArea;
 import com.seoulchonnom.spec.inspection.entity.InspectionVisit;
+import com.seoulchonnom.spec.inspection.entity.vo.InspectionAreaSort;
+import com.seoulchonnom.spec.inspection.entity.vo.RevisitIntent;
 import com.seoulchonnom.spec.inspection.facade.sdo.AreaViewedPropertyRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaDetailRdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaListRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaRdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaTotalsRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitSummaryRdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.MatchedPropertyRdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.RevisitIntentCountsRdo;
 import com.seoulchonnom.spec.inspection.mapper.InspectionAreaMapper;
 import com.seoulchonnom.spec.inspection.mapper.InspectionVisitMapper;
 
@@ -59,6 +69,7 @@ public class InspectionAreaQueryFlow {
 	private final InspectionAreaStore inspectionAreaStore;
 	private final InspectionVisitStore inspectionVisitStore;
 	private final InspectionTagStore inspectionTagStore;
+	private final ViewedPropertyStore viewedPropertyStore;
 	private final InspectionVisitQueryFlow inspectionVisitQueryFlow;
 	private final FileBoxStore fileBoxStore;
 	private final FileAssetStore fileAssetStore;
@@ -67,11 +78,55 @@ public class InspectionAreaQueryFlow {
 	private final InspectionVisitMapper inspectionVisitMapper;
 	private final InspectionSummarySupport inspectionSummarySupport;
 
-	public List<InspectionAreaRdo> getInspectionAreas(String keyword) {
-		List<InspectionArea> areas = inspectionAreaStore.findAllVisible(keyword);
+	/**
+	 * 정렬·검색·페이징은 DB가 담당한다(InspectionAreaStore.findAreaIdsPage). 여기서는 그 결과로
+	 * 나온 "이번 페이지에 보여줄 지역 id 목록"만 받아 기존 조립 로직(집계 필드 계산)을
+	 * 그 지역들에 대해서만 돌린다 — 예전엔 전 지역을 조립했으니 페이징 후에는 오히려 더 가볍다.
+	 *
+	 * revisitIntentCounts/totals는 필터와 무관한 전역 값이라 페이지 조립과 별개로 매번 계산한다.
+	 * COUNT/GROUP BY 쿼리만 쓰고 전건을 메모리로 끌어오지 않는다.
+	 */
+	public InspectionAreaListRdo getInspectionAreas(String keyword, RevisitIntent revisitIntent,
+		InspectionAreaSort sort, int page, int size) {
+		int normalizedPage = PageRequestSupport.normalizePage(page);
+		int normalizedSize = PageRequestSupport.normalizeSize(size);
+		int offset = PageRequestSupport.offsetOf(normalizedPage, normalizedSize);
+		InspectionAreaSort resolvedSort = sort == null ? InspectionAreaSort.RECENT_VISIT : sort;
+
+		List<String> pagedAreaIds = inspectionAreaStore.findAreaIdsPage(resolvedSort, keyword, revisitIntent,
+			normalizedSize, offset);
+		long totalCount = inspectionAreaStore.countMatchingAreas(keyword, revisitIntent);
+		boolean hasNext = (long)(normalizedPage + 1) * normalizedSize < totalCount;
+
+		List<InspectionAreaRdo> items = pagedAreaIds.isEmpty() ? List.of()
+			: assembleAreaRdos(pagedAreaIds, keyword);
+
+		long visibleAreaCount = inspectionAreaStore.countVisibleAreas();
+		Map<RevisitIntent, Long> byLatestIntent = inspectionAreaStore.countAreasByLatestRevisitIntent();
+		RevisitIntentCountsRdo revisitIntentCounts = new RevisitIntentCountsRdo(visibleAreaCount,
+			byLatestIntent.getOrDefault(RevisitIntent.YES, 0L), byLatestIntent.getOrDefault(RevisitIntent.MAYBE, 0L),
+			byLatestIntent.getOrDefault(RevisitIntent.NO, 0L));
+		InspectionAreaTotalsRdo totals = new InspectionAreaTotalsRdo(visibleAreaCount,
+			inspectionAreaStore.countVisitsOfVisibleAreas(), inspectionAreaStore.countPropertiesOfVisibleAreas());
+
+		return inspectionAreaMapper.toInspectionAreaListRdo(items, totalCount, hasNext, revisitIntentCounts, totals);
+	}
+
+	/**
+	 * DB가 정한 순서(pagedAreaIds)대로 지역을 조립한다. findAllByIds는 이 순서를 보존하지
+	 * 않으므로 반드시 pagedAreaIds 기준으로 다시 정렬해야 한다.
+	 */
+	private List<InspectionAreaRdo> assembleAreaRdos(List<String> pagedAreaIds, String keyword) {
+		Map<String, InspectionArea> areaById = inspectionAreaStore.findAllByIds(pagedAreaIds).stream()
+			.collect(Collectors.toMap(InspectionArea::getId, area -> area));
+		List<InspectionArea> areas = pagedAreaIds.stream()
+			.map(areaById::get)
+			.filter(Objects::nonNull)
+			.toList();
 		if (areas.isEmpty()) {
 			return List.of();
 		}
+
 		List<String> areaIds = areas.stream().map(InspectionArea::getId).toList();
 		List<InspectionVisit> visits = inspectionVisitStore.findAllByAreaIds(areaIds);
 		Map<String, List<InspectionVisit>> visitsByArea = visits.stream()
@@ -85,7 +140,7 @@ public class InspectionAreaQueryFlow {
 		Map<String, FileBox> fileBoxes = fileBoxesOf(visitIds);
 
 		// 썸네일 FileAsset을 지역마다 조회하면 지역 수에 비례하는 왕복이 생긴다.
-		// 전 지역의 썸네일을 먼저 골라 한 번에 읽는다
+		// 이번 페이지 지역의 썸네일을 먼저 골라 한 번에 읽는다
 		Map<String, List<FileBoxItem>> thumbnailsByArea = new HashMap<>();
 		for (InspectionArea area : areas) {
 			thumbnailsByArea.put(area.getId(),
@@ -96,10 +151,47 @@ public class InspectionAreaQueryFlow {
 			.map(FileBoxItem::getFileAssetId)
 			.toList());
 
+		Map<String, MatchedPropertyRdo> matchedByArea = matchedPropertiesByArea(areaIds, keyword);
+
 		return areas.stream()
-			.map(area -> toAreaRdo(area, visitsByArea.getOrDefault(area.getId(), List.of()), propertiesByVisit,
-				tagNames, fileBoxes, thumbnailsByArea.get(area.getId()), assets))
+			.map(area -> {
+				InspectionAreaRdo rdo = toAreaRdo(area, visitsByArea.getOrDefault(area.getId(), List.of()),
+					propertiesByVisit, tagNames, fileBoxes, thumbnailsByArea.get(area.getId()), assets);
+				rdo.setMatchedProperty(matchedByArea.get(area.getId()));
+				return rdo;
+			})
 			.toList();
+	}
+
+	/**
+	 * keyword가 단지명/매물명에 걸린 매물만 후보다. 한 지역에 여러 후보가 있으면
+	 * interestLevel 내림차순 -> visitedAt 내림차순(동점이면 최신 회차 우선) -> sortOrder
+	 * 오름차순으로 1건을 고른다. InspectionVisitQueryFlow.topInterestProperty와 같은 규칙이다.
+	 */
+	private Map<String, MatchedPropertyRdo> matchedPropertiesByArea(List<String> areaIds, String keyword) {
+		if (!StringUtils.hasText(keyword)) {
+			return Map.of();
+		}
+		List<MatchedPropertyPdo> matches = viewedPropertyStore.findMatchedProperties(areaIds, keyword);
+		if (matches.isEmpty()) {
+			return Map.of();
+		}
+		Map<String, List<MatchedPropertyPdo>> byArea = matches.stream()
+			.collect(Collectors.groupingBy(MatchedPropertyPdo::getAreaId));
+		Map<String, MatchedPropertyRdo> result = new HashMap<>();
+		byArea.forEach((areaId, candidates) -> candidates.stream()
+			.max(Comparator
+				.comparingInt((MatchedPropertyPdo pdo) ->
+					pdo.getInterestLevel() == null ? Integer.MIN_VALUE : pdo.getInterestLevel())
+				.thenComparing(MatchedPropertyPdo::getVisitedAt, Comparator.nullsFirst(Comparator.naturalOrder()))
+				.thenComparing(MatchedPropertyPdo::getSortOrder, Comparator.reverseOrder()))
+			.ifPresent(top -> result.put(areaId, toMatchedPropertyRdo(top))));
+		return result;
+	}
+
+	private MatchedPropertyRdo toMatchedPropertyRdo(MatchedPropertyPdo pdo) {
+		return new MatchedPropertyRdo(pdo.getId(), pdo.getVisitId(), pdo.getComplexName(), pdo.getName(),
+			pdo.getInterestLevel());
 	}
 
 	/**

@@ -13,6 +13,8 @@ import com.seoulchonnom.aggregate.inspection.store.jpo.InspectionVisitJpo;
 import com.seoulchonnom.aggregate.inspection.store.mapper.InspectionVisitJpoMapper;
 import com.seoulchonnom.aggregate.inspection.store.repository.InspectionVisitRepository;
 import com.seoulchonnom.spec.inspection.entity.InspectionVisit;
+import com.seoulchonnom.spec.inspection.entity.vo.InspectionStatus;
+import com.seoulchonnom.spec.inspection.entity.vo.RevisitIntent;
 
 import lombok.RequiredArgsConstructor;
 
@@ -42,10 +44,6 @@ public class InspectionVisitStore {
 			.orElseThrow(InspectionVisitNotFoundException::new);
 	}
 
-	public List<InspectionVisit> findAll() {
-		return toDomains(inspectionVisitRepository.findAllByOrderByVisitedAtDescIdAsc());
-	}
-
 	public List<InspectionVisit> findAllByAreaId(String areaId) {
 		return toDomains(inspectionVisitRepository.findAllByAreaIdOrderByVisitedAtDescIdAsc(areaId));
 	}
@@ -64,8 +62,43 @@ public class InspectionVisitStore {
 		return toDomains(inspectionVisitRepository.findAllByIdIn(visitIds));
 	}
 
-	public List<InspectionVisit> findAllBetween(LocalDateTime from, LocalDateTime to) {
-		return toDomains(inspectionVisitRepository.findAllByVisitedAtBetweenOrderByVisitedAtDescIdAsc(from, to));
+	/**
+	 * 임장 목록(C-2)의 필터·페이징을 전부 DB에서 처리한다. status/revisitIntent는 문자열로
+	 * 바꿔 네이티브 쿼리에 넘긴다(컬럼이 EnumType.STRING이라 텍스트 비교로 충분하다).
+	 */
+	public List<InspectionVisit> findFiltered(String areaId, InspectionStatus status, RevisitIntent revisitIntent,
+		LocalDateTime from, LocalDateTime to, List<String> tags, int limit, int offset) {
+		List<String> tagNames = normalizeTagNames(tags);
+		int tagCount = tags == null ? 0 : tags.size();
+		return toDomains(inspectionVisitRepository.findFiltered(areaId, status == null ? null : status.name(),
+			revisitIntent == null ? null : revisitIntent.name(), from, to, tagNames, tagCount, limit, offset));
+	}
+
+	/**
+	 * findFiltered와 동일 필터의 매칭 총 건수. 페이지 응답의 totalCount/hasNext 계산용이다.
+	 */
+	public long countFiltered(String areaId, InspectionStatus status, RevisitIntent revisitIntent,
+		LocalDateTime from, LocalDateTime to, List<String> tags) {
+		List<String> tagNames = normalizeTagNames(tags);
+		int tagCount = tags == null ? 0 : tags.size();
+		return inspectionVisitRepository.countFiltered(areaId, status == null ? null : status.name(),
+			revisitIntent == null ? null : revisitIntent.name(), from, to, tagNames, tagCount);
+	}
+
+	/**
+	 * 태그가 없으면 HAVING 절의 tagCount=0 분기가 검사를 건너뛰지만, 네이티브 쿼리의
+	 * "t.name IN (:tagNames)"에 빈 컬렉션을 그대로 넘기면 "IN ()"이 되어 SQL 문법 오류가 난다.
+	 * 실제 태그명으로는 절대 쓰이지 않을 자리표시 값 하나로 채운다 — tagCount=0이라
+	 * HAVING이 이 값을 검사하지 않으므로 결과에 영향은 없다.
+	 *
+	 * 널 문자("\u0000")를 쓰면 안 된다. PostgreSQL이 텍스트 파라미터의 0x00을 거부해
+	 * ("invalid byte sequence for encoding UTF8") 태그 필터 없는 호출이 전부 500이 된다.
+	 * 태그명은 InspectionTagLogic이 공백을 제거하고 50자로 제한하므로 아래 값과 겹칠 수 없다.
+	 */
+	private static final String TAG_FILTER_PLACEHOLDER = " (no tag filter) ";
+
+	private List<String> normalizeTagNames(List<String> tags) {
+		return tags == null || tags.isEmpty() ? List.of(TAG_FILTER_PLACEHOLDER) : tags;
 	}
 
 	/**

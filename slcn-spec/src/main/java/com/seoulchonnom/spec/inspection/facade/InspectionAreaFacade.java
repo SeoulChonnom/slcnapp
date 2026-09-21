@@ -4,14 +4,24 @@ import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 
+import com.seoulchonnom.spec.inspection.entity.vo.InspectionAreaSort;
+import com.seoulchonnom.spec.inspection.entity.vo.RevisitIntent;
 import com.seoulchonnom.spec.inspection.facade.sdo.AreaViewedPropertyRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaCdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaDetailRdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaListRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaUdo;
 
 public interface InspectionAreaFacade {
-	ResponseEntity<List<InspectionAreaRdo>> getInspectionAreas(String keyword);
+	/**
+	 * keyword는 지역명·설명·단지명·매물명·태그명을 모두 대소문자 무시로 훑는다.
+	 * revisitIntent는 지역의 최신 회차 기준이다. sort 기본값은 RECENT_VISIT이다.
+	 * page(0-base, 기본 0)/size(기본 20, 상한 100)는 offset 페이징이며, size 상한 초과는
+	 * 400 대신 상한으로 깎고 page 음수만 400이다.
+	 */
+	ResponseEntity<InspectionAreaListRdo> getInspectionAreas(String keyword, RevisitIntent revisitIntent,
+		InspectionAreaSort sort, int page, int size);
 
 	/**
 	 * 지역 전체 매물 경량 목록. 회차 하나만 담는 지역 상세와 달리 모든 회차의 매물을 평면으로 준다.

@@ -10,9 +10,12 @@ import org.springframework.http.HttpStatus;
 
 import com.seoulchonnom.aggregate.flow.inspection.InspectionAreaFlow;
 import com.seoulchonnom.aggregate.flow.inspection.InspectionAreaQueryFlow;
+import com.seoulchonnom.spec.inspection.entity.vo.InspectionAreaSort;
+import com.seoulchonnom.spec.inspection.entity.vo.RevisitIntent;
 import com.seoulchonnom.spec.inspection.facade.sdo.AreaViewedPropertyRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaCdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaDetailRdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaListRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaUdo;
 
@@ -23,12 +26,33 @@ class InspectionAreaResourceTest {
 		inspectionAreaQueryFlow, inspectionAreaFlow);
 
 	@Test
-	void getInspectionAreas_shouldPassKeyword() {
-		when(inspectionAreaQueryFlow.getInspectionAreas("성수")).thenReturn(List.of());
+	void getInspectionAreas_shouldPassKeywordAndPagingParams() {
+		InspectionAreaListRdo response = new InspectionAreaListRdo();
+		when(inspectionAreaQueryFlow.getInspectionAreas("성수", RevisitIntent.YES, InspectionAreaSort.VISIT_COUNT, 1,
+			30)).thenReturn(response);
 
-		inspectionAreaResource.getInspectionAreas("성수");
+		var result = inspectionAreaResource.getInspectionAreas("성수", RevisitIntent.YES,
+			InspectionAreaSort.VISIT_COUNT, 1, 30);
 
-		verify(inspectionAreaQueryFlow).getInspectionAreas("성수");
+		assertThat(result.getBody()).isSameAs(response);
+		verify(inspectionAreaQueryFlow).getInspectionAreas("성수", RevisitIntent.YES, InspectionAreaSort.VISIT_COUNT, 1,
+			30);
+	}
+
+	/**
+	 * page/size의 실제 기본값(0/20)은 @RequestParam(defaultValue=...)가 Spring MVC 바인딩
+	 * 시점에 채운다 — 이 테스트는 Resource 메서드를 직접 호출하므로 그 바인딩 자체는
+	 * 검증 대상이 아니다. keyword/revisitIntent/sort가 전부 null이어도 Flow로 그대로
+	 * 위임되는지만 확인한다.
+	 */
+	@Test
+	void getInspectionAreas_shouldDelegateWithNullFiltersUntouched() {
+		when(inspectionAreaQueryFlow.getInspectionAreas(null, null, null, 0, 20))
+			.thenReturn(new InspectionAreaListRdo());
+
+		inspectionAreaResource.getInspectionAreas(null, null, null, 0, 20);
+
+		verify(inspectionAreaQueryFlow).getInspectionAreas(null, null, null, 0, 20);
 	}
 
 	@Test

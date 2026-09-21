@@ -10,8 +10,6 @@ import com.seoulchonnom.aggregate.inspection.store.jpo.ViewedPropertyTagJpo;
 
 @Repository
 public interface ViewedPropertyTagRepository extends JpaRepository<ViewedPropertyTagJpo, String> {
-	List<ViewedPropertyTagJpo> findAllByViewedPropertyId(String viewedPropertyId);
-
 	List<ViewedPropertyTagJpo> findAllByViewedPropertyIdIn(Collection<String> viewedPropertyIds);
 
 	List<ViewedPropertyTagJpo> findAllByInspectionVisitId(String inspectionVisitId);

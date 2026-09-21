@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 
+import com.seoulchonnom.spec.common.response.PageRdo;
 import com.seoulchonnom.spec.inspection.entity.vo.InspectionStatus;
 import com.seoulchonnom.spec.inspection.entity.vo.RevisitIntent;
 import com.seoulchonnom.spec.inspection.facade.sdo.FileBoxItemOrderUdo;
@@ -16,10 +17,13 @@ import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyOrderUdo;
 
 public interface InspectionVisitFacade {
 	/**
-	 * visitedAt 내림차순. 모든 필터는 선택이며 null이면 적용하지 않는다.
+	 * visitedAt 내림차순, 동점은 id 오름차순. 모든 필터(areaId/status/revisitIntent/tag/from/to)는
+	 * 선택이며 null/빈 값이면 적용하지 않는다. tag를 여러 개 지정하면 AND다.
+	 * 지역 상세가 회차를 50건으로 자른 뒤(hasMoreVisits) 이어받는 용도로도 areaId+page/size를 쓴다.
+	 * page(0-base, 기본 0)/size(기본 20, 상한 100)는 offset 페이징이다.
 	 */
-	ResponseEntity<List<InspectionVisitRdo>> getInspectionVisits(String areaId, InspectionStatus status,
-		RevisitIntent revisitIntent, List<String> tags, String from, String to);
+	ResponseEntity<PageRdo<InspectionVisitRdo>> getInspectionVisits(String areaId, InspectionStatus status,
+		RevisitIntent revisitIntent, List<String> tags, String from, String to, int page, int size);
 
 	ResponseEntity<InspectionVisitDetailRdo> getInspectionVisit(String visitId);
 

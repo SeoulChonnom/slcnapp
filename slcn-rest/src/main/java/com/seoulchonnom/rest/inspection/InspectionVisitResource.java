@@ -22,6 +22,7 @@ import com.seoulchonnom.aggregate.common.exception.BadRequestException;
 import com.seoulchonnom.aggregate.flow.inspection.InspectionVisitFlow;
 import com.seoulchonnom.aggregate.flow.inspection.InspectionVisitQueryFlow;
 import com.seoulchonnom.aggregate.flow.inspection.ViewedPropertyFlow;
+import com.seoulchonnom.spec.common.response.PageRdo;
 import com.seoulchonnom.spec.inspection.entity.vo.InspectionStatus;
 import com.seoulchonnom.spec.inspection.entity.vo.RevisitIntent;
 import com.seoulchonnom.spec.inspection.facade.InspectionVisitFacade;
@@ -45,15 +46,17 @@ public class InspectionVisitResource implements InspectionVisitFacade {
 
 	@Override
 	@GetMapping
-	public ResponseEntity<List<InspectionVisitRdo>> getInspectionVisits(
+	public ResponseEntity<PageRdo<InspectionVisitRdo>> getInspectionVisits(
 		@RequestParam(value = "areaId", required = false) String areaId,
 		@RequestParam(value = "status", required = false) InspectionStatus status,
 		@RequestParam(value = "revisitIntent", required = false) RevisitIntent revisitIntent,
 		@RequestParam(value = "tag", required = false) List<String> tags,
 		@RequestParam(value = "from", required = false) String from,
-		@RequestParam(value = "to", required = false) String to) {
+		@RequestParam(value = "to", required = false) String to,
+		@RequestParam(value = "page", defaultValue = "0") int page,
+		@RequestParam(value = "size", defaultValue = "20") int size) {
 		return new ResponseEntity<>(inspectionVisitQueryFlow.getInspectionVisits(areaId, status, revisitIntent, tags,
-			parseDateTime(from, "from"), parseDateTime(to, "to")), HttpStatus.OK);
+			parseDateTime(from, "from"), parseDateTime(to, "to"), page, size), HttpStatus.OK);
 	}
 
 	@Override

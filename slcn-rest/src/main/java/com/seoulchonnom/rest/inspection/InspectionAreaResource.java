@@ -16,10 +16,13 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.seoulchonnom.aggregate.flow.inspection.InspectionAreaFlow;
 import com.seoulchonnom.aggregate.flow.inspection.InspectionAreaQueryFlow;
+import com.seoulchonnom.spec.inspection.entity.vo.InspectionAreaSort;
+import com.seoulchonnom.spec.inspection.entity.vo.RevisitIntent;
 import com.seoulchonnom.spec.inspection.facade.InspectionAreaFacade;
 import com.seoulchonnom.spec.inspection.facade.sdo.AreaViewedPropertyRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaCdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaDetailRdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaListRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaUdo;
 
@@ -34,9 +37,14 @@ public class InspectionAreaResource implements InspectionAreaFacade {
 
 	@Override
 	@GetMapping
-	public ResponseEntity<List<InspectionAreaRdo>> getInspectionAreas(
-		@RequestParam(value = "keyword", required = false) String keyword) {
-		return new ResponseEntity<>(inspectionAreaQueryFlow.getInspectionAreas(keyword), HttpStatus.OK);
+	public ResponseEntity<InspectionAreaListRdo> getInspectionAreas(
+		@RequestParam(value = "keyword", required = false) String keyword,
+		@RequestParam(value = "revisitIntent", required = false) RevisitIntent revisitIntent,
+		@RequestParam(value = "sort", required = false) InspectionAreaSort sort,
+		@RequestParam(value = "page", defaultValue = "0") int page,
+		@RequestParam(value = "size", defaultValue = "20") int size) {
+		return new ResponseEntity<>(inspectionAreaQueryFlow.getInspectionAreas(keyword, revisitIntent, sort, page,
+			size), HttpStatus.OK);
 	}
 
 	@Override

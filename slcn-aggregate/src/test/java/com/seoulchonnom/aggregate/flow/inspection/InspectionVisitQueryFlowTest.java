@@ -11,6 +11,7 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 
+import com.seoulchonnom.aggregate.common.exception.BadRequestException;
 import com.seoulchonnom.aggregate.file.store.FileAssetStore;
 import com.seoulchonnom.aggregate.filebox.store.FileBoxStore;
 import com.seoulchonnom.aggregate.inspection.exception.ViewedPropertyNotFoundException;
@@ -20,6 +21,7 @@ import com.seoulchonnom.aggregate.inspection.store.InspectionTagStore;
 import com.seoulchonnom.aggregate.inspection.store.InspectionVisitStore;
 import com.seoulchonnom.aggregate.inspection.store.ViewedPropertyStore;
 import com.seoulchonnom.aggregate.inspection.store.projection.ViewedPropertySummaryPdo;
+import com.seoulchonnom.spec.common.response.PageRdo;
 import com.seoulchonnom.spec.filebox.mapper.FileBoxMapper;
 import com.seoulchonnom.spec.inspection.entity.InspectionArea;
 import com.seoulchonnom.spec.inspection.entity.InspectionVisit;
@@ -131,11 +133,14 @@ class InspectionVisitQueryFlowTest {
 			visit("v1", "INSPECTION_AREA-0001", LocalDateTime.of(2026, 9, 17, 14, 0), InspectionStatus.DRAFT, null),
 			visit("v2", "INSPECTION_AREA-0001", LocalDateTime.of(2026, 9, 10, 10, 0), InspectionStatus.DRAFT, null),
 			visit("v3", "INSPECTION_AREA-0001", LocalDateTime.of(2026, 9, 3, 10, 0), InspectionStatus.DRAFT, null));
-		when(inspectionVisitStore.findAll()).thenReturn(visits);
+		when(inspectionVisitStore.findFiltered(isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), eq(20),
+			eq(0))).thenReturn(visits);
+		when(inspectionVisitStore.countFiltered(isNull(), isNull(), isNull(), isNull(), isNull(), isNull()))
+			.thenReturn(3L);
 		when(viewedPropertyStore.findSummariesByVisitIds(anyList())).thenReturn(List.of());
 		noExtras();
 
-		inspectionVisitQueryFlow.getInspectionVisits(null, null, null, null, null, null);
+		inspectionVisitQueryFlow.getInspectionVisits(null, null, null, null, null, null, 0, 20);
 
 		// 임장이 3건이어도 매물/태그/FileBox 조회는 각각 1회다
 		verify(viewedPropertyStore, times(1)).findSummariesByVisitIds(anyList());
@@ -144,65 +149,46 @@ class InspectionVisitQueryFlowTest {
 		verify(inspectionAreaStore, times(1)).findAllByIds(anySet());
 	}
 
+	/**
+	 * 필터 자체(status/revisitIntent/tag/from/to)의 정합성은 네이티브 쿼리 안에 있어 여기서
+	 * 검증할 수 없다(DB 통합 테스트가 없다). 이 테스트는 Flow가 파라미터를 store에 그대로
+	 * 위임하는지, 그리고 store가 돌려준 결과를 있는 그대로 조립하는지만 확인한다.
+	 */
 	@Test
-	void getInspectionVisits_shouldApplyStatusAndRevisitIntentFilters() {
-		when(inspectionVisitStore.findAll()).thenReturn(List.of(
-			visit("v1", "INSPECTION_AREA-0001", LocalDateTime.of(2026, 9, 17, 14, 0), InspectionStatus.COMPLETED,
-				RevisitIntent.YES),
-			visit("v2", "INSPECTION_AREA-0001", LocalDateTime.of(2026, 9, 10, 10, 0), InspectionStatus.DRAFT,
-				RevisitIntent.NO)));
+	void getInspectionVisits_shouldDelegateFiltersToStoreAndAssembleResult() {
+		InspectionVisit v1 = visit("v1", "INSPECTION_AREA-0001", LocalDateTime.of(2026, 9, 17, 14, 0),
+			InspectionStatus.COMPLETED, RevisitIntent.YES);
+		LocalDateTime from = LocalDateTime.of(2026, 9, 1, 0, 0);
+		LocalDateTime to = LocalDateTime.of(2026, 9, 30, 0, 0);
+		when(inspectionVisitStore.findFiltered("INSPECTION_AREA-0001", InspectionStatus.COMPLETED, RevisitIntent.YES,
+			from, to, List.of("한강"), 20, 0)).thenReturn(List.of(v1));
+		when(inspectionVisitStore.countFiltered("INSPECTION_AREA-0001", InspectionStatus.COMPLETED, RevisitIntent.YES,
+			from, to, List.of("한강"))).thenReturn(1L);
 		when(viewedPropertyStore.findSummariesByVisitIds(anyList())).thenReturn(List.of());
 		noExtras();
 
-		List<InspectionVisitRdo> result = inspectionVisitQueryFlow.getInspectionVisits(null,
-			InspectionStatus.COMPLETED, RevisitIntent.YES, null, null, null);
+		PageRdo<InspectionVisitRdo> result = inspectionVisitQueryFlow.getInspectionVisits("INSPECTION_AREA-0001",
+			InspectionStatus.COMPLETED, RevisitIntent.YES, List.of("한강"), from, to, 0, 20);
 
-		assertThat(result).extracting(InspectionVisitRdo::getInspectionVisitId).containsExactly("v1");
-	}
-
-	@Test
-	void getInspectionVisits_shouldApplyDateRangeInclusively() {
-		when(inspectionVisitStore.findAll()).thenReturn(List.of(
-			visit("v1", "INSPECTION_AREA-0001", LocalDateTime.of(2026, 9, 17, 0, 0), InspectionStatus.DRAFT, null),
-			visit("v2", "INSPECTION_AREA-0001", LocalDateTime.of(2026, 9, 1, 0, 0), InspectionStatus.DRAFT, null)));
-		when(viewedPropertyStore.findSummariesByVisitIds(anyList())).thenReturn(List.of());
-		noExtras();
-
-		List<InspectionVisitRdo> result = inspectionVisitQueryFlow.getInspectionVisits(null, null, null, null,
-			LocalDateTime.of(2026, 9, 17, 0, 0), LocalDateTime.of(2026, 9, 30, 0, 0));
-
-		assertThat(result).extracting(InspectionVisitRdo::getInspectionVisitId).containsExactly("v1");
-	}
-
-	@Test
-	void getInspectionVisits_shouldRequireAllRequestedTags() {
-		when(inspectionVisitStore.findAll()).thenReturn(List.of(
-			visit("v1", "INSPECTION_AREA-0001", LocalDateTime.of(2026, 9, 17, 14, 0), InspectionStatus.DRAFT, null),
-			visit("v2", "INSPECTION_AREA-0001", LocalDateTime.of(2026, 9, 10, 10, 0), InspectionStatus.DRAFT, null)));
-		when(inspectionTagStore.findVisitTagNamesByVisitIds(anyList()))
-			.thenReturn(Map.of("v1", List.of("한강", "직주근접"), "v2", List.of("한강")));
-		when(viewedPropertyStore.findSummariesByVisitIds(anyList())).thenReturn(List.of());
-		when(inspectionAreaStore.findAllByIds(anySet()))
-			.thenReturn(List.of(new InspectionArea("INSPECTION_AREA-0001", "성수동", null)));
-		when(fileBoxStore.findAllByOwnerTypeAndOwnerIdIn(any(), anyList())).thenReturn(List.of());
-		when(fileAssetStore.findAllByIds(anyList())).thenReturn(List.of());
-
-		List<InspectionVisitRdo> result = inspectionVisitQueryFlow.getInspectionVisits(null, null, null,
-			List.of("한강", "직주근접"), null, null);
-
-		assertThat(result).extracting(InspectionVisitRdo::getInspectionVisitId).containsExactly("v1");
+		assertThat(result.getItems()).extracting(InspectionVisitRdo::getInspectionVisitId).containsExactly("v1");
+		assertThat(result.getTotalCount()).isEqualTo(1);
+		assertThat(result.isHasNext()).isFalse();
 	}
 
 	@Test
 	void getInspectionVisits_shouldCarryComplexNameOnTopInterestProperty() {
-		when(inspectionVisitStore.findAll()).thenReturn(List.of(
-			visit("v1", "INSPECTION_AREA-0001", LocalDateTime.of(2026, 9, 17, 14, 0), InspectionStatus.DRAFT, null)));
+		when(inspectionVisitStore.findFiltered(isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), eq(20),
+			eq(0))).thenReturn(List.of(
+				visit("v1", "INSPECTION_AREA-0001", LocalDateTime.of(2026, 9, 17, 14, 0), InspectionStatus.DRAFT,
+					null)));
+		when(inspectionVisitStore.countFiltered(isNull(), isNull(), isNull(), isNull(), isNull(), isNull()))
+			.thenReturn(1L);
 		ViewedPropertySummaryPdo property = pdo("p1", "v1", 5, 1);
 		when(viewedPropertyStore.findSummariesByVisitIds(anyList())).thenReturn(List.of(property));
 		noExtras();
 
-		InspectionVisitRdo rdo = inspectionVisitQueryFlow.getInspectionVisits(null, null, null, null, null, null)
-			.get(0);
+		InspectionVisitRdo rdo = inspectionVisitQueryFlow.getInspectionVisits(null, null, null, null, null, null, 0,
+			20).getItems().get(0);
 
 		assertThat(rdo.getPropertyCount()).isEqualTo(1);
 		assertThat(rdo.getTopInterestProperty().getComplexName()).isEqualTo("트리마제");
@@ -210,10 +196,67 @@ class InspectionVisitQueryFlowTest {
 
 	@Test
 	void getInspectionVisits_shouldReturnEmptyWithoutFurtherQueriesWhenNothingMatches() {
-		when(inspectionVisitStore.findAll()).thenReturn(List.of());
+		when(inspectionVisitStore.findFiltered(isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), eq(20),
+			eq(0))).thenReturn(List.of());
+		when(inspectionVisitStore.countFiltered(isNull(), isNull(), isNull(), isNull(), isNull(), isNull()))
+			.thenReturn(0L);
 
-		assertThat(inspectionVisitQueryFlow.getInspectionVisits(null, null, null, null, null, null)).isEmpty();
+		PageRdo<InspectionVisitRdo> result = inspectionVisitQueryFlow.getInspectionVisits(null, null, null, null,
+			null, null, 0, 20);
+
+		assertThat(result.getItems()).isEmpty();
+		assertThat(result.getTotalCount()).isZero();
+		assertThat(result.isHasNext()).isFalse();
 		verifyNoInteractions(viewedPropertyStore, fileBoxStore);
+	}
+
+	@Test
+	void getInspectionVisits_shouldClampSizeAboveHundredInsteadOfRejecting() {
+		when(inspectionVisitStore.findFiltered(isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), eq(100),
+			eq(0))).thenReturn(List.of());
+		when(inspectionVisitStore.countFiltered(isNull(), isNull(), isNull(), isNull(), isNull(), isNull()))
+			.thenReturn(0L);
+
+		inspectionVisitQueryFlow.getInspectionVisits(null, null, null, null, null, null, 0, 500);
+
+		verify(inspectionVisitStore).findFiltered(isNull(), isNull(), isNull(), isNull(), isNull(), isNull(),
+			eq(100), eq(0));
+	}
+
+	@Test
+	void getInspectionVisits_shouldDefaultSizeWhenZeroOrNegative() {
+		when(inspectionVisitStore.findFiltered(isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), eq(20),
+			eq(0))).thenReturn(List.of());
+		when(inspectionVisitStore.countFiltered(isNull(), isNull(), isNull(), isNull(), isNull(), isNull()))
+			.thenReturn(0L);
+
+		inspectionVisitQueryFlow.getInspectionVisits(null, null, null, null, null, null, 0, -5);
+
+		verify(inspectionVisitStore).findFiltered(isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), eq(20),
+			eq(0));
+	}
+
+	@Test
+	void getInspectionVisits_shouldRejectNegativePage() {
+		assertThatThrownBy(() -> inspectionVisitQueryFlow.getInspectionVisits(null, null, null, null, null, null, -1,
+			20)).isInstanceOf(BadRequestException.class);
+		verifyNoInteractions(inspectionVisitStore);
+	}
+
+	@Test
+	void getInspectionVisits_shouldComputeOffsetAndHasNextFromPage() {
+		when(inspectionVisitStore.findFiltered(isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), eq(20),
+			eq(20))).thenReturn(List.of());
+		when(inspectionVisitStore.countFiltered(isNull(), isNull(), isNull(), isNull(), isNull(), isNull()))
+			.thenReturn(25L);
+
+		PageRdo<InspectionVisitRdo> result = inspectionVisitQueryFlow.getInspectionVisits(null, null, null, null,
+			null, null, 1, 20);
+
+		// page=1, size=20 -> offset=20. totalCount=25이므로 (1+1)*20=40 >= 25라 hasNext는 false다
+		verify(inspectionVisitStore).findFiltered(isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), eq(20),
+			eq(20));
+		assertThat(result.isHasNext()).isFalse();
 	}
 
 	private void noPropertyDetailExtras(String visitId) {

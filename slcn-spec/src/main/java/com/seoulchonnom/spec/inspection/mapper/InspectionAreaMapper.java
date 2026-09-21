@@ -11,9 +11,12 @@ import com.seoulchonnom.spec.inspection.entity.InspectionArea;
 import com.seoulchonnom.spec.inspection.facade.sdo.IncompleteSummaryRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaCdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaDetailRdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaListRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaRdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaTotalsRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitDetailRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitSummaryRdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.RevisitIntentCountsRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyBriefRdo;
 
 @Component
@@ -44,6 +47,21 @@ public class InspectionAreaMapper {
 		rdo.setIncompleteSummary(incompleteSummary);
 		rdo.setThumbnails(thumbnails == null ? new ArrayList<>() : new ArrayList<>(thumbnails));
 		rdo.setTotalImageCount(totalImageCount);
+		return rdo;
+	}
+
+	/**
+	 * GET /inspection-areas 응답 조립. revisitIntentCounts/totals는 필터 무관 전역 값이라
+	 * items/totalCount/hasNext와 별개로 호출자가 이미 계산해 넘긴다.
+	 */
+	public InspectionAreaListRdo toInspectionAreaListRdo(List<InspectionAreaRdo> items, long totalCount,
+		boolean hasNext, RevisitIntentCountsRdo revisitIntentCounts, InspectionAreaTotalsRdo totals) {
+		InspectionAreaListRdo rdo = new InspectionAreaListRdo();
+		rdo.setItems(items == null ? new ArrayList<>() : new ArrayList<>(items));
+		rdo.setTotalCount(totalCount);
+		rdo.setHasNext(hasNext);
+		rdo.setRevisitIntentCounts(revisitIntentCounts);
+		rdo.setTotals(totals);
 		return rdo;
 	}
 

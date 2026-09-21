@@ -13,8 +13,8 @@ import java.util.stream.Stream;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
+import com.seoulchonnom.aggregate.common.util.PageRequestSupport;
 import com.seoulchonnom.aggregate.file.store.FileAssetStore;
 import com.seoulchonnom.aggregate.filebox.store.FileBoxStore;
 import com.seoulchonnom.aggregate.inspection.exception.ViewedPropertyNotFoundException;
@@ -24,6 +24,7 @@ import com.seoulchonnom.aggregate.inspection.store.InspectionTagStore;
 import com.seoulchonnom.aggregate.inspection.store.InspectionVisitStore;
 import com.seoulchonnom.aggregate.inspection.store.ViewedPropertyStore;
 import com.seoulchonnom.aggregate.inspection.store.projection.ViewedPropertySummaryPdo;
+import com.seoulchonnom.spec.common.response.PageRdo;
 import com.seoulchonnom.spec.file.entity.FileAsset;
 import com.seoulchonnom.spec.file.facade.sdo.FileAssetRdo;
 import com.seoulchonnom.spec.filebox.entity.FileBox;
@@ -73,26 +74,32 @@ public class InspectionVisitQueryFlow {
 	private final InspectionSummarySupport inspectionSummarySupport;
 
 	/**
-	 * visitedAt 내림차순. 모든 필터는 선택이며 null이면 적용하지 않는다.
+	 * visitedAt 내림차순, 동점은 id 오름차순. 모든 필터는 선택이며 null/빈 값이면 적용하지 않는다.
+	 * areaId/status/revisitIntent/from/to/tag(AND) 전부 DB 조건으로 내리고 페이징도 DB에서 한다
+	 * (InspectionVisitRepository.findFiltered 참고) — 예전처럼 전건을 읽어 자바에서 거르면
+	 * LIMIT과 메모리 필터가 겹쳐 페이지 크기가 들쭉날쭉해지고 hasNext가 깨진다.
 	 *
-	 * 저장소 왕복 7회로 고정된다: 임장 1 + 태그 2(연결+마스터) + 지역 1 + 매물 요약 1
-	 * + FileBox 1 + FileAsset 1. **임장 건수에 비례해 늘지 않는 것이 요점이다.**
+	 * 필터링된 현재 페이지 안에서는 저장소 왕복이 7회로 고정된다: 임장 1(findFiltered) +
+	 * 총건수 1(countFiltered) + 태그 2(연결+마스터) + 지역 1 + 매물 요약 1 + FileBox 1
+	 * + FileAsset 1. **페이지 크기에는 비례하지만 전체 임장 건수에는 비례하지 않는 것이 요점이다.**
 	 */
-	public List<InspectionVisitRdo> getInspectionVisits(String areaId, InspectionStatus status,
-		RevisitIntent revisitIntent, List<String> tags, LocalDateTime from, LocalDateTime to) {
-		List<InspectionVisit> visits = filterVisits(areaId, status, revisitIntent, from, to);
+	public PageRdo<InspectionVisitRdo> getInspectionVisits(String areaId, InspectionStatus status,
+		RevisitIntent revisitIntent, List<String> tags, LocalDateTime from, LocalDateTime to, int page, int size) {
+		int normalizedPage = PageRequestSupport.normalizePage(page);
+		int normalizedSize = PageRequestSupport.normalizeSize(size);
+		int offset = PageRequestSupport.offsetOf(normalizedPage, normalizedSize);
+
+		List<InspectionVisit> visits = inspectionVisitStore.findFiltered(areaId, status, revisitIntent, from, to,
+			tags, normalizedSize, offset);
+		long totalCount = inspectionVisitStore.countFiltered(areaId, status, revisitIntent, from, to, tags);
+		boolean hasNext = (long)(normalizedPage + 1) * normalizedSize < totalCount;
+
 		if (visits.isEmpty()) {
-			return List.of();
+			return new PageRdo<>(List.of(), totalCount, hasNext);
 		}
 
 		List<String> visitIds = visits.stream().map(InspectionVisit::getId).toList();
 		Map<String, List<String>> tagNames = inspectionTagStore.findVisitTagNamesByVisitIds(visitIds);
-		visits = applyTagFilter(visits, tagNames, tags);
-		if (visits.isEmpty()) {
-			return List.of();
-		}
-
-		visitIds = visits.stream().map(InspectionVisit::getId).toList();
 		Map<String, InspectionArea> areas = areaMap(visits);
 		Map<String, List<ViewedPropertySummaryPdo>> properties = propertiesByVisitId(visitIds);
 		Map<String, FileBoxItemRdo> covers = visitCovers(visitIds);
@@ -101,7 +108,7 @@ public class InspectionVisitQueryFlow {
 			.collect(Collectors.toMap(InspectionVisit::getId, InspectionVisit::getVisitedAt));
 
 		List<ViewedPropertySummaryPdo> emptyProperties = List.of();
-		return visits.stream()
+		List<InspectionVisitRdo> items = visits.stream()
 			.map(visit -> {
 				List<ViewedPropertySummaryPdo> visitProperties = properties.getOrDefault(visit.getId(),
 					emptyProperties);
@@ -111,6 +118,7 @@ public class InspectionVisitQueryFlow {
 					inspectionSummarySupport.ofVisitCountsOnly(visit, visitProperties));
 			})
 			.toList();
+		return new PageRdo<>(items, totalCount, hasNext);
 	}
 
 	/**
@@ -258,33 +266,6 @@ public class InspectionVisitQueryFlow {
 		}
 		return new ViewedPropertyBriefRdo(property.getId(), property.getComplexName(), property.getName(),
 			property.getInterestLevel());
-	}
-
-	private List<InspectionVisit> filterVisits(String areaId, InspectionStatus status, RevisitIntent revisitIntent,
-		LocalDateTime from, LocalDateTime to) {
-		List<InspectionVisit> visits = StringUtils.hasText(areaId)
-			? inspectionVisitStore.findAllByAreaId(areaId)
-			: inspectionVisitStore.findAll();
-		return visits.stream()
-			.filter(visit -> status == null || status == visit.getStatus())
-			.filter(visit -> revisitIntent == null || revisitIntent == visit.getRevisitIntent())
-			.filter(visit -> from == null || !visit.getVisitedAt().isBefore(from))
-			.filter(visit -> to == null || !visit.getVisitedAt().isAfter(to))
-			.toList();
-	}
-
-	/**
-	 * 태그 필터는 AND다. 요청한 태그를 모두 가진 임장만 남긴다.
-	 */
-	private List<InspectionVisit> applyTagFilter(List<InspectionVisit> visits, Map<String, List<String>> tagNames,
-		List<String> tags) {
-		if (tags == null || tags.isEmpty()) {
-			return visits;
-		}
-		Set<String> required = Set.copyOf(tags);
-		return visits.stream()
-			.filter(visit -> tagNames.getOrDefault(visit.getId(), List.of()).containsAll(required))
-			.toList();
 	}
 
 	private Map<String, InspectionArea> areaMap(List<InspectionVisit> visits) {

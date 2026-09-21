@@ -14,11 +14,13 @@ import com.seoulchonnom.aggregate.common.exception.BadRequestException;
 import com.seoulchonnom.aggregate.flow.inspection.InspectionVisitFlow;
 import com.seoulchonnom.aggregate.flow.inspection.InspectionVisitQueryFlow;
 import com.seoulchonnom.aggregate.flow.inspection.ViewedPropertyFlow;
+import com.seoulchonnom.spec.common.response.PageRdo;
 import com.seoulchonnom.spec.inspection.entity.InspectionVisit;
 import com.seoulchonnom.spec.inspection.entity.vo.InspectionStatus;
 import com.seoulchonnom.spec.inspection.facade.sdo.FileBoxItemOrderUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitCdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitDetailRdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitStatusUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyOrderUdo;
@@ -40,31 +42,46 @@ class InspectionVisitResourceTest {
 
 	@Test
 	void getInspectionVisits_shouldPassFiltersThrough() {
-		when(inspectionVisitQueryFlow.getInspectionVisits(any(), any(), any(), any(), any(), any()))
-			.thenReturn(List.of());
+		when(inspectionVisitQueryFlow.getInspectionVisits(any(), any(), any(), any(), any(), any(), anyInt(),
+			anyInt())).thenReturn(new PageRdo<>());
 
 		inspectionVisitResource.getInspectionVisits("INSPECTION_AREA-0001", InspectionStatus.DRAFT, null,
-			List.of("한강"), "2026-09-01T00:00:00", "2026-09-30T23:59:59");
+			List.of("한강"), "2026-09-01T00:00:00", "2026-09-30T23:59:59", 2, 30);
 
 		verify(inspectionVisitQueryFlow).getInspectionVisits("INSPECTION_AREA-0001", InspectionStatus.DRAFT, null,
-			List.of("한강"), LocalDateTime.of(2026, 9, 1, 0, 0), LocalDateTime.of(2026, 9, 30, 23, 59, 59));
+			List.of("한강"), LocalDateTime.of(2026, 9, 1, 0, 0), LocalDateTime.of(2026, 9, 30, 23, 59, 59), 2, 30);
 	}
 
 	@Test
 	void getInspectionVisits_shouldRejectMalformedDateRange() {
 		assertThatThrownBy(() -> inspectionVisitResource.getInspectionVisits(null, null, null, null, "2026-09-01",
-			null))
+			null, 0, 20))
 			.isInstanceOf(BadRequestException.class);
 	}
 
 	@Test
 	void getInspectionVisits_shouldTreatBlankRangeAsAbsent() {
-		when(inspectionVisitQueryFlow.getInspectionVisits(any(), any(), any(), any(), any(), any()))
-			.thenReturn(List.of());
+		when(inspectionVisitQueryFlow.getInspectionVisits(any(), any(), any(), any(), any(), any(), anyInt(),
+			anyInt())).thenReturn(new PageRdo<>());
 
-		inspectionVisitResource.getInspectionVisits(null, null, null, null, "  ", null);
+		inspectionVisitResource.getInspectionVisits(null, null, null, null, "  ", null, 0, 20);
 
-		verify(inspectionVisitQueryFlow).getInspectionVisits(null, null, null, null, null, null);
+		verify(inspectionVisitQueryFlow).getInspectionVisits(null, null, null, null, null, null, 0, 20);
+	}
+
+	/**
+	 * 지역 상세가 51번째 이후 회차를 이어받는 경로(hasMoreVisits)가 areaId+page/size로
+	 * 그대로 위임되는지 확인한다.
+	 */
+	@Test
+	void getInspectionVisits_shouldPassThroughPageAndSizeForContinuation() {
+		when(inspectionVisitQueryFlow.getInspectionVisits(eq("INSPECTION_AREA-0001"), isNull(), isNull(), isNull(),
+			isNull(), isNull(), eq(1), eq(50))).thenReturn(new PageRdo<>());
+
+		inspectionVisitResource.getInspectionVisits("INSPECTION_AREA-0001", null, null, null, null, null, 1, 50);
+
+		verify(inspectionVisitQueryFlow).getInspectionVisits("INSPECTION_AREA-0001", null, null, null, null, null, 1,
+			50);
 	}
 
 	@Test
