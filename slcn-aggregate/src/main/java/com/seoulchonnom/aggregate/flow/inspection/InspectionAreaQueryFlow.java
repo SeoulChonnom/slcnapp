@@ -234,13 +234,16 @@ public class InspectionAreaQueryFlow {
 	 * 지역 전체 매물 경량 목록(A-②). FE가 complexName+name으로 회차 간 매물을 이어 보여주는
 	 * 재료다. 그룹핑은 FE가 하므로 여기서는 정렬된 평면 목록만 만든다.
 	 *
+	 * complexName/name 필터는 이미 읽어 온 projection 위에서 건다. DB 조건으로 내려도
+	 * 읽는 행은 같은 지역분으로 같은데 쿼리 조합만 늘어난다 — 줄여야 할 것은 응답 크기다.
+	 *
 	 * 저장소 왕복 2회로 유지한다: 임장 목록 1(findAllByAreaId) + 매물 요약 1
 	 * (inspectionVisitQueryFlow.propertiesByVisitId가 감싼 findSummariesByVisitIds).
 	 * 회차가 하나도 없을 때만 지역 자체의 존재를 추가로 확인한다 — 존재하는 지역은 매물 없이도
 	 * 정상이라 빈 배열을 돌려줘야 하고, 없는 지역은 기존 InspectionAreaNotFoundException 규약을
 	 * 따라야 하기 때문이다. 이 한 번의 추가 조회는 그 드문 경우에만 든다.
 	 */
-	public List<AreaViewedPropertyRdo> getAreaProperties(String areaId) {
+	public List<AreaViewedPropertyRdo> getAreaProperties(String areaId, String complexName, String name) {
 		List<InspectionVisit> visits = inspectionVisitStore.findAllByAreaId(areaId);
 		if (visits.isEmpty()) {
 			inspectionAreaStore.findById(areaId);
@@ -250,16 +253,33 @@ public class InspectionAreaQueryFlow {
 		List<String> visitIds = visits.stream().map(InspectionVisit::getId).toList();
 		Map<String, List<ViewedPropertySummaryPdo>> propertiesByVisit =
 			inspectionVisitQueryFlow.propertiesByVisitId(visitIds);
+		String wantedComplexName = normalizeFilter(complexName);
+		String wantedName = normalizeFilter(name);
 
 		// visits는 이미 visitedAt 내림차순이다(findAllByAreaIdOrderByVisitedAtDescIdAsc).
 		// 회차 안에서는 sortOrder 오름차순으로만 더 정렬하면 전체 요구 정렬이 완성된다.
 		List<AreaViewedPropertyRdo> result = new ArrayList<>();
 		for (InspectionVisit visit : visits) {
 			propertiesByVisit.getOrDefault(visit.getId(), List.<ViewedPropertySummaryPdo>of()).stream()
+				.filter(property -> matches(property, wantedComplexName, wantedName))
 				.sorted(Comparator.comparingInt(ViewedPropertySummaryPdo::getSortOrder))
 				.forEach(property -> result.add(toAreaViewedPropertyRdo(property, visit)));
 		}
 		return result;
+	}
+
+	/**
+	 * 저장 시 ViewedPropertyLogic이 trim + 연속 공백 1칸으로 정규화하므로 요청 값에도 같은 규칙을
+	 * 적용한 뒤 정확 일치로 비교한다. 규칙이 갈리면 FE가 화면에서 본 이름 그대로 보냈는데도
+	 * 아무것도 안 걸리는 일이 생긴다.
+	 */
+	private String normalizeFilter(String value) {
+		return StringUtils.hasText(value) ? value.trim().replaceAll("\\s+", " ") : null;
+	}
+
+	private boolean matches(ViewedPropertySummaryPdo property, String wantedComplexName, String wantedName) {
+		return (wantedComplexName == null || wantedComplexName.equals(property.getComplexName()))
+			&& (wantedName == null || wantedName.equals(property.getName()));
 	}
 
 	private AreaViewedPropertyRdo toAreaViewedPropertyRdo(ViewedPropertySummaryPdo property, InspectionVisit visit) {

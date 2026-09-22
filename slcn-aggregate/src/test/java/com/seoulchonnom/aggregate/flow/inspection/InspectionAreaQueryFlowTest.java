@@ -419,7 +419,7 @@ class InspectionAreaQueryFlowTest {
 		when(inspectionVisitQueryFlow.propertiesByVisitId(anyList()))
 			.thenReturn(Map.of("v1", List.of(p2, p1), "v2", List.of(p3)));
 
-		List<AreaViewedPropertyRdo> result = inspectionAreaQueryFlow.getAreaProperties("INSPECTION_AREA-0001");
+		List<AreaViewedPropertyRdo> result = inspectionAreaQueryFlow.getAreaProperties("INSPECTION_AREA-0001", null, null);
 
 		// v1(최신)의 sortOrder 오름차순 다음 v2(과거)가 이어진다
 		assertThat(result).extracting(AreaViewedPropertyRdo::getPropertyId).containsExactly("p1", "p2", "p3");
@@ -428,12 +428,61 @@ class InspectionAreaQueryFlowTest {
 	}
 
 	@Test
+	void getAreaProperties_shouldFilterByComplexNameAndName() {
+		when(inspectionVisitStore.findAllByAreaId("INSPECTION_AREA-0001")).thenReturn(List.of(
+			visit("v1", "INSPECTION_AREA-0001", LocalDateTime.of(2026, 9, 17, 14, 0)),
+			visit("v2", "INSPECTION_AREA-0001", LocalDateTime.of(2026, 9, 3, 10, 0))));
+		ViewedPropertySummaryPdo p1 = pdo("p1", "v1", "트리마제", 1);
+		ViewedPropertySummaryPdo p2 = pdo("p2", "v1", "갤러리아포레", 2);
+		ViewedPropertySummaryPdo p3 = pdo("p3", "v2", "트리마제", 1);
+		when(inspectionVisitQueryFlow.propertiesByVisitId(anyList()))
+			.thenReturn(Map.of("v1", List.of(p1, p2), "v2", List.of(p3)));
+
+		// 회차 연결 스트립이 부르는 방식: 단지명 + 매물명을 함께 준다
+		List<AreaViewedPropertyRdo> result = inspectionAreaQueryFlow.getAreaProperties(
+			"INSPECTION_AREA-0001", "트리마제", "101동 p1");
+
+		assertThat(result).extracting(AreaViewedPropertyRdo::getPropertyId).containsExactly("p1");
+	}
+
+	@Test
+	void getAreaProperties_shouldFilterByComplexNameAloneAcrossVisits() {
+		when(inspectionVisitStore.findAllByAreaId("INSPECTION_AREA-0001")).thenReturn(List.of(
+			visit("v1", "INSPECTION_AREA-0001", LocalDateTime.of(2026, 9, 17, 14, 0)),
+			visit("v2", "INSPECTION_AREA-0001", LocalDateTime.of(2026, 9, 3, 10, 0))));
+		ViewedPropertySummaryPdo p1 = pdo("p1", "v1", "트리마제", 1);
+		ViewedPropertySummaryPdo p2 = pdo("p2", "v1", "갤러리아포레", 2);
+		ViewedPropertySummaryPdo p3 = pdo("p3", "v2", "트리마제", 1);
+		when(inspectionVisitQueryFlow.propertiesByVisitId(anyList()))
+			.thenReturn(Map.of("v1", List.of(p1, p2), "v2", List.of(p3)));
+
+		List<AreaViewedPropertyRdo> result = inspectionAreaQueryFlow.getAreaProperties(
+			"INSPECTION_AREA-0001", "트리마제", null);
+
+		assertThat(result).extracting(AreaViewedPropertyRdo::getPropertyId).containsExactly("p1", "p3");
+	}
+
+	@Test
+	void getAreaProperties_shouldNormalizeFilterBeforeMatching() {
+		when(inspectionVisitStore.findAllByAreaId("INSPECTION_AREA-0001")).thenReturn(List.of(
+			visit("v1", "INSPECTION_AREA-0001", LocalDateTime.of(2026, 9, 17, 14, 0))));
+		ViewedPropertySummaryPdo p1 = pdo("p1", "v1", "트리마제", 1);
+		when(inspectionVisitQueryFlow.propertiesByVisitId(anyList())).thenReturn(Map.of("v1", List.of(p1)));
+
+		// 저장 값은 정규화되어 있으므로 앞뒤 공백·연속 공백이 섞여 와도 같은 매물로 걸려야 한다
+		List<AreaViewedPropertyRdo> result = inspectionAreaQueryFlow.getAreaProperties(
+			"INSPECTION_AREA-0001", "  트리마제 ", null);
+
+		assertThat(result).extracting(AreaViewedPropertyRdo::getPropertyId).containsExactly("p1");
+	}
+
+	@Test
 	void getAreaProperties_shouldReturnEmptyForAreaWithoutAnyVisit() {
 		when(inspectionAreaStore.findById("INSPECTION_AREA-0001"))
 			.thenReturn(new InspectionArea("INSPECTION_AREA-0001", "성수동", null));
 		when(inspectionVisitStore.findAllByAreaId("INSPECTION_AREA-0001")).thenReturn(List.of());
 
-		assertThat(inspectionAreaQueryFlow.getAreaProperties("INSPECTION_AREA-0001")).isEmpty();
+		assertThat(inspectionAreaQueryFlow.getAreaProperties("INSPECTION_AREA-0001", null, null)).isEmpty();
 		verifyNoInteractions(inspectionVisitQueryFlow);
 	}
 
@@ -442,7 +491,7 @@ class InspectionAreaQueryFlowTest {
 		when(inspectionAreaStore.findById("INSPECTION_AREA-9999")).thenThrow(new InspectionAreaNotFoundException());
 		when(inspectionVisitStore.findAllByAreaId("INSPECTION_AREA-9999")).thenReturn(List.of());
 
-		assertThatThrownBy(() -> inspectionAreaQueryFlow.getAreaProperties("INSPECTION_AREA-9999"))
+		assertThatThrownBy(() -> inspectionAreaQueryFlow.getAreaProperties("INSPECTION_AREA-9999", null, null))
 			.isInstanceOf(InspectionAreaNotFoundException.class);
 	}
 }

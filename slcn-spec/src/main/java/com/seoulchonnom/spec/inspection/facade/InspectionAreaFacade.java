@@ -27,8 +27,15 @@ public interface InspectionAreaFacade {
 	 * 지역 전체 매물 경량 목록. 회차 하나만 담는 지역 상세와 달리 모든 회차의 매물을 평면으로 준다.
 	 * complexName+name으로 회차 간 매물을 잇는 FE 기능의 재료다. answers는 읽지 않는다.
 	 * 정렬은 visitedAt 내림차순, 같은 회차 안에서는 sortOrder 오름차순이다.
+	 *
+	 * complexName/name은 각각 독립적인 정확 일치 필터다. 회차 연결 스트립은 한 매물의 이력만
+	 * 쓰므로 둘 다 지정해 호출하면 응답이 그 매물의 회차 수만큼으로 줄어든다.
+	 * 저장 시 trim + 연속 공백 1칸으로 정규화되므로 같은 규칙으로 정규화한 값을 보내면 된다.
+	 *
+	 * 페이지 래퍼를 씌우지 않는다. 이 목록의 소비처는 "이 매물이 회차를 거치며 어떻게 변했나"를
+	 * 한 번에 그리는 것이라 일부만 받으면 쓸모가 없다. 지역 하나에 묶인 매물이 모수라 상한도 분명하다.
 	 */
-	ResponseEntity<List<AreaViewedPropertyRdo>> getAreaProperties(String areaId);
+	ResponseEntity<List<AreaViewedPropertyRdo>> getAreaProperties(String areaId, String complexName, String name);
 
 	/**
 	 * 회차 요약 목록과 선택 회차 상세를 한 번에 반환한다.

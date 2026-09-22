@@ -68,12 +68,13 @@ class InspectionAreaResourceTest {
 	@Test
 	void getAreaProperties_shouldDelegateToQueryFlow() {
 		List<AreaViewedPropertyRdo> properties = List.of(new AreaViewedPropertyRdo());
-		when(inspectionAreaQueryFlow.getAreaProperties("INSPECTION_AREA-0001")).thenReturn(properties);
+		when(inspectionAreaQueryFlow.getAreaProperties("INSPECTION_AREA-0001", "트리마제", "101동 1203호"))
+			.thenReturn(properties);
 
-		var response = inspectionAreaResource.getAreaProperties("INSPECTION_AREA-0001");
+		var response = inspectionAreaResource.getAreaProperties("INSPECTION_AREA-0001", "트리마제", "101동 1203호");
 
 		assertThat(response.getBody()).isSameAs(properties);
-		verify(inspectionAreaQueryFlow).getAreaProperties("INSPECTION_AREA-0001");
+		verify(inspectionAreaQueryFlow).getAreaProperties("INSPECTION_AREA-0001", "트리마제", "101동 1203호");
 	}
 
 	@Test

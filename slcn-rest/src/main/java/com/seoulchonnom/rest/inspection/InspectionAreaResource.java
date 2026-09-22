@@ -58,8 +58,11 @@ public class InspectionAreaResource implements InspectionAreaFacade {
 
 	@Override
 	@GetMapping("/{areaId}/properties")
-	public ResponseEntity<List<AreaViewedPropertyRdo>> getAreaProperties(@PathVariable("areaId") String areaId) {
-		return new ResponseEntity<>(inspectionAreaQueryFlow.getAreaProperties(areaId), HttpStatus.OK);
+	public ResponseEntity<List<AreaViewedPropertyRdo>> getAreaProperties(@PathVariable("areaId") String areaId,
+		@RequestParam(value = "complexName", required = false) String complexName,
+		@RequestParam(value = "name", required = false) String name) {
+		return new ResponseEntity<>(inspectionAreaQueryFlow.getAreaProperties(areaId, complexName, name),
+			HttpStatus.OK);
 	}
 
 	@Override
