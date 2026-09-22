@@ -101,13 +101,13 @@ public class InspectionAreaQueryFlow {
 		List<InspectionAreaRdo> items = pagedAreaIds.isEmpty() ? List.of()
 			: assembleAreaRdos(pagedAreaIds, keyword);
 
-		long visibleAreaCount = inspectionAreaStore.countVisibleAreas();
+		long visibleAreaCount = inspectionAreaStore.countAreas();
 		Map<RevisitIntent, Long> byLatestIntent = inspectionAreaStore.countAreasByLatestRevisitIntent();
 		RevisitIntentCountsRdo revisitIntentCounts = new RevisitIntentCountsRdo(visibleAreaCount,
 			byLatestIntent.getOrDefault(RevisitIntent.YES, 0L), byLatestIntent.getOrDefault(RevisitIntent.MAYBE, 0L),
 			byLatestIntent.getOrDefault(RevisitIntent.NO, 0L));
 		InspectionAreaTotalsRdo totals = new InspectionAreaTotalsRdo(visibleAreaCount,
-			inspectionAreaStore.countVisitsOfVisibleAreas(), inspectionAreaStore.countPropertiesOfVisibleAreas());
+			inspectionAreaStore.countAllVisits(), inspectionAreaStore.countAllProperties());
 
 		return inspectionAreaMapper.toInspectionAreaListRdo(items, totalCount, hasNext, revisitIntentCounts, totals);
 	}

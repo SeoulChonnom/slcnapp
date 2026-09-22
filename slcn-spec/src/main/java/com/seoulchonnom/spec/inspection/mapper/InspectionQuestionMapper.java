@@ -42,7 +42,6 @@ public class InspectionQuestionMapper {
 		rdo.setSortOrder(question.getSortOrder());
 		rdo.setEnabled(question.isEnabled());
 		rdo.setCurrentVersionNo(question.getCurrentVersionNo());
-		rdo.setEntityVersion(question.getEntityVersion());
 		question.currentVersion().ifPresent(version -> {
 			rdo.setContent(version.getContent());
 			rdo.setDescription(version.getDescription());

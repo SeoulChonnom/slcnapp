@@ -24,15 +24,14 @@ import com.seoulchonnom.aggregate.inspection.store.jpo.InspectionAreaJpo;
  */
 @Repository
 public interface InspectionAreaRepository extends JpaRepository<InspectionAreaJpo, String> {
-	List<InspectionAreaJpo> findAllByHiddenFalseOrderByNameAsc();
+	List<InspectionAreaJpo> findAllByOrderByNameAsc();
 
-	List<InspectionAreaJpo> findAllByHiddenFalseAndNameContainingOrderByNameAsc(String keyword);
+	List<InspectionAreaJpo> findAllByNameContainingOrderByNameAsc(String keyword);
 
 	List<InspectionAreaJpo> findAllByIdIn(Collection<String> ids);
 
 	Optional<InspectionAreaJpo> findByName(String name);
 
-	long countByHiddenFalse();
 
 	/**
 	 * 사람이 검증할 지점: LEFT JOIN 체인(visit -> viewed_property, visit_tag/tag,
@@ -47,8 +46,7 @@ public interface InspectionAreaRepository extends JpaRepository<InspectionAreaJp
 		+ "LEFT JOIN slcn.inspection_tag vtag ON vtag.id = ivt.tag_id "
 		+ "LEFT JOIN slcn.viewed_property_tag vpt ON vpt.viewed_property_id = p.id "
 		+ "LEFT JOIN slcn.inspection_tag ptag ON ptag.id = vpt.tag_id "
-		+ "WHERE a.hidden = false "
-		+ "AND (:likeKeyword IS NULL OR ("
+		+ "WHERE (:likeKeyword IS NULL OR ("
 		+ "  a.name ILIKE :likeKeyword OR a.description ILIKE :likeKeyword "
 		+ "  OR p.complex_name ILIKE :likeKeyword OR p.name ILIKE :likeKeyword "
 		+ "  OR vtag.name ILIKE :likeKeyword OR ptag.name ILIKE :likeKeyword"
@@ -76,8 +74,7 @@ public interface InspectionAreaRepository extends JpaRepository<InspectionAreaJp
 		+ "LEFT JOIN slcn.inspection_tag vtag ON vtag.id = ivt.tag_id "
 		+ "LEFT JOIN slcn.viewed_property_tag vpt ON vpt.viewed_property_id = p.id "
 		+ "LEFT JOIN slcn.inspection_tag ptag ON ptag.id = vpt.tag_id "
-		+ "WHERE a.hidden = false "
-		+ "AND (:likeKeyword IS NULL OR ("
+		+ "WHERE (:likeKeyword IS NULL OR ("
 		+ "  a.name ILIKE :likeKeyword OR a.description ILIKE :likeKeyword "
 		+ "  OR p.complex_name ILIKE :likeKeyword OR p.name ILIKE :likeKeyword "
 		+ "  OR vtag.name ILIKE :likeKeyword OR ptag.name ILIKE :likeKeyword"
@@ -104,8 +101,7 @@ public interface InspectionAreaRepository extends JpaRepository<InspectionAreaJp
 		+ "LEFT JOIN slcn.inspection_tag vtag ON vtag.id = ivt.tag_id "
 		+ "LEFT JOIN slcn.viewed_property_tag vpt ON vpt.viewed_property_id = p.id "
 		+ "LEFT JOIN slcn.inspection_tag ptag ON ptag.id = vpt.tag_id "
-		+ "WHERE a.hidden = false "
-		+ "AND (:likeKeyword IS NULL OR ("
+		+ "WHERE (:likeKeyword IS NULL OR ("
 		+ "  a.name ILIKE :likeKeyword OR a.description ILIKE :likeKeyword "
 		+ "  OR p.complex_name ILIKE :likeKeyword OR p.name ILIKE :likeKeyword "
 		+ "  OR vtag.name ILIKE :likeKeyword OR ptag.name ILIKE :likeKeyword"
@@ -131,8 +127,7 @@ public interface InspectionAreaRepository extends JpaRepository<InspectionAreaJp
 		+ "LEFT JOIN slcn.inspection_tag vtag ON vtag.id = ivt.tag_id "
 		+ "LEFT JOIN slcn.viewed_property_tag vpt ON vpt.viewed_property_id = p.id "
 		+ "LEFT JOIN slcn.inspection_tag ptag ON ptag.id = vpt.tag_id "
-		+ "WHERE a.hidden = false "
-		+ "AND (:likeKeyword IS NULL OR ("
+		+ "WHERE (:likeKeyword IS NULL OR ("
 		+ "  a.name ILIKE :likeKeyword OR a.description ILIKE :likeKeyword "
 		+ "  OR p.complex_name ILIKE :likeKeyword OR p.name ILIKE :likeKeyword "
 		+ "  OR vtag.name ILIKE :likeKeyword OR ptag.name ILIKE :likeKeyword"
@@ -145,21 +140,21 @@ public interface InspectionAreaRepository extends JpaRepository<InspectionAreaJp
 	long countMatchingAreas(@Param("likeKeyword") String likeKeyword, @Param("revisitIntent") String revisitIntent);
 
 	/**
-	 * 전역 요약(totals.visitCount)용. hidden=false인 지역에 속한 임장만 센다.
+	 * 전역 요약(totals.visitCount)용. 전체 임장 수다.
 	 */
 	@Query(value = "SELECT COUNT(*) FROM slcn.inspection_visit v "
-		+ "JOIN slcn.inspection_area a ON a.id = v.area_id WHERE a.hidden = false",
+		+ "JOIN slcn.inspection_area a ON a.id = v.area_id",
 		nativeQuery = true)
-	long countVisitsOfVisibleAreas();
+	long countAllVisits();
 
 	/**
-	 * 전역 요약(totals.propertyCount)용. hidden=false인 지역에 속한 매물만 센다.
+	 * 전역 요약(totals.propertyCount)용. 전체 매물 수다.
 	 */
 	@Query(value = "SELECT COUNT(*) FROM slcn.viewed_property p "
 		+ "JOIN slcn.inspection_visit v ON v.id = p.inspection_visit_id "
-		+ "JOIN slcn.inspection_area a ON a.id = v.area_id WHERE a.hidden = false",
+		+ "JOIN slcn.inspection_area a ON a.id = v.area_id",
 		nativeQuery = true)
-	long countPropertiesOfVisibleAreas();
+	long countAllProperties();
 
 	/**
 	 * 필터 칩 카운트(revisitIntentCounts)용. 지역별로 "최신 회차 1건"만 골라(DISTINCT ON)
@@ -178,7 +173,6 @@ public interface InspectionAreaRepository extends JpaRepository<InspectionAreaJp
 		+ "SELECT lv.revisit_intent AS intent, COUNT(*) AS cnt "
 		+ "FROM slcn.inspection_area a "
 		+ "LEFT JOIN latest_visit lv ON lv.area_id = a.id "
-		+ "WHERE a.hidden = false "
 		+ "GROUP BY lv.revisit_intent",
 		nativeQuery = true)
 	List<Object[]> countAreasByLatestRevisitIntent();

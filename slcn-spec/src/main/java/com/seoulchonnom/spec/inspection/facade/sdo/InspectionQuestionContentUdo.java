@@ -18,11 +18,4 @@ public class InspectionQuestionContentUdo {
 	private String description;
 	private List<QuestionChoiceSdo> choices;
 	private String unit;
-	/**
-	 * 조회 시 받은 entityVersion을 그대로 되돌려 보내야 한다(C-1).
-	 * 두 관리자가 같은 질문을 동시에 열어 두고 순서대로 저장하는 lost update를 막는 대조 키다.
-	 * null이면 프런트가 대조 키 없이 보낸 것이므로 400으로 거절한다 — 선택 파라미터로 두면
-	 * 안 보내는 것만으로 검사를 우회할 수 있어 목적 자체가 무너진다.
-	 */
-	private Long entityVersion;
 }

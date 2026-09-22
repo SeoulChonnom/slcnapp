@@ -21,13 +21,11 @@ import lombok.Setter;
 public class InspectionArea extends DomainEntity {
 	private String name;
 	private String description;
-	private boolean hidden;
 
 	public InspectionArea(String id, String name, String description) {
 		super(id);
 		this.name = name;
 		this.description = description;
-		this.hidden = false;
 	}
 
 	public void update(String name, String description) {
@@ -36,8 +34,4 @@ public class InspectionArea extends DomainEntity {
 		this.modifiedTime = System.currentTimeMillis();
 	}
 
-	public void hide() {
-		this.hidden = true;
-		this.modifiedTime = System.currentTimeMillis();
-	}
 }

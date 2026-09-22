@@ -14,8 +14,4 @@ import lombok.Setter;
 @AllArgsConstructor
 public class InspectionQuestionStatusUdo {
 	private boolean enabled;
-	/**
-	 * 조회 시 받은 entityVersion을 그대로 되돌려 보내야 한다(C-1). null이면 400으로 거절한다.
-	 */
-	private Long entityVersion;
 }

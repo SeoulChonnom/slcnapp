@@ -36,7 +36,7 @@ public class InspectionAreaLogic {
 	private final IdGenerator idGenerator;
 
 	public List<InspectionArea> getInspectionAreas(String keyword) {
-		return inspectionAreaStore.findAllVisible(keyword);
+		return inspectionAreaStore.findAllOrderedByName(keyword);
 	}
 
 	public InspectionArea getInspectionArea(String areaId) {

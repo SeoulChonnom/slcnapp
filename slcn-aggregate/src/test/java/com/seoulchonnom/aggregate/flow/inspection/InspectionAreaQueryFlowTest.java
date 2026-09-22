@@ -93,7 +93,7 @@ class InspectionAreaQueryFlowTest {
 	}
 
 	/**
-	 * findAllVisible(keyword) 대신 DB가 페이징한 area id 목록(findAreaIdsPage)을 받아
+	 * findAllOrderedByName(keyword) 대신 DB가 페이징한 area id 목록(findAreaIdsPage)을 받아
 	 * findAllByIds로 되읽는 새 경로를 표준 스텁 하나로 감싼다. 정렬/키워드/revisitIntent
 	 * 인자는 이 테스트들의 관심사가 아니므로 any()로 받는다.
 	 */
@@ -110,10 +110,10 @@ class InspectionAreaQueryFlowTest {
 	 * 테스트가 이 네 쿼리를 반드시 거친다. 각 테스트의 관심사가 아니면 0/빈 값으로 무해하게 채운다.
 	 */
 	private void stubGlobalAggregatesToZero() {
-		when(inspectionAreaStore.countVisibleAreas()).thenReturn(0L);
+		when(inspectionAreaStore.countAreas()).thenReturn(0L);
 		when(inspectionAreaStore.countAreasByLatestRevisitIntent()).thenReturn(Map.of());
-		when(inspectionAreaStore.countVisitsOfVisibleAreas()).thenReturn(0L);
-		when(inspectionAreaStore.countPropertiesOfVisibleAreas()).thenReturn(0L);
+		when(inspectionAreaStore.countAllVisits()).thenReturn(0L);
+		when(inspectionAreaStore.countAllProperties()).thenReturn(0L);
 	}
 
 	private static MatchedPropertyPdo matchedPdo(String id, String areaId, String visitId, Integer interestLevel,
@@ -321,13 +321,13 @@ class InspectionAreaQueryFlowTest {
 
 	/**
 	 * revisitIntentCounts는 keyword/revisitIntent/page 어느 것에도 영향받지 않는 전역 값이다.
-	 * 필터를 걸어도(여기서는 keyword="성수") countAreasByLatestRevisitIntent/countVisibleAreas가
+	 * 필터를 걸어도(여기서는 keyword="성수") countAreasByLatestRevisitIntent/countAreas가
 	 * 그 필터 파라미터 없이 호출된다는 것으로 이를 검증한다.
 	 */
 	@Test
 	void getInspectionAreas_shouldComputeRevisitIntentCountsIndependentlyOfFilters() {
 		stubAreaPage(List.of(new InspectionArea("INSPECTION_AREA-0001", "성수동", null)));
-		when(inspectionAreaStore.countVisibleAreas()).thenReturn(7L);
+		when(inspectionAreaStore.countAreas()).thenReturn(7L);
 		when(inspectionAreaStore.countAreasByLatestRevisitIntent()).thenReturn(Map.of(
 			RevisitIntent.YES, 3L, RevisitIntent.MAYBE, 1L, RevisitIntent.NO, 1L));
 		when(inspectionVisitStore.findAllByAreaIds(anyList())).thenReturn(List.of());
@@ -344,7 +344,7 @@ class InspectionAreaQueryFlowTest {
 		assertThat(result.getRevisitIntentCounts().getMaybe()).isEqualTo(1);
 		assertThat(result.getRevisitIntentCounts().getNo()).isEqualTo(1);
 		// keyword="성수", revisitIntent=YES로 필터를 걸었지만 이 전역 집계 쿼리는 필터 인자를 받지 않는다
-		verify(inspectionAreaStore).countVisibleAreas();
+		verify(inspectionAreaStore).countAreas();
 		verify(inspectionAreaStore).countAreasByLatestRevisitIntent();
 	}
 

@@ -41,7 +41,7 @@ public class InspectionAreaFlow {
 
 	/**
 	 * 임장 기록이 1건이라도 있으면 409. 지역을 지우면 그 기록들이 없는 지역을 가리키게 되어
-	 * 상세 조회가 깨진다. 비활성화가 필요하면 hidden을 쓴다.
+	 * 상세 조회가 깨진다.
 	 */
 	@Transactional
 	public void deleteInspectionArea(String areaId) {

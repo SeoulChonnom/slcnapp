@@ -12,7 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import com.seoulchonnom.aggregate.common.generator.store.entity.SequenceName;
-import com.seoulchonnom.aggregate.inspection.exception.InspectionQuestionConflictException;
 import com.seoulchonnom.aggregate.inspection.exception.InvalidInspectionQuestionException;
 import com.seoulchonnom.aggregate.inspection.store.InspectionQuestionStore;
 import com.seoulchonnom.spec.common.generator.IdGenerator;
@@ -97,7 +96,6 @@ public class InspectionQuestionLogic {
 	public InspectionQuestionRdo modifyInspectionQuestionContent(String questionId,
 		InspectionQuestionContentUdo inspectionQuestionContentUdo) {
 		InspectionQuestion question = inspectionQuestionStore.findById(questionId);
-		validateEntityVersion(inspectionQuestionContentUdo.getEntityVersion(), question.getEntityVersion());
 		validateContent(question.getAnswerType(), inspectionQuestionContentUdo.getContent(),
 			inspectionQuestionContentUdo.getDescription(), inspectionQuestionContentUdo.getChoices(),
 			inspectionQuestionContentUdo.getUnit());
@@ -110,7 +108,6 @@ public class InspectionQuestionLogic {
 	public InspectionQuestionRdo modifyInspectionQuestionPolicy(String questionId,
 		InspectionQuestionPolicyUdo inspectionQuestionPolicyUdo) {
 		InspectionQuestion question = inspectionQuestionStore.findById(questionId);
-		validateEntityVersion(inspectionQuestionPolicyUdo.getEntityVersion(), question.getEntityVersion());
 		question.changePolicy(inspectionQuestionPolicyUdo.isRequired(), inspectionQuestionPolicyUdo.getSortOrder());
 		return inspectionQuestionMapper.toInspectionQuestionRdo(inspectionQuestionStore.save(question), null);
 	}
@@ -119,31 +116,8 @@ public class InspectionQuestionLogic {
 	public InspectionQuestionRdo changeInspectionQuestionStatus(String questionId,
 		InspectionQuestionStatusUdo inspectionQuestionStatusUdo) {
 		InspectionQuestion question = inspectionQuestionStore.findById(questionId);
-		validateEntityVersion(inspectionQuestionStatusUdo.getEntityVersion(), question.getEntityVersion());
 		question.changeEnabled(inspectionQuestionStatusUdo.isEnabled());
 		return inspectionQuestionMapper.toInspectionQuestionRdo(inspectionQuestionStore.save(question), null);
-	}
-
-	/**
-	 * 요청 하나가 읽기·쓰기를 같은 트랜잭션에서 처리해 JPA의 @Version만으로는 흔한 lost update
-	 * (A가 모달을 열어 둔 사이 B가 저장하고, 그다음 A가 저장)를 못 잡는다. 그래서 조회 응답에 실어 보낸
-	 * entityVersion을 요청이 그대로 되돌려 보내게 하고 여기서 직접 대조한다.
-	 *
-	 * currentVersionNo가 아니라 entityVersion을 쓰는 이유: currentVersionNo는 문구 수정(addVersion)
-	 * 때만 오르고 policy/status 변경에는 오르지 않아 세 API 공통의 충돌 키로 쓸 수 없다.
-	 *
-	 * null은 "검사를 안 하겠다"가 아니라 요청 자체가 잘못된 것으로 본다 — 선택 파라미터로 두면
-	 * 안 보내는 것만으로 충돌 검사를 우회할 수 있어 lost update 차단이라는 목적이 무너진다.
-	 */
-	private void validateEntityVersion(Long requestEntityVersion, long currentEntityVersion) {
-		if (requestEntityVersion == null) {
-			throw new InvalidInspectionQuestionException("entityVersion은 필수입니다.");
-		}
-		// longValue()로 명시적으로 푼다. Long과 long을 그냥 비교하면 지금은 언박싱되어 맞게 동작하지만,
-		// 나중에 currentEntityVersion이 Long으로 바뀌는 순간 조용히 참조 비교가 되어 충돌 감지가 통째로 죽는다.
-		if (requestEntityVersion.longValue() != currentEntityVersion) {
-			throw new InspectionQuestionConflictException();
-		}
 	}
 
 	/**

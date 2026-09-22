@@ -8,7 +8,7 @@ import com.seoulchonnom.spec.inspection.entity.InspectionArea;
 @Component
 public class InspectionAreaJpoMapper {
 	public InspectionAreaJpo toJpo(InspectionArea area) {
-		InspectionAreaJpo jpo = new InspectionAreaJpo(area.getName(), area.getDescription(), area.isHidden());
+		InspectionAreaJpo jpo = new InspectionAreaJpo(area.getName(), area.getDescription());
 		jpo.setId(area.getId());
 		jpo.setEntityVersion(area.getEntityVersion());
 		jpo.setRegisteredTime(area.getRegisteredTime());
@@ -20,7 +20,6 @@ public class InspectionAreaJpoMapper {
 		InspectionArea area = InspectionArea.builder()
 			.name(jpo.getName())
 			.description(jpo.getDescription())
-			.hidden(jpo.isHidden())
 			.build();
 		area.setId(jpo.getId());
 		area.setEntityVersion(jpo.getEntityVersion());

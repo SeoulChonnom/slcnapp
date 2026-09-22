@@ -20,7 +20,7 @@ import lombok.Setter;
 @Table(name = "inspection_area", schema = "slcn",
 	uniqueConstraints = @UniqueConstraint(name = "uk_inspection_area_name", columnNames = "name"),
 	indexes = {
-		@Index(name = "idx_inspection_area_hidden_name", columnList = "hidden,name")
+		@Index(name = "idx_inspection_area_name", columnList = "name")
 	})
 @Getter
 @Setter
@@ -31,5 +31,4 @@ public class InspectionAreaJpo extends DomainEntityJpo {
 	private String name;
 	@Column(length = 300)
 	private String description;
-	private boolean hidden;
 }
