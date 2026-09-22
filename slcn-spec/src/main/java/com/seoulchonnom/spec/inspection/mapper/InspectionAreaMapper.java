@@ -66,11 +66,13 @@ public class InspectionAreaMapper {
 	}
 
 	public InspectionAreaDetailRdo toInspectionAreaDetailRdo(InspectionAreaRdo area,
-		List<InspectionVisitSummaryRdo> visits, boolean hasMoreVisits, InspectionVisitDetailRdo selectedVisit) {
+		List<InspectionVisitSummaryRdo> visits, boolean hasMoreVisits, int visitPageSize,
+		InspectionVisitDetailRdo selectedVisit) {
 		InspectionAreaDetailRdo rdo = new InspectionAreaDetailRdo();
 		rdo.setArea(area);
 		rdo.setVisits(visits == null ? new ArrayList<>() : new ArrayList<>(visits));
 		rdo.setHasMoreVisits(hasMoreVisits);
+		rdo.setVisitPageSize(visitPageSize);
 		rdo.setSelectedVisit(selectedVisit);
 		return rdo;
 	}

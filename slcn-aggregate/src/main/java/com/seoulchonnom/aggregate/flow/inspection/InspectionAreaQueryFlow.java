@@ -225,6 +225,7 @@ public class InspectionAreaQueryFlow {
 
 		String selectedVisitId = resolveSelectedVisitId(visitId, visits);
 		return inspectionAreaMapper.toInspectionAreaDetailRdo(areaRdo, summaries, hasMoreVisits,
+			MAX_VISIT_SUMMARY_COUNT,
 			includeProperties && selectedVisitId != null
 				? inspectionVisitQueryFlow.getInspectionVisit(selectedVisitId)
 				: null);

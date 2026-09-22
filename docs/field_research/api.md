@@ -147,15 +147,22 @@ DRAFT라 아직 의사를 안 적은 지역이 그 차이를 만든다. **`전�
     }
   ],
   "hasMoreVisits": false,
+  "visitPageSize": 50,
   "selectedVisit": { "...": "GET /inspection-visits/{visitId}와 같은 타입" }
 }
 ```
 
-- `visits`는 `visitedAt` 내림차순이고 **50건을 넘으면 최신 50건으로 잘린다.** 이때 `hasMoreVisits: true`가 온다.
-  51번째부터는 `GET /inspection-visits?areaId={areaId}&page=1&size=50`으로 이어받는다 —
-  **`size=50`을 명시해야 한다.** 절단 개수는 50인데 페이지 기본값은 20이라 생략하면 21~40번째를 받는다.
-  두 조회의 정렬은 `visitedAt` 내림차순 → `visitId` 오름차순으로 **같으므로**, `visitedAt`이 동률이어도
-  경계에서 중복이나 누락이 생기지 않는다.
+- `visits`는 `visitedAt` 내림차순 → `visitId` 오름차순이고, **`visitPageSize`건을 넘으면 잘린다.**
+  이때 `hasMoreVisits: true`가 온다
+- **이어받을 때는 `visitPageSize`를 그대로 `size`로 넘긴다.** 상수를 박지 않는다
+
+  ```text
+  GET /api/inspection-visits?areaId={areaId}&page=1&size={visitPageSize}
+  ```
+
+  임장 목록의 `size` 기본값(20)과 `visitPageSize`(현재 50)가 다르므로 `size`를 생략하면
+  자른 지점과 어긋난다. 두 조회의 정렬 키가 **같아서**(`visitedAt` 내림차순 → `visitId` 오름차순)
+  `visitedAt`이 동률이어도 경계에서 중복이나 누락은 생기지 않는다
 - `visitId`를 안 주면 최신 회차가 `selectedVisit`에 펼쳐진다.
 - `selectedVisit`은 임장 상세와 **같은 타입**이다. 지연 로딩으로 전환해도 FE가 다루는 모양이 하나다.
 
@@ -165,7 +172,7 @@ DRAFT라 아직 의사를 안 적은 지역이 그 차이를 만든다. **`전�
 
 | 메서드 | 경로 | 설명 |
 | --- | --- | --- |
-| GET | `/inspection-visits` | 목록. `visitedAt` 내림차순 |
+| GET | `/inspection-visits` | 목록. `visitedAt` 내림차순 → `visitId` 오름차순 |
 | GET | `/inspection-visits/{visitId}` | 상세. 매물·문답·사진 포함 |
 | POST | `/inspection-visits` | 등록. 항상 `DRAFT`로 생성 |
 | PUT | `/inspection-visits/{visitId}` | 기본 정보·태그·사진 수정 |
@@ -178,6 +185,10 @@ DRAFT라 아직 의사를 안 적은 지역이 그 차이를 만든다. **`전�
 `from`, `to`. 기간은 `2026-09-01T00:00:00` 형태의 ISO local date-time이며 양끝을 포함한다.
 여기에 `page`/`size`가 붙고 응답은 `{ items, totalCount, hasNext }` 래퍼다.
 `tag`는 이름으로 보내며 **대소문자까지 정확히 일치**해야 한다(자동완성으로 고른 값을 그대로 보낸다).
+
+> **정렬은 `visitedAt` 내림차순 → `visitId` 오름차순이다.** 2차 키가 있어야 같은 지역을 하루에
+> 두 번 임장해 `visitedAt`이 동률이어도 페이지 경계에서 중복이나 누락이 생기지 않는다.
+> 지역 상세의 `visits`도 **같은 키**를 쓰므로 회차 이어받기(§2)가 안전하다.
 
 ### 등록 요청
 

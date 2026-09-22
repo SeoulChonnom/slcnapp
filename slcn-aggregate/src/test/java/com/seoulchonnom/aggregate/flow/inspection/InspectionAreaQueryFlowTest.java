@@ -257,6 +257,24 @@ class InspectionAreaQueryFlowTest {
 
 		assertThat(rdo.isHasMoreVisits()).isTrue();
 		assertThat(rdo.getArea().getVisitCount()).isEqualTo(visits.size());
+		// FE가 이어받을 때 50을 상수로 박지 않도록 자른 개수를 그대로 실어 준다
+		assertThat(rdo.getVisitPageSize()).isEqualTo(InspectionAreaQueryFlow.MAX_VISIT_SUMMARY_COUNT);
+	}
+
+	@Test
+	void getInspectionArea_shouldExposeVisitPageSizeEvenWhenNotTruncated() {
+		when(inspectionAreaStore.findById("INSPECTION_AREA-0001"))
+			.thenReturn(new InspectionArea("INSPECTION_AREA-0001", "성수동", null));
+		when(inspectionVisitStore.findAllByAreaId("INSPECTION_AREA-0001")).thenReturn(List.of(
+			visit("v1", "INSPECTION_AREA-0001", LocalDateTime.of(2026, 9, 17, 14, 0))));
+		when(fileBoxStore.findAllByOwnerTypeAndOwnerIdIn(any(), anyList())).thenReturn(List.of());
+		when(inspectionVisitQueryFlow.toVisitSummaries(anyList(), anyMap(), anyMap())).thenReturn(List.of());
+		noProperties();
+
+		InspectionAreaDetailRdo rdo = inspectionAreaQueryFlow.getInspectionArea("INSPECTION_AREA-0001", null, false);
+
+		assertThat(rdo.isHasMoreVisits()).isFalse();
+		assertThat(rdo.getVisitPageSize()).isEqualTo(InspectionAreaQueryFlow.MAX_VISIT_SUMMARY_COUNT);
 	}
 
 	@Test

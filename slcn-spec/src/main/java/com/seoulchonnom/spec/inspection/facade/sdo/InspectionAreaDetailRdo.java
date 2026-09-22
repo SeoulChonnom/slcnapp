@@ -23,13 +23,19 @@ public class InspectionAreaDetailRdo {
 	 */
 	private List<InspectionVisitSummaryRdo> visits = new ArrayList<>();
 	/**
-	 * true면 이 지역에 51번째 이후 회차가 더 있다는 뜻이다. 이어받는 방법:
-	 * {@code GET /inspection-visits?areaId={areaId}&page=1&size=50} — 여기 자른 개수(50)와
-	 * 임장 목록 페이징의 size 기본값(20)이 다르므로, 51번째 회차부터 정확히 이어받으려면
-	 * size를 반드시 50으로 맞춰 요청해야 한다. size를 생략하면(기본 20) 51~70번째를 받게 되어
-	 * 지역 상세가 자른 지점과 어긋난다.
+	 * true면 이 지역에 visitPageSize번째 이후 회차가 더 있다는 뜻이다.
+	 * 이어받는 방법은 visitPageSize 주석을 본다.
 	 */
 	private boolean hasMoreVisits;
+	/**
+	 * visits를 자른 개수. 이어받을 때 이 값을 그대로 size로 넘긴다:
+	 * {@code GET /inspection-visits?areaId={areaId}&page=1&size={visitPageSize}}
+	 *
+	 * 값을 응답에 싣는 이유는 FE가 상수를 박지 않게 하기 위해서다. 임장 목록 페이징의
+	 * size 기본값(20)과 이 값이 다르므로 size를 생략하면 자른 지점과 어긋나는데,
+	 * FE가 50을 하드코딩해 두면 여기를 바꾸는 순간 조용히 틀어진다.
+	 */
+	private int visitPageSize;
 	/**
 	 * visitId 파라미터가 없으면 최신 회차. includeProperties=false면 null.
 	 */
