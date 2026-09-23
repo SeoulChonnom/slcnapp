@@ -63,10 +63,21 @@ public class InspectionTagStore {
 		return new ArrayList<>(resolved.values());
 	}
 
+	/**
+	 * JPO를 직접 new 하지 않고 도메인을 거친다. EntityJpo의 @Id는 생성기 없는 수동 할당이라
+	 * new InspectionTagJpo(name)으로 만들면 id가 null인 채 persist되어
+	 * "Identifier must be manually assigned"로 터진다. 도메인 Entity()는 UUID를,
+	 * DomainEntity()는 registeredTime/modifiedTime을 채워 주므로 이 경로가 유일하게 안전하다.
+	 *
+	 * DataIntegrityViolationException 복구는 같은 이름의 태그를 두 요청이 동시에 처음 만들 때만
+	 * 쓰인다. 다만 flush에서 제약 위반이 나면 영속성 컨텍스트가 rollback-only가 되어 이어지는
+	 * findByName도 실패한다 — 진짜 동시 생성까지 견디려면 네이티브 upsert가 필요하다.
+	 */
 	private InspectionTag create(String name) {
+		InspectionTag tag = InspectionTag.builder().name(name).build();
 		try {
 			return inspectionTagJpoMapper.toDomain(
-				inspectionTagRepository.saveAndFlush(new InspectionTagJpo(name)));
+				inspectionTagRepository.saveAndFlush(inspectionTagJpoMapper.toJpo(tag)));
 		} catch (DataIntegrityViolationException e) {
 			return inspectionTagRepository.findByName(name)
 				.map(inspectionTagJpoMapper::toDomain)
