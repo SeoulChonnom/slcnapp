@@ -9,20 +9,26 @@ import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
 import org.mockito.ArgumentCaptor;
 
+import org.springframework.dao.DataIntegrityViolationException;
+
+import com.seoulchonnom.aggregate.calendar.exception.CalendarScheduleConflictException;
 import com.seoulchonnom.aggregate.calendar.store.CalendarStore;
 import com.seoulchonnom.aggregate.common.exception.BadRequestException;
+import com.seoulchonnom.aggregate.schedule.store.ScheduleStore;
 import com.seoulchonnom.spec.calendar.entity.Calendar;
 import com.seoulchonnom.spec.calendar.facade.sdo.CalendarCdo;
 import com.seoulchonnom.spec.calendar.facade.sdo.CalendarRdo;
 import com.seoulchonnom.spec.calendar.facade.sdo.CalendarUdo;
 import com.seoulchonnom.spec.calendar.mapper.CalendarMapper;
 import com.seoulchonnom.spec.common.generator.IdGenerator;
+import com.seoulchonnom.spec.common.exception.ErrorCode;
 
 class CalendarLogicTest {
 	private final CalendarStore calendarStore = mock(CalendarStore.class);
+	private final ScheduleStore scheduleStore = mock(ScheduleStore.class);
 	private final IdGenerator idGenerator = mock(IdGenerator.class);
 	private final CalendarMapper calendarMapper = spy(Mappers.getMapper(CalendarMapper.class));
-	private final CalendarLogic calendarLogic = new CalendarLogic(calendarStore, idGenerator, calendarMapper);
+	private final CalendarLogic calendarLogic = new CalendarLogic(calendarStore, scheduleStore, idGenerator, calendarMapper);
 
 	@Test
 	void getCalendars_shouldReturnVisibleCalendars() {
@@ -97,6 +103,27 @@ class CalendarLogicTest {
 	}
 
 	@Test
+	void modifyCalendar_shouldTouchModifiedTime() {
+		Calendar calendar = Calendar.builder()
+			.name("기존")
+			.backgroundColor("#000000")
+			.borderColor("#000000")
+			.textColor("#FFFFFF")
+			.visible(true)
+			.sortOrder(5)
+			.build();
+		calendar.setId("CALENDAR-0001");
+		calendar.setModifiedTime(1L);
+		CalendarUdo calendarUdo = new CalendarUdo("CALENDAR-0001", "아영", "#FE9FC8", "#FE9FC8", "#111111", true,
+			true, true, true, 1);
+		when(calendarStore.findById("CALENDAR-0001")).thenReturn(calendar);
+
+		calendarLogic.modifyCalendar(calendarUdo);
+
+		assertThat(calendar.getModifiedTime()).isGreaterThan(1L);
+	}
+
+	@Test
 	void hideCalendar_shouldMarkCalendarAsInvisible() {
 		Calendar calendar = Calendar.builder().visible(true).build();
 		when(calendarStore.findById("CALENDAR-0001")).thenReturn(calendar);
@@ -111,9 +138,44 @@ class CalendarLogicTest {
 	void deleteCalendar_shouldDeleteCalendar() {
 		Calendar calendar = Calendar.builder().build();
 		when(calendarStore.findById("CALENDAR-0001")).thenReturn(calendar);
+		when(scheduleStore.existsByCalendarId("CALENDAR-0001")).thenReturn(false);
 
 		calendarLogic.deleteCalendar("CALENDAR-0001");
 
 		verify(calendarStore).delete(calendar);
+	}
+
+	@Test
+	void deleteCalendar_shouldRejectCalendarReferencedBySchedule() {
+		Calendar calendar = Calendar.builder().build();
+		when(calendarStore.findById("CALENDAR-0001")).thenReturn(calendar);
+		when(scheduleStore.existsByCalendarId("CALENDAR-0001")).thenReturn(true);
+
+		Throwable thrown = catchThrowable(() -> calendarLogic.deleteCalendar("CALENDAR-0001"));
+		assertThat(thrown)
+			.isInstanceOf(CalendarScheduleConflictException.class)
+			.hasMessage("일정이 연결된 캘린더는 삭제할 수 없습니다.");
+		assertThat(((CalendarScheduleConflictException) thrown).getErrorCode())
+			.isEqualTo(ErrorCode.CALENDAR_SCHEDULE_CONFLICT);
+
+		verify(scheduleStore).existsByCalendarId("CALENDAR-0001");
+		verify(calendarStore, never()).delete(any(Calendar.class));
+	}
+
+	@Test
+	void deleteCalendar_shouldConvertDataIntegrityViolationToCalendarScheduleConflict() {
+		Calendar calendar = Calendar.builder().build();
+		when(calendarStore.findById("CALENDAR-0001")).thenReturn(calendar);
+		when(scheduleStore.existsByCalendarId("CALENDAR-0001")).thenReturn(false);
+		doThrow(new DataIntegrityViolationException("fk_schedule_calendar"))
+			.when(calendarStore).delete(calendar);
+
+		Throwable thrown = catchThrowable(() -> calendarLogic.deleteCalendar("CALENDAR-0001"));
+
+		assertThat(thrown)
+			.isInstanceOf(CalendarScheduleConflictException.class)
+			.hasMessage("일정이 연결된 캘린더는 삭제할 수 없습니다.");
+		assertThat(((CalendarScheduleConflictException) thrown).getErrorCode())
+			.isEqualTo(ErrorCode.CALENDAR_SCHEDULE_CONFLICT);
 	}
 }

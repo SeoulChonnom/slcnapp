@@ -3,6 +3,7 @@ package com.seoulchonnom.boot.common.config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -78,6 +79,8 @@ public class SecurityConfiguration {
 					.requestMatchers("/clients/token").permitAll()
 					.requestMatchers(CorsUtils::isPreFlightRequest).permitAll()
 					.requestMatchers("/users/register").hasAuthority(ADMIN_AUTHORITY)
+					.requestMatchers(HttpMethod.GET, "/schedule/feeds/*/calendar.ics").permitAll()
+					.requestMatchers("/schedule/feeds", "/schedule/feeds/*").hasAuthority(ADMIN_AUTHORITY)
 						.anyRequest().hasAuthority(USER_AUTHORITY))
 				.headers(headers -> headers
 					// 기본 writer를 끄고, 이미지 조회를 뺀 나머지에만 다시 적용한다.
