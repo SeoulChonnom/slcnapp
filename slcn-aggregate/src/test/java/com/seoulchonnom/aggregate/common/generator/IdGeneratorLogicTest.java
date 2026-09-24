@@ -54,6 +54,36 @@ class IdGeneratorLogicTest {
 	}
 
 	@Test
+	void nextDomainId_shouldCreateSequenceWhenMissing() {
+		IdSequence created = new IdSequence();
+		created.setName("INSPECTION_AREA");
+		created.setLastId("0000");
+		when(idSequenceRepository.findByName("INSPECTION_AREA"))
+			.thenReturn(Optional.empty())
+			.thenReturn(Optional.of(created));
+
+		String result = idGeneratorLogic.nextDomainId("INSPECTION_AREA");
+
+		assertThat(result).isEqualTo("INSPECTION_AREA-0001");
+		verify(idSequenceRepository).insertIfAbsent("INSPECTION_AREA", "0000");
+	}
+
+	@Test
+	void nextDomainId_shouldReadBackWithLockAfterCreatingSequence() {
+		IdSequence created = new IdSequence();
+		created.setName("INSPECTION_VISIT");
+		created.setLastId("0000");
+		when(idSequenceRepository.findByName("INSPECTION_VISIT"))
+			.thenReturn(Optional.empty())
+			.thenReturn(Optional.of(created));
+
+		idGeneratorLogic.nextDomainId("INSPECTION_VISIT");
+
+		// 두 번째 조회가 없으면 락을 잡지 않은 엔티티를 증가시켜 같은 ID가 두 번 나갈 수 있다.
+		verify(idSequenceRepository, times(2)).findByName("INSPECTION_VISIT");
+	}
+
+	@Test
 	void nextDomainId_shouldRejectInvalidLastId() {
 		IdSequence idSequence = new IdSequence();
 		idSequence.setName("TRIP");

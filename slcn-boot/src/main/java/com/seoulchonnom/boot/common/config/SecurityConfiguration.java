@@ -79,6 +79,16 @@ public class SecurityConfiguration {
 					.requestMatchers("/clients/token").permitAll()
 					.requestMatchers(CorsUtils::isPreFlightRequest).permitAll()
 					.requestMatchers("/users/register").hasAuthority(ADMIN_AUTHORITY)
+					// 질문 관리는 쓰기만 ADMIN이다. 조회까지 막으면 일반 사용자가
+					// 매물 생성 시 활성 질문 목록을 읽지 못해 문답을 작성할 수 없다.
+					// 경로 없이 끝나는 POST /inspection-questions와 PUT .../order를 모두 덮으려면
+					// 두 패턴이 다 필요하다. 하나라도 빠지면 ADMIN 전용 API가 USER에게 열린다.
+					.requestMatchers(HttpMethod.POST, "/inspection-questions", "/inspection-questions/**")
+						.hasAuthority(ADMIN_AUTHORITY)
+					.requestMatchers(HttpMethod.PUT, "/inspection-questions", "/inspection-questions/**")
+						.hasAuthority(ADMIN_AUTHORITY)
+					.requestMatchers(HttpMethod.PATCH, "/inspection-questions", "/inspection-questions/**")
+						.hasAuthority(ADMIN_AUTHORITY)
 					.requestMatchers(HttpMethod.GET, "/schedule/feeds/*/calendar.ics").permitAll()
 					.requestMatchers("/schedule/feeds", "/schedule/feeds/*").hasAuthority(ADMIN_AUTHORITY)
 						.anyRequest().hasAuthority(USER_AUTHORITY))

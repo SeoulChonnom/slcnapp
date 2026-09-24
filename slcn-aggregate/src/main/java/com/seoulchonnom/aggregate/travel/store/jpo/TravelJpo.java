@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.seoulchonnom.aggregate.common.entity.DomainEntityJpo;
-import com.seoulchonnom.aggregate.travel.store.jpo.converter.StringListConverter;
+import com.seoulchonnom.aggregate.common.store.converter.StringListConverter;
 import com.seoulchonnom.aggregate.travel.store.jpo.converter.TravelDayListConverter;
 import com.seoulchonnom.aggregate.travel.store.jpo.converter.TravelReviewConverter;
 import com.seoulchonnom.spec.travel.entity.vo.TravelDay;

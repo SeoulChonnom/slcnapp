@@ -5,6 +5,7 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -29,8 +30,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
@@ -290,6 +293,83 @@ class SecurityConfigurationTest {
 		when(jwtTokenProvider.getAuthentication(claims)).thenReturn(authentication);
 	}
 
+	/**
+	 * 질문 조회까지 ADMIN으로 막으면 일반 사용자가 매물 생성 시 활성 질문 목록을 읽지 못해
+	 * 문답을 아예 작성할 수 없다. 읽기는 USER로 열려 있어야 한다.
+	 */
+	@Test
+	void questionLookup_withUserAuthority_shouldReturnOk() throws Exception {
+		givenAuthority("USER");
+
+		mockMvc.perform(get("/inspection-questions")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, "access-token"))
+			.andExpect(status().isOk());
+	}
+
+	@Test
+	void questionRegister_withUserAuthority_shouldReturnForbidden() throws Exception {
+		givenAuthority("USER");
+
+		mockMvc.perform(post("/inspection-questions")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, "access-token"))
+			.andExpect(status().isForbidden());
+	}
+
+	/**
+	 * PUT /inspection-questions/order는 하위 경로라 "/inspection-questions/**" 패턴이 잡는다.
+	 */
+	@Test
+	void questionReorder_withUserAuthority_shouldReturnForbidden() throws Exception {
+		givenAuthority("USER");
+
+		mockMvc.perform(put("/inspection-questions/order")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, "access-token"))
+			.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void questionStatusToggle_withUserAuthority_shouldReturnForbidden() throws Exception {
+		givenAuthority("USER");
+
+		mockMvc.perform(patch("/inspection-questions/q1/status")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, "access-token"))
+			.andExpect(status().isForbidden());
+	}
+
+	/**
+	 * 권한 문자열은 서로 포함 관계가 없다. 관리자 계정은 USER와 ADMIN을 함께 가져야
+	 * 질문 관리와 나머지 API를 모두 쓸 수 있다.
+	 */
+	@Test
+	void questionWrite_withAdminAndUserAuthority_shouldReturnOk() throws Exception {
+		givenAuthority("USER", "ADMIN");
+
+		mockMvc.perform(post("/inspection-questions")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, "access-token"))
+			.andExpect(status().isOk());
+		mockMvc.perform(patch("/inspection-questions/q1/status")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, "access-token"))
+			.andExpect(status().isOk());
+	}
+
+	@Test
+	void otherApi_withAdminOnly_shouldReturnForbidden() throws Exception {
+		givenAuthority("ADMIN");
+
+		mockMvc.perform(get("/travels")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, "access-token"))
+			.andExpect(status().isForbidden());
+	}
+
+	private void givenAuthority(String... authorities) {
+		Claims claims = mock(Claims.class);
+		Authentication authentication = new UsernamePasswordAuthenticationToken(USER_ID, "",
+			Arrays.stream(authorities).map(SimpleGrantedAuthority::new).toList());
+		when(jwtTokenProvider.resolveToken(any())).thenReturn("access-token");
+		when(jwtTokenProvider.validateAccessToken("access-token")).thenReturn(TokenValidationResult.valid(claims));
+		when(jwtTokenProvider.getAuthentication(claims)).thenReturn(authentication);
+	}
+
 	private Cookie sessionCookie() {
 		return new Cookie(AuthConstant.SESSION_ID_COOKIE_NAME, SESSION_ID);
 	}
@@ -363,6 +443,26 @@ class SecurityConfigurationTest {
 		@GetMapping("/travels")
 		ResponseEntity<String> travels() {
 			return ResponseEntity.ok("travels");
+		}
+
+		@GetMapping("/inspection-questions")
+		ResponseEntity<String> questions() {
+			return ResponseEntity.ok("questions");
+		}
+
+		@PostMapping("/inspection-questions")
+		ResponseEntity<String> registerQuestion() {
+			return ResponseEntity.ok("registered");
+		}
+
+		@PutMapping("/inspection-questions/order")
+		ResponseEntity<String> reorderQuestions() {
+			return ResponseEntity.ok("reordered");
+		}
+
+		@PatchMapping("/inspection-questions/{questionId}/status")
+		ResponseEntity<String> toggleQuestion(@PathVariable("questionId") String questionId) {
+			return ResponseEntity.ok(questionId);
 		}
 	}
 

@@ -9,6 +9,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import com.seoulchonnom.spec.common.exception.BusinessException;
 import com.seoulchonnom.spec.common.exception.ErrorCode;
@@ -61,6 +62,18 @@ public class CommonExceptionHandler {
 		return new ResponseEntity<>(
 			ErrorResponse.from(false, "지원하지 않는 HTTP 메서드입니다."),
 			HttpStatus.METHOD_NOT_ALLOWED);
+	}
+
+	/**
+	 * 쿼리 파라미터를 enum이나 숫자로 변환하지 못한 경우다.
+	 * MethodArgumentTypeMismatchException은 IllegalArgumentException의 하위 타입이 아니라
+	 * 따로 잡지 않으면 잘못된 입력이 500으로 나간다.
+	 */
+	@ExceptionHandler(MethodArgumentTypeMismatchException.class)
+	public ResponseEntity<ErrorResponse> methodArgumentTypeMismatchException(MethodArgumentTypeMismatchException e) {
+		return new ResponseEntity<>(
+			ErrorResponse.from(false, e.getName() + " 값이 올바르지 않습니다."),
+			HttpStatus.BAD_REQUEST);
 	}
 
 	@ExceptionHandler(IllegalArgumentException.class)

@@ -1,4 +1,4 @@
-package com.seoulchonnom.aggregate.travel.store.jpo.converter;
+package com.seoulchonnom.aggregate.common.store.converter;
 
 import java.util.List;
 

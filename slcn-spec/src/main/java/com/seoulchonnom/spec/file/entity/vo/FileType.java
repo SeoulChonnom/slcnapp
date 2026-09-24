@@ -12,7 +12,8 @@ public enum FileType {
 	LOGO("logo"),
 	MAP("map"),
 	TRAVEL("travel"),
-	PROFILE("profile");
+	PROFILE("profile"),
+	INSPECTION("inspection");
 
 	private final String value;
 
