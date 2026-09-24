@@ -2363,7 +2363,7 @@ git commit -m "docs: 오브젝트 스토리지 저장 방식과 multipart 요청
 Phase 1이 끝났다고 말하기 전에 아래를 모두 확인한다.
 
 - [ ] `./gradlew test`가 BUILD SUCCESSFUL이고 failures/errors가 0이다.
-- [ ] `slcn.storage.provider`를 설정하지 않은 상태(기본 `local`)에서 `./gradlew :slcn-boot:bootRun --args='--spring.profiles.active=dev'`가 뜨고, 업로드·조회·다운로드가 이전과 동일하게 동작한다.
+- [ ] `slcn.storage.provider`를 설정하지 않은 상태(기본 `local`)에서 `./gradlew :slcn-boot:bootRun --args='--spring.profiles.active=dev'`가 뜨고, 신규 업로드·조회·다운로드가 동작한다. 기존 파일은 백필 후에 조회된다.
 - [ ] `SLCN_STORAGE_PROVIDER=r2`와 R2 자격 증명을 넣은 환경에서 업로드 한 건을 올린 뒤 버킷에 `originals/travel/{uuid}.{ext}`와 `derived/travel/{uuid}_home-thumb.{ext}`가 생긴다.
 - [ ] 같은 환경에서 `GET /api/assets/files/{fileId}`가 `302`와 `Location` 헤더를 반환하고, 그 URL로 원본 바이트를 받을 수 있다.
 - [ ] `GET /api/assets/files/{fileId}?variant=home-thumb`은 여전히 `200`과 ETag를 반환하고, 같은 ETag로 재요청하면 `304`가 나온다.
@@ -2374,10 +2374,12 @@ Phase 1이 끝났다고 말하기 전에 아래를 모두 확인한다.
 
 ## 운영 배포 순서
 
-1. R2 버킷을 만들고 자격 증명을 발급한다. 이 시점에는 `SLCN_STORAGE_PROVIDER`를 설정하지 않는다.
-2. 코드를 배포한다. 프로바이더가 `local`이므로 동작은 이전과 같고, 저장 키만 새 레이아웃으로 바뀐다.
-3. `SLCN_STORAGE_PROVIDER=r2`와 R2 환경변수를 넣고 `SLCN_STORAGE_MIGRATION_ENABLED=true`로 한 번 기동해 백필한다.
-4. 백필 로그에서 `failed=0`을 확인한다. 실패가 있으면 원인을 고치고 다시 기동한다(이미 올라간 객체는 건너뛴다).
+> **정정:** 초안은 "코드 배포(프로바이더 `local`) → 이후 R2 전환과 백필"의 두 단계로 나눴으나, 새 코드는 `local` 프로바이더에서도 새 키(`originals/`, `derived/`)로만 읽고 기존 레이아웃(`{type}/{filename}`)을 읽지 않는다. 두 단계로 나누면 그 사이 기존 이미지가 모두 조회되지 않으므로, 코드 배포와 백필을 같은 기동에서 한다. 상세 절차는 `docs/file-asset.md`의 "기존 파일 이관"을 따른다.
+
+1. R2 버킷을 만들고 자격 증명을 발급한다. 비교 기준으로 기존 파일 수를 기록한다.
+2. 새 코드를 `SLCN_STORAGE_PROVIDER=r2` + R2 환경변수 + `SLCN_STORAGE_MIGRATION_ENABLED=true`로 기동한다. 백필 원본을 읽어야 하므로 `SLCN_UPLOAD_PATH` 볼륨은 유지한다.
+3. 백필 로그에서 `failed=0`을 확인한다. 실패가 있으면 원인을 고치고 다시 기동한다(이미 올라간 객체는 건너뛴다).
+4. 한 번 더 기동해 `uploaded=0, skipped=N`을 확인한다.
 5. `SLCN_STORAGE_MIGRATION_ENABLED`를 `false`로 되돌리고 재기동한다.
 6. 로컬 디스크의 기존 파일은 **최소 한 주기 이상 지켜본 뒤에** 지운다. 백필이 멱등하므로 서두를 이유가 없다.
 
