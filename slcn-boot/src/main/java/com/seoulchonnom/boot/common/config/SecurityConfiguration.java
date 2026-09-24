@@ -89,6 +89,8 @@ public class SecurityConfiguration {
 						.hasAuthority(ADMIN_AUTHORITY)
 					.requestMatchers(HttpMethod.PATCH, "/inspection-questions", "/inspection-questions/**")
 						.hasAuthority(ADMIN_AUTHORITY)
+					.requestMatchers(HttpMethod.GET, "/schedule/feeds/*/calendar.ics").permitAll()
+					.requestMatchers("/schedule/feeds", "/schedule/feeds/*").hasAuthority(ADMIN_AUTHORITY)
 						.anyRequest().hasAuthority(USER_AUTHORITY))
 				.headers(headers -> headers
 					// 기본 writer를 끄고, 이미지 조회를 뺀 나머지에만 다시 적용한다.

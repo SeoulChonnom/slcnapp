@@ -2,12 +2,18 @@ package com.seoulchonnom.rest.schedule;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.List;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.seoulchonnom.aggregate.schedule.logic.ScheduleLogic;
 import com.seoulchonnom.spec.schedule.facade.sdo.ScheduleCdo;
@@ -16,10 +22,19 @@ import com.seoulchonnom.spec.schedule.facade.sdo.ScheduleSearchSdo;
 import com.seoulchonnom.spec.schedule.facade.sdo.ScheduleUdo;
 
 class ScheduleResourceTest {
+	private ScheduleLogic scheduleLogic;
+	private ScheduleResource scheduleResource;
+	private MockMvc mockMvc;
+
+	@BeforeEach
+	void setUp() {
+		scheduleLogic = mock(ScheduleLogic.class);
+		scheduleResource = new ScheduleResource(scheduleLogic);
+		mockMvc = MockMvcBuilders.standaloneSetup(scheduleResource).build();
+	}
+
 	@Test
 	void getSchedulesForYearAndMonth_shouldDelegateToScheduleLogic() {
-		ScheduleLogic scheduleLogic = mock(ScheduleLogic.class);
-		ScheduleResource scheduleResource = new ScheduleResource(scheduleLogic);
 		ScheduleSearchSdo searchSdo = new ScheduleSearchSdo("2026-04-01T00:00:00+09:00", "2026-05-01T00:00:00+09:00");
 		List<ScheduleRdo> scheduleList = List.of(new ScheduleRdo());
 		when(scheduleLogic.getSchedules(searchSdo)).thenReturn(scheduleList);
@@ -33,8 +48,6 @@ class ScheduleResourceTest {
 
 	@Test
 	void registerSchedule_shouldReturnMappedSchedule() {
-		ScheduleLogic scheduleLogic = mock(ScheduleLogic.class);
-		ScheduleResource scheduleResource = new ScheduleResource(scheduleLogic);
 		ScheduleCdo scheduleCdo = new ScheduleCdo();
 		ScheduleRdo scheduleRdo = new ScheduleRdo();
 		when(scheduleLogic.registerSchedule(scheduleCdo)).thenReturn(scheduleRdo);
@@ -43,12 +56,11 @@ class ScheduleResourceTest {
 
 		assertEquals(HttpStatus.OK, response.getStatusCode());
 		assertEquals(scheduleRdo, response.getBody());
+		verify(scheduleLogic).registerSchedule(scheduleCdo);
 	}
 
 	@Test
 	void modifySchedule_shouldReturnUpdatedSchedule() {
-		ScheduleLogic scheduleLogic = mock(ScheduleLogic.class);
-		ScheduleResource scheduleResource = new ScheduleResource(scheduleLogic);
 		ScheduleUdo scheduleUdo = new ScheduleUdo();
 		ScheduleRdo scheduleRdo = new ScheduleRdo();
 		when(scheduleLogic.modifySchedule(scheduleUdo)).thenReturn(scheduleRdo);
@@ -57,19 +69,22 @@ class ScheduleResourceTest {
 
 		assertEquals(HttpStatus.OK, response.getStatusCode());
 		assertEquals(scheduleRdo, response.getBody());
+		verify(scheduleLogic).modifySchedule(scheduleUdo);
 	}
 
 	@Test
-	void hideAndDelete_shouldReturnNoContent() {
-		ScheduleLogic scheduleLogic = mock(ScheduleLogic.class);
-		ScheduleResource scheduleResource = new ScheduleResource(scheduleLogic);
+	void deleteSchedule_shouldReturnNoContent() throws Exception {
+		doNothing().when(scheduleLogic).deleteSchedule("SCHEDULE-0001");
 
-		ResponseEntity<Void> hideResponse = scheduleResource.hideSchedule("schedule-1");
-		ResponseEntity<Void> deleteResponse = scheduleResource.deleteSchedule("schedule-1");
+		mockMvc.perform(delete("/schedule/{scheduleId}", "SCHEDULE-0001"))
+			.andExpect(status().isNoContent());
 
-		assertEquals(HttpStatus.NO_CONTENT, hideResponse.getStatusCode());
-		assertEquals(HttpStatus.NO_CONTENT, deleteResponse.getStatusCode());
-		verify(scheduleLogic).hideSchedule("schedule-1");
-		verify(scheduleLogic).deleteSchedule("schedule-1");
+		verify(scheduleLogic).deleteSchedule("SCHEDULE-0001");
+	}
+
+	@Test
+	void hideSchedule_shouldNotBeMapped() throws Exception {
+		mockMvc.perform(put("/schedule/{scheduleId}/hide", "SCHEDULE-0001"))
+			.andExpect(status().isNotFound());
 	}
 }

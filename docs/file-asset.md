@@ -62,7 +62,8 @@ FE 연동 규칙(축소본 선택, 캐시, 구 자산 처리)은 `docs/image-ass
 
 - **원본**은 서버를 통과하지 않는다. 서명된 조회 URL(기본 만료 300초)로 `302 Found` 리다이렉트한다. 응답에 ETag를 붙이지 않고 `Cache-Control: no-store`를 건다.
 - **축소본**은 서버가 오브젝트 스토리지에서 읽어 그대로 응답한다. ETag와 `Cache-Control: private, max-age=86400`은 이전과 같다.
-- 로컬 프로바이더는 서명 URL을 만들 수 없으므로 원본도 바이트로 응답한다. 개발 환경의 동작은 이전과 같다.
+- 로컬 프로바이더는 서명 URL을 만들 수 없으므로 원본도 바이트로 응답한다.
+- 로컬 프로바이더도 새 키 구조(`originals/`, `derived/`)로만 읽는다. 기존 레이아웃(`{type}/{filename}`)은 읽지 않으므로, 이 버전을 처음 띄우는 환경은 아래 "기존 파일 이관"을 반드시 함께 실행해야 기존 이미지가 조회된다.
 
 ### 설정
 
@@ -79,6 +80,47 @@ FE 연동 규칙(축소본 선택, 캐시, 구 자산 처리)은 `docs/image-ass
 | `slcn.storage.migration.batch-size` | `100` | 백필 페이지 크기 |
 
 `slcn.upload.path`는 로컬 프로바이더의 기준 디렉터리이자 백필의 원본 위치로 계속 쓰인다.
+
+### 기존 파일 이관
+
+`slcn.storage.migration.enabled=true`로 기동하면 `ApplicationRunner`가 `file_asset`을 페이지 단위로 읽어 기존 파일을 새 키로 **복사**한다. 기존 파일은 지우지 않는다.
+
+- 원본: `{slcn.upload.path}/{type}/{storedFilename}` → `originals/{type}/{storedFilename}`
+- 축소본: `{slcn.upload.path}/{type}/{variantFilename}` → `derived/{type}/{variantFilename}`
+
+대상 키가 이미 있으면 건너뛰므로 여러 번 돌려도 안전하다. 프로바이더가 `local`이면 같은 디스크의 새 경로로, `r2`면 버킷으로 복사한다. 끝나면 아래 로그가 한 줄 남는다.
+
+```
+Object storage migration finished. MigrationReport[uploaded=.., skipped=.., missing=.., failed=..]
+```
+
+- `missing`: 메타데이터는 있으나 디스크에 파일이 없는 건. `Legacy file is missing` 경고 로그에 key와 경로가 남는다.
+- `failed`: 업로드 실패 건. 같은 설정으로 다시 기동하면 실패분만 이어서 처리한다.
+
+코드 배포와 이관은 **같은 기동에서** 한다. 이 버전은 기존 레이아웃을 읽지 않으므로, 코드만 먼저 배포하면 이관 전까지 기존 이미지가 조회되지 않는다. 또한 러너는 웹 서버가 요청을 받기 시작한 뒤에 돌기 때문에, 이관이 끝나기 전의 짧은 구간에는 아직 옮기지 않은 이미지 조회가 실패할 수 있다. 사용량이 적은 시간대에 배포한다.
+
+#### 운영 배포 순서 (R2)
+
+1. R2 버킷을 만들고 자격 증명을 발급한다. 비교 기준으로 기존 파일 수를 기록한다: `find "$SLCN_UPLOAD_PATH" -mindepth 2 -maxdepth 2 -type f | wc -l`
+2. 새 코드를 아래 환경변수로 기동한다. 기존 파일을 읽어야 하므로 `SLCN_UPLOAD_PATH` 볼륨은 그대로 마운트한다.
+   ```
+   SLCN_STORAGE_PROVIDER=r2
+   SLCN_R2_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
+   SLCN_R2_BUCKET=<bucket>
+   SLCN_R2_ACCESS_KEY=...
+   SLCN_R2_SECRET_KEY=...
+   SLCN_STORAGE_MIGRATION_ENABLED=true
+   ```
+3. 이관 로그에서 `failed=0`을 확인한다. `missing`이 있으면 경고 로그로 한 건씩 확인한다. 실패가 있으면 다시 기동한다.
+4. 한 번 더 기동해 `uploaded=0, skipped=N`인지, 버킷 객체 수가 1단계 파일 수(`missing` 제외)와 맞는지 확인한다. 원본 조회 302, 축소본 조회 200/ETag도 확인한다.
+5. `SLCN_STORAGE_MIGRATION_ENABLED=false`로 되돌리고 재기동한다. 켜 둔 채로 두면 기동마다 파일 수만큼 HeadObject가 나간다.
+6. 기존 `{SLCN_UPLOAD_PATH}/{type}/` 디렉터리는 한동안 운영해 문제가 없음을 확인한 뒤 지운다.
+
+롤백 시 기존 파일은 남아 있으므로 이전 버전에서도 조회된다. 단, 새 버전으로 업로드된 파일은 새 키에만 있어 이전 버전에서 보이지 않는다.
+
+#### 로컬 프로바이더를 유지하는 환경 (개발 등)
+
+`SLCN_STORAGE_PROVIDER`는 설정하지 않고 `SLCN_STORAGE_MIGRATION_ENABLED=true`로 한 번 기동한 뒤 `false`로 되돌린다. 같은 디렉터리 안에 `originals/`, `derived/`가 생긴다. 정리할 때는 기존 `{type}/` 디렉터리만 지우고 `originals/`, `derived/`는 남긴다.
 
 MongoDB `file_asset` 컬렉션에는 아래 정보를 저장한다.
 

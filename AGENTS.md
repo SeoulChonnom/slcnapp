@@ -1,5 +1,13 @@
 # Repository Guidelines
 
+## Service Scale
+SLCN은 커플 2인이 사용하는 서비스다. 데이터 규모가 작고 사용자가 서로를 아는 환경이라는 점을 전제로 판단한다.
+
+- 배포·마이그레이션 절차에서 대량 백필이나 별도 백업 테이블을 기본으로 두지 않는다. 영향받는 행을 직접 조회해 확인한 뒤 처리하는 편이 더 안전하고 단순하다.
+- 성능 최적화는 실제 병목이 확인된 뒤에 한다. 다만 데이터가 무한정 늘어나는 구조(시간 범위 없는 전체 조회 등)는 건수와 무관하게 피한다.
+- 동시성 경합은 드물지만 불가능하지 않다. 정합성이 걸린 곳에는 DB 제약을 둔다.
+- 다인 서비스로 성격이 바뀌면 이 절을 근거로 삼은 판단들을 다시 검토해야 한다.
+
 ## Project Structure & Module Organization
 `slcnapp` is a Gradle multi-module Spring Boot backend. Keep dependencies flowing downward: `slcn-boot -> slcn-rest -> slcn-auth -> slcn-aggregate -> slcn-spec`.
 

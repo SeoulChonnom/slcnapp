@@ -47,6 +47,7 @@ logging:
       hibernate: info
 
 server:
+  forward-headers-strategy: ${SLCN_FORWARD_HEADERS_STRATEGY:none}
   servlet:
     context-path: /api
 
@@ -57,6 +58,7 @@ springdoc:
     enabled: false
 slcn:
   domain: "${SLCN_DOMAIN_LIST:http://localhost:9090}"
+  public-base-url: "${SLCN_PUBLIC_BASE_URL:}"
   upload:
     # local 프로바이더의 기준 디렉터리이자, R2 백필의 원본 위치다.
     path: "${SLCN_UPLOAD_PATH}"
@@ -75,6 +77,10 @@ slcn:
       # 기존 로컬 파일을 오브젝트 스토리지로 옮긴다. 배포 1회만 켜고 다시 내린다.
       enabled: "${SLCN_STORAGE_MIGRATION_ENABLED:false}"
       batch-size: "${SLCN_STORAGE_MIGRATION_BATCH_SIZE:100}"
+  ics:
+    window:
+      past-months: ${SLCN_ICS_WINDOW_PAST_MONTHS:12}
+      future-months: ${SLCN_ICS_WINDOW_FUTURE_MONTHS:24}
 
 cookie:
   expire:
