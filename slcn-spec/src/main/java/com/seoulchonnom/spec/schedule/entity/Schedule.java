@@ -30,9 +30,21 @@ public class Schedule extends DomainEntity {
 
 	private String location;
 
-	private boolean hidden;
+	private String recurrenceRule;
 
-	public void hideSchedule() {
-		this.hidden = true;
+	public Schedule(
+		String calendarId,
+		String title,
+		String body,
+		boolean allDay,
+		LocalDateTime start,
+		LocalDateTime end,
+		String location
+	) {
+		this(calendarId, title, body, allDay, start, end, location, null);
+	}
+
+	public void touchModifiedTime() {
+		this.modifiedTime = System.currentTimeMillis();
 	}
 }

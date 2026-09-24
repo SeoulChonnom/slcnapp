@@ -232,7 +232,7 @@ Calendar 이름을 안정적으로 제공하기 위해 Schedule이 연결된 Cal
 
 ## 9. 관리 API
 
-기존 JWT 인증을 사용하는 신규 API를 제공한다.
+기존 JWT 인증을 사용하는 신규 API를 제공하며, 생성·목록·폐기는 `ADMIN` 권한 사용자만 호출할 수 있다. `USER` 또는 `CLIENT` 권한만 가진 요청은 `403 Forbidden`, 인증되지 않은 요청은 `401 Unauthorized`를 반환한다.
 
 ### 9.1 생성
 
