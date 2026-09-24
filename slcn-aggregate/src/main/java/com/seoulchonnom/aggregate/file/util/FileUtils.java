@@ -6,19 +6,19 @@ import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
@@ -26,7 +26,6 @@ import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
 import javax.imageio.stream.ImageOutputStream;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -35,7 +34,6 @@ import com.seoulchonnom.aggregate.file.exception.FileExtException;
 import com.seoulchonnom.aggregate.file.exception.FilePathInvalidException;
 import com.seoulchonnom.aggregate.file.exception.FileSizeException;
 import com.seoulchonnom.spec.file.entity.FileAsset;
-import com.seoulchonnom.spec.file.entity.vo.FileReference;
 import com.seoulchonnom.spec.file.entity.vo.FileType;
 import com.seoulchonnom.spec.file.entity.vo.FileVariant;
 import com.seoulchonnom.spec.file.entity.vo.ImageFormat;
@@ -46,14 +44,11 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Component
 public class FileUtils {
-	@Value("${slcn.upload.path}")
-	private String directory;
-
-	public FileReference saveImages(MultipartFile multipartFile, String type) throws IOException {
-		return saveImageAsset(multipartFile, type).toFileReference();
-	}
-
-	public FileAsset saveImageAsset(MultipartFile multipartFile, String type) throws IOException {
+	/**
+	 * 원본을 임시 디렉터리에 받아둔다. 최종 저장 위치가 서버 디스크가 아니므로 업로드 경로에 바로 쓰지 않는다.
+	 * 임시 디렉터리는 오브젝트 업로드가 끝난 뒤 호출자가 deleteStaging으로 지운다.
+	 */
+	public StagedUpload stageUpload(MultipartFile multipartFile, String type) throws IOException {
 		if (type == null || type.isEmpty() || !type.matches(AVAILABLE_PATH)) {
 			throw new FilePathInvalidException();
 		}
@@ -65,28 +60,41 @@ public class FileUtils {
 		validateImageFile(multipartFile);
 
 		String filename = createSaveFileName(multipartFile.getOriginalFilename());
-		Path saveDirectory = Paths.get(directory).resolve(type).normalize();
-		Files.createDirectories(saveDirectory);
-		String saveFileName = saveDirectory.resolve(filename).toString();
+		Path stagingDirectory = Files.createTempDirectory("slcn-upload-");
+		Path originalPath = stagingDirectory.resolve(filename);
+		multipartFile.transferTo(originalPath);
 
-		multipartFile.transferTo(new File(saveFileName));
-
-		return new FileAsset(
+		FileAsset fileAsset = new FileAsset(
 			FileType.from(type),
 			multipartFile.getOriginalFilename(),
 			filename,
 			multipartFile.getContentType(),
 			multipartFile.getSize()
 		);
+		return new StagedUpload(fileAsset, stagingDirectory, originalPath);
 	}
 
 	/**
-	 * 원본에서 홈 화면용 파생본을 만들고 원본 픽셀 크기를 함께 읽는다.
+	 * 임시 디렉터리를 통째로 지운다. 정리 실패가 업로드를 실패시키면 안 되므로 로그만 남긴다.
+	 */
+	public void deleteStaging(Path stagingDirectory) {
+		if (stagingDirectory == null) {
+			return;
+		}
+
+		try (Stream<Path> paths = Files.walk(stagingDirectory)) {
+			paths.sorted(Comparator.reverseOrder()).forEach(this::deleteQuietly);
+		} catch (IOException e) {
+			log.warn("Failed to clean staging directory. path={}", stagingDirectory, e);
+		}
+	}
+
+	/**
+	 * 임시 디렉터리의 원본에서 홈 화면용 파생본을 만들고 원본 픽셀 크기를 함께 읽는다.
+	 * 파생본은 원본과 같은 임시 디렉터리에 쓰이고, 업로드는 호출자가 한다.
 	 * 파생본 생성은 부가 작업이므로 실패해도 예외를 던지지 않는다. 업로드 자체는 성공해야 한다.
 	 */
-	public ImageProfile writeVariants(FileAsset fileAsset) {
-		Path originalPath = resolvePath(fileAsset.getType().getValue(), fileAsset.getStoredFilename());
-
+	public ImageProfile writeVariants(FileAsset fileAsset, Path originalPath) {
 		BufferedImage source = readImage(originalPath);
 		if (source == null) {
 			log.warn("Variant generation skipped: unreadable image. path={}", fileAsset.getPath());
@@ -119,14 +127,6 @@ public class FileUtils {
 			filename == null || filename.isEmpty() || !filename.matches(FILE_NAME_REGEX_STRING)) {
 			throw new FilePathInvalidException();
 		}
-	}
-
-	public boolean existsFileRef(String type, String filename) {
-		return Files.exists(resolvePath(type, filename));
-	}
-
-	private Path resolvePath(String type, String filename) {
-		return Paths.get(directory).resolve(type).resolve(filename).normalize();
 	}
 
 	private BufferedImage readImage(Path path) {
@@ -287,6 +287,12 @@ public class FileUtils {
 		if (!content.contains("<svg")) {
 			throw new FileExtException();
 		}
+	}
+
+	/**
+	 * 임시 디렉터리에 받아둔 업로드 한 건.
+	 */
+	public record StagedUpload(FileAsset fileAsset, Path stagingDirectory, Path originalPath) {
 	}
 
 	/**

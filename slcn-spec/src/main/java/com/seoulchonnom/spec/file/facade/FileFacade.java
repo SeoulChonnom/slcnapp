@@ -36,8 +36,10 @@ public interface FileFacade {
 			+ "파라미터를 지정하지 않거나 variant=original이면 원본을 응답하고, "
 			+ "알 수 없는 variant는 기본 축소본(home-feature)으로 응답합니다. "
 			+ "축소본이 아직 생성되지 않은 자산은 원본으로 폴백합니다. "
-			+ "format 파라미터는 호환을 위해 받기만 하고 사용하지 않습니다.")
+			+ "format 파라미터는 호환을 위해 받기만 하고 사용하지 않습니다. "
+			+ "원본은 오브젝트 스토리지의 서명된 URL로 302 리다이렉트하고, 축소본은 서버가 바이트를 그대로 응답합니다.")
 	@ApiResponse(responseCode = "200", description = "파일 조회 성공")
+	@ApiResponse(responseCode = "302", description = "원본은 오브젝트 스토리지의 서명된 URL로 리다이렉트")
 	@ApiResponse(responseCode = "304", description = "ETag 일치, 본문 없음")
 	ResponseEntity<byte[]> getFileById(
 		@PathVariable("fileId") String fileId,
@@ -51,6 +53,7 @@ public interface FileFacade {
 			+ "variant를 지정하면 해당 축소본을 내려받습니다. 알 수 없는 variant는 원본으로 처리합니다. "
 			+ "Content-Disposition에 업로드 당시의 파일명이 담깁니다.")
 	@ApiResponse(responseCode = "200", description = "파일 다운로드 성공")
+	@ApiResponse(responseCode = "302", description = "원본은 오브젝트 스토리지의 서명된 URL로 리다이렉트")
 	@ApiResponse(responseCode = "304", description = "ETag 일치, 본문 없음")
 	ResponseEntity<byte[]> downloadFileById(
 		@PathVariable("fileId") String fileId,
@@ -59,6 +62,7 @@ public interface FileFacade {
 
 	@Operation(summary = "파일 조회 API", description = "파일 경로를 통해 파일을 조회합니다.")
 	@ApiResponse(responseCode = "200", description = "파일 조회 성공")
+	@ApiResponse(responseCode = "302", description = "원본은 오브젝트 스토리지의 서명된 URL로 리다이렉트")
 	@ApiResponse(responseCode = "304", description = "ETag 일치, 본문 없음")
 	ResponseEntity<byte[]> getFile(
 		@RequestParam(value = "type") String type,
