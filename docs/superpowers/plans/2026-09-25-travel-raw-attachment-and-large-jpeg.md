@@ -260,11 +260,12 @@ FE는 요청당 누적 **100 MB 이하, 6장 이하**로 나눠 보낸다(현재
 - [x] 구현 메모: 로컬 저장소의 download-url은 §2.3 합의대로 501(`PRESIGNED_URL_NOT_SUPPORTED`)이다. RAW 인라인 404는 `RawFileNotViewableException`(`FILE_ASSET_RAW_NOT_VIEWABLE`)이고, 기존 `/download`(첨부 다운로드)는 RAW도 그대로 허용한다. 보안 설정 테스트에 download-url의 쿠키 전용 401과 no-store 캐시 정책을 추가했다
 
 ### Task 9. 고아 RAW 정리
-- [ ] `@EnableScheduling`을 추가한다(현재 프로젝트 어디에도 없다. 없으면 `@Scheduled`가 조용히 돌지 않는다). 테스트 컨텍스트에서 스케줄러가 실제로 돌지 않게 cron을 설정값(`slcn.storage.raw.cleanup-cron`)으로 빼고 테스트에서는 `-`(비활성)로 둔다
-- [ ] `FileAssetStore`에 `deleteById`와 `findByKindAndStatusAndRegisteredTimeLessThan`을 추가한다. 시간 필드는 `DomainEntity.registeredTime`(epoch millis)이다. `createdTime` 필드는 없다
-- [ ] `RawUploadCleanupScheduler`: 매일 1회. `kind=RAW, status=PENDING, registeredTime < now-24h`를 조회해 저장된 `uploadId`로 `abort` + 자산 삭제. R2 실패는 로그만 남기고 다음 실행 때 다시 시도한다
-- [ ] 어떤 여행에도 연결되지 않은 `READY` RAW는 **정리하지 않는다**(기존 이미지 고아 정책과 같다. 규모상 수동 확인이 낫다)
-- [ ] 테스트: 경과분만 정리, 실패해도 다음 항목 계속
+- [x] `@EnableScheduling`을 추가한다(현재 프로젝트 어디에도 없다. 없으면 `@Scheduled`가 조용히 돌지 않는다). 테스트 컨텍스트에서 스케줄러가 실제로 돌지 않게 cron을 설정값(`slcn.storage.raw.cleanup-cron`)으로 빼고 테스트에서는 `-`(비활성)로 둔다
+- [x] `FileAssetStore`에 `deleteById`와 `findByKindAndStatusAndRegisteredTimeLessThan`을 추가한다. 시간 필드는 `DomainEntity.registeredTime`(epoch millis)이다. `createdTime` 필드는 없다
+- [x] `RawUploadCleanupScheduler`: 매일 1회. `kind=RAW, status=PENDING, registeredTime < now-24h`를 조회해 저장된 `uploadId`로 `abort` + 자산 삭제. R2 실패는 로그만 남기고 다음 실행 때 다시 시도한다
+- [x] 어떤 여행에도 연결되지 않은 `READY` RAW는 **정리하지 않는다**(기존 이미지 고아 정책과 같다. 규모상 수동 확인이 낫다)
+- [x] 테스트: 경과분만 정리, 실패해도 다음 항목 계속
+- [x] 구현 메모: `@EnableScheduling`은 `slcn-aggregate/config/SchedulingConfiguration`에 두었다. cron 속성의 기본값은 `-`(꺼짐)이고, 운영 값은 application.yml의 `SLCN_STORAGE_RAW_CLEANUP_CRON`(기본 매일 04:30, Asia/Seoul)이다. 정리 본체는 `RawUploadLogic.cleanupPendingRegisteredBefore`에 두고 스케줄러는 기준 시각만 계산한다. `ApplicationContextRunner`로 cron 작업이 실제 등록되는지와, 속성이 없으면 등록되지 않는지를 테스트했다. `findByKindAndStatusAndRegisteredTimeLessThan` 파생 쿼리는 Mongo 통합 테스트 환경이 없어 실제 DB로는 확인하지 못했다
 
 ### Task 10. 문서
 - [ ] `docs/file-asset.md`, `docs/image-asset-api.md`에 §2 계약 반영

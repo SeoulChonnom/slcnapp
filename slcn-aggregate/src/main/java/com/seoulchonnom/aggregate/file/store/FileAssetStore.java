@@ -12,6 +12,8 @@ import com.seoulchonnom.aggregate.file.exception.FileAssetNotFoundException;
 import com.seoulchonnom.aggregate.file.store.mapper.FileAssetDocMapper;
 import com.seoulchonnom.aggregate.file.store.repository.FileAssetRepository;
 import com.seoulchonnom.spec.file.entity.FileAsset;
+import com.seoulchonnom.spec.file.entity.vo.FileKind;
+import com.seoulchonnom.spec.file.entity.vo.FileStatus;
 
 import lombok.RequiredArgsConstructor;
 
@@ -47,6 +49,16 @@ public class FileAssetStore {
 			return List.of();
 		}
 		return StreamSupport.stream(fileAssetRepository.findAllById(fileIds).spliterator(), false)
+			.map(fileAssetDocMapper::toDomain)
+			.toList();
+	}
+
+	/**
+	 * 업로드를 시작만 하고 끝내지 않은 RAW. 정리 스케줄러가 저장소 세션을 닫고 지운다.
+	 */
+	public List<FileAsset> findPendingRawRegisteredBefore(long registeredTime) {
+		return fileAssetRepository.findByKindAndStatusAndRegisteredTimeLessThan(FileKind.RAW, FileStatus.PENDING,
+				registeredTime).stream()
 			.map(fileAssetDocMapper::toDomain)
 			.toList();
 	}

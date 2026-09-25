@@ -136,6 +136,31 @@ public class RawUploadLogic {
 		fileAssetStore.deleteById(fileAsset.getId());
 	}
 
+	/**
+	 * 세션을 열고 끝내지 않은 RAW를 정리한다. 남겨 두면 올라간 파트가 저장소 요금으로 쌓인다.
+	 * 한 건 실패로 나머지를 멈추지 않는다. 실패한 건은 PENDING으로 남아 다음 실행 때 다시 시도된다.
+	 * 로컬 저장소는 직접 업로드가 없으므로 할 일이 없다.
+	 *
+	 * @return 정리한 건수
+	 */
+	public int cleanupPendingRegisteredBefore(long registeredTime) {
+		if (multipartUploadStorage.isEmpty()) {
+			return 0;
+		}
+
+		int cleaned = 0;
+		for (FileAsset fileAsset : fileAssetStore.findPendingRawRegisteredBefore(registeredTime)) {
+			try {
+				multipartUploadStorage.get().abort(keyOf(fileAsset), fileAsset.getUploadId());
+				fileAssetStore.deleteById(fileAsset.getId());
+				cleaned++;
+			} catch (IOException | RuntimeException e) {
+				log.warn("Stale RAW upload cleanup failed, will retry next run. fileId={}", fileAsset.getId(), e);
+			}
+		}
+		return cleaned;
+	}
+
 	private MultipartUploadStorage requireStorage() {
 		return multipartUploadStorage.orElseThrow(PresignedUrlNotSupportedException::new);
 	}

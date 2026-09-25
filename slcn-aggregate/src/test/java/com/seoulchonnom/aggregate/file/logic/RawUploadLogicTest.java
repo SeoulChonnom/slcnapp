@@ -299,4 +299,43 @@ class RawUploadLogicTest {
 		verify(fileAssetStore).save(captor.capture());
 		return captor.getValue();
 	}
+
+	@Test
+	void cleanupPendingRegisteredBefore_shouldAbortAndDeleteEveryStaleUpload() throws Exception {
+		FileAsset first = pendingRaw();
+		FileAsset second = FileAsset.pendingRaw("b.RAF", "0e6c1c6b-4bcb-4d0e-9d0f-1f8c9a0f6a11.raf",
+			"image/x-fujifilm-raf", RAW_SIZE, "upload-2");
+		second.setId("raw-2");
+		when(fileAssetStore.findPendingRawRegisteredBefore(1000L)).thenReturn(List.of(first, second));
+
+		int cleaned = logic.cleanupPendingRegisteredBefore(1000L);
+
+		assertThat(cleaned).isEqualTo(2);
+		verify(storage).abort(KEY, "upload-1");
+		verify(storage).abort("originals/travel/0e6c1c6b-4bcb-4d0e-9d0f-1f8c9a0f6a11.raf", "upload-2");
+		verify(fileAssetStore).deleteById("raw-1");
+		verify(fileAssetStore).deleteById("raw-2");
+	}
+
+	@Test
+	void cleanupPendingRegisteredBefore_shouldContinueAfterOneFailureAndKeepFailedAsset() throws Exception {
+		FileAsset failing = pendingRaw();
+		FileAsset next = FileAsset.pendingRaw("b.RAF", "0e6c1c6b-4bcb-4d0e-9d0f-1f8c9a0f6a11.raf",
+			"image/x-fujifilm-raf", RAW_SIZE, "upload-2");
+		next.setId("raw-2");
+		when(fileAssetStore.findPendingRawRegisteredBefore(1000L)).thenReturn(List.of(failing, next));
+		doThrow(new IOException("r2 down")).when(storage).abort(KEY, "upload-1");
+
+		int cleaned = logic.cleanupPendingRegisteredBefore(1000L);
+
+		assertThat(cleaned).isEqualTo(1);
+		verify(fileAssetStore, never()).deleteById("raw-1");
+		verify(fileAssetStore).deleteById("raw-2");
+	}
+
+	@Test
+	void cleanupPendingRegisteredBefore_shouldDoNothingOnLocalStorage() {
+		assertThat(newLogic(Optional.empty()).cleanupPendingRegisteredBefore(1000L)).isZero();
+		verifyNoInteractions(fileAssetStore);
+	}
 }

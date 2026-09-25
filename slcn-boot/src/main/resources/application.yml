@@ -81,6 +81,8 @@ slcn:
       part-size-bytes: "${SLCN_STORAGE_RAW_PART_SIZE_BYTES:16777216}"
       # 파트 서명 URL 만료. 넘기면 브라우저가 세션을 취소하고 처음부터 다시 올린다.
       session-ttl-seconds: "${SLCN_STORAGE_RAW_SESSION_TTL_SECONDS:1800}"
+      # 24시간 넘게 끝나지 않은 RAW 업로드 정리. 매일 새벽 4시 30분(Asia/Seoul). "-"면 끈다.
+      cleanup-cron: "${SLCN_STORAGE_RAW_CLEANUP_CRON:0 30 4 * * *}"
     migration:
       # 기존 로컬 파일을 오브젝트 스토리지로 옮긴다. 배포 1회만 켜고 다시 내린다.
       enabled: "${SLCN_STORAGE_MIGRATION_ENABLED:false}"
