@@ -178,6 +178,10 @@ public class InspectionPhotoSupport {
 				throw new InvalidInspectionFileException("사진 연결 정보가 올바르지 않습니다.");
 			}
 			item.setFileAssetId(item.getFileAssetId().trim());
+			// RAW 첨부는 여행 앨범에만 둔다. 임장은 현장 기록이라 원본 보관이 목적이 아니다.
+			if (StringUtils.hasText(item.getRawFileAssetId())) {
+				throw new InvalidInspectionFileException("임장 사진에는 RAW 파일을 첨부할 수 없습니다.");
+			}
 			if (FileBoxItemRole.COVER != item.getRole() && FileBoxItemRole.GALLERY != item.getRole()) {
 				throw new InvalidInspectionFileException("임장 사진 role은 COVER 또는 GALLERY만 허용합니다.");
 			}

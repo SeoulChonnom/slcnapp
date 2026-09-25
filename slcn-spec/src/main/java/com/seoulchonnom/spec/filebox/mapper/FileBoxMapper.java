@@ -11,21 +11,28 @@ import com.seoulchonnom.spec.filebox.facade.sdo.FileBoxItemUdo;
 @Component
 public class FileBoxMapper {
 	public FileBoxItemRdo toFileBoxItemRdo(FileBoxItem item, FileAssetRdo file) {
+		return toFileBoxItemRdo(item, file, null);
+	}
+
+	public FileBoxItemRdo toFileBoxItemRdo(FileBoxItem item, FileAssetRdo file, FileAssetRdo rawFile) {
 		FileBoxItemRdo rdo = new FileBoxItemRdo();
 		rdo.setId(item.getId());
 		rdo.setFileAssetId(item.getFileAssetId());
+		rdo.setRawFileAssetId(item.getRawFileAssetId());
 		rdo.setTargetType(item.getTargetType());
 		rdo.setTargetId(item.getTargetId());
 		rdo.setRole(item.getRole());
 		rdo.setCaption(item.getCaption());
 		rdo.setSortOrder(item.getSortOrder());
 		rdo.setFile(file);
+		rdo.setRawFile(rawFile);
 		return rdo;
 	}
 
 	public FileBoxItem toFileBoxItem(FileBoxItemCdo cdo) {
 		FileBoxItem item = new FileBoxItem();
 		item.setFileAssetId(cdo.getFileAssetId());
+		item.setRawFileAssetId(cdo.getRawFileAssetId());
 		item.setTargetType(cdo.getTargetType());
 		item.setTargetId(cdo.getTargetId());
 		item.setRole(cdo.getRole());
@@ -38,6 +45,7 @@ public class FileBoxMapper {
 		FileBoxItem item = new FileBoxItem();
 		item.setId(udo.getId());
 		item.setFileAssetId(udo.getFileAssetId());
+		item.setRawFileAssetId(udo.getRawFileAssetId());
 		item.setTargetType(udo.getTargetType());
 		item.setTargetId(udo.getTargetId());
 		item.setRole(udo.getRole());

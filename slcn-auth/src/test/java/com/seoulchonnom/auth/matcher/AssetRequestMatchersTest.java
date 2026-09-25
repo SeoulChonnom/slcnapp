@@ -22,6 +22,14 @@ class AssetRequestMatchersTest {
 	}
 
 	@Test
+	void matchers_shouldExcludeDownloadUrlFromCookieAuthAndCache() {
+		MockHttpServletRequest request = get("/assets/files/" + FILE_ID + "/download-url");
+
+		assertThat(AssetRequestMatchers.IMAGE_READ_MATCHER.matches(request)).isFalse();
+		assertThat(AssetRequestMatchers.CACHEABLE_IMAGE_MATCHER.matches(request)).isFalse();
+	}
+
+	@Test
 	void imageReadMatcher_shouldNotMatchUploadOrOtherMethods() {
 		assertThat(AssetRequestMatchers.IMAGE_READ_MATCHER.matches(request("POST", "/assets/file"))).isFalse();
 		assertThat(AssetRequestMatchers.IMAGE_READ_MATCHER.matches(request("POST", "/assets/files"))).isFalse();

@@ -58,6 +58,8 @@
 ### 쿠키 인증이 적용되지 않는 경로
 
 - `GET /assets/files/{fileId}/download` — 사용자의 클릭으로 발생하므로 `img` 태그 제약이 없다. `X-AUTH-TOKEN`이 필요하다.
+- `GET /assets/files/{fileId}/download-url` — 같은 이유로 `X-AUTH-TOKEN`이 필요하다. 응답이 곧 만료되는 서명 URL이라 브라우저 캐시 대상도 아니다(`no-store`).
+- `POST`/`DELETE /assets/raw-uploads...` — RAW 업로드 세션은 항상 `X-AUTH-TOKEN`이 필요하다.
 - `POST /assets/file`, `POST /assets/files` — 업로드는 항상 `X-AUTH-TOKEN`이 필요하다.
 
 ### 제약
@@ -136,13 +138,38 @@ Content-Disposition: attachment;
 
 다운로드 응답의 ETag는 `"{fileId}-{variant}-download"`로 조회 응답과 분리되어 있다. 같은 바이트라도 헤더가 달라 캐시 항목이 섞이면 `Content-Disposition` 없는 응답이 재사용될 수 있기 때문이다. 프론트가 신경 쓸 것은 없다.
 
+## 다운로드 URL (RAW 첨부 포함)
+
+`GET /assets/files/{fileId}/download-url` (`X-AUTH-TOKEN` 필수)
+
+```json
+{
+  "url": "https://...r2...?response-content-disposition=attachment%3B%20filename%2A%3DUTF-8%27%27DSCF1234.RAF&X-Amz-...",
+  "filename": "DSCF1234.RAF",
+  "size": 83886080,
+  "expiresAt": "2026-09-25T13:05:00+09:00"
+}
+```
+
+- 원본을 첨부 파일로 받는 서명 URL이다. RAW 첨부와 보기용 이미지 원본 모두 쓸 수 있다.
+- FE는 `location.href = url`로 이동한다. 토큰이 저장소로 가지 않고, `/download`의 302를 `fetch`로 따라갈 때 생기는 CORS 문제도 없다.
+- 만료는 기본 300초다. 버튼을 누를 때마다 새로 발급받고, URL을 저장하지 않는다.
+- 로컬 프로바이더에서는 `501`이다. 로컬에서는 RAW 업로드 자체가 `501`이라 RAW 자산이 생기지 않는다.
+- 기존 `GET /assets/files/{fileId}/download`는 그대로 남아 있다.
+
+RAW 자산을 이미지로 부르면 막힌다. `GET /assets/files/{rawFileId}`는 `404`, `GET /assets/file?...&filename={uuid}.raf`는 `400`이다. RAW를 `img` 태그에 물리지 않는다.
+
 ## FileAssetRdo 추가 필드
 
 `TravelRdo.cover.file`, `TripListRdo.logo`, 업로드 응답에 모두 포함된다. 기존 필드는 그대로다.
 
-- `width` (int): **원본** 가로 픽셀. 축소본도 종횡비가 같으므로 레이아웃 예약에 쓸 수 있다.
-- `height` (int): 원본 세로 픽셀.
+- `width` (int): **원본** 가로 픽셀. 축소본도 종횡비가 같으므로 레이아웃 예약에 쓸 수 있다. **화면에 보이는 방향 기준**이다. EXIF로 90° 회전된 세로 사진은 헤더가 아니라 세운 뒤의 크기다.
+- `height` (int): 원본 세로 픽셀. 같은 기준이다.
 - `variants` (string[]): 이 자산에 실제로 존재하는 축소본 이름. 예: `["home-feature", "home-thumb"]`
+- `kind` (string): `IMAGE`(보기용) 또는 `RAW`(다운로드 전용 첨부). 과거 자산은 `IMAGE`다.
+- `status` (string): `READY` 또는 `PENDING`(RAW 직접 업로드가 완료 검증 전). 과거 자산은 `READY`다.
+
+EXIF 방향 보정 이전에 올라간 세로 사진은 축소본이 누워 있고 `width`/`height`도 헤더 값일 수 있다. 원본은 브라우저가 EXIF로 돌리므로 영향이 없다.
 
 ### 구 자산은 0으로 나온다
 
@@ -213,9 +240,11 @@ curl -D - -o /dev/null \
   -H 'Sec-Fetch-Site: same-site' -H 'Sec-Fetch-Dest: image' \
   "http://localhost:8080/api/assets/files/$FID?variant=home-thumb"
 
-# 쿠키 인증이 열려서는 안 되는 경로 — 둘 다 401이어야 한다
+# 쿠키 인증이 열려서는 안 되는 경로 — 모두 401이어야 한다
 curl -o /dev/null -w '%{http_code}\n' -b "sessionId=$SID" \
   http://localhost:8080/api/assets/files/$FID/download
+curl -o /dev/null -w '%{http_code}\n' -b "sessionId=$SID" \
+  http://localhost:8080/api/assets/files/$FID/download-url
 curl -o /dev/null -w '%{http_code}\n' -b "sessionId=$SID" \
   http://localhost:8080/api/travels
 ```

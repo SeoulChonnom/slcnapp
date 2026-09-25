@@ -176,7 +176,9 @@ public class TravelLogic {
 
 	private FileBoxItemRdo toFileBoxItemRdo(FileBoxItem item) {
 		FileAsset fileAsset = fileAssetStore.findById(item.getFileAssetId());
-		return fileBoxMapper.toFileBoxItemRdo(item, FileAssetRdo.from(fileAsset));
+		FileAssetRdo rawFile = item.getRawFileAssetId() == null ? null
+			: fileAssetStore.findOptionalById(item.getRawFileAssetId()).map(FileAssetRdo::from).orElse(null);
+		return fileBoxMapper.toFileBoxItemRdo(item, FileAssetRdo.from(fileAsset), rawFile);
 	}
 
 	private void validateTravel(String title, String region, LocalDate startDate, LocalDate endDate) {
@@ -194,6 +196,8 @@ public class TravelLogic {
 	private void validateTravelFiles(List<FileBoxItem> items, Travel travel) {
 		Set<String> itemKeys = new HashSet<>();
 		Map<String, Integer> groupSortOrders = new HashMap<>();
+		Map<String, String> rawByFile = new HashMap<>();
+		Map<String, String> fileByRaw = new HashMap<>();
 		int rootCoverCount = 0;
 		Set<String> dayDates = new HashSet<>(travel.getDays().stream().map(day -> day.getDate().toString()).toList());
 		Set<String> placeKeys = new HashSet<>();
@@ -211,9 +215,8 @@ public class TravelLogic {
 				&& FileBoxItemRole.COVER == item.getRole()) {
 				rootCoverCount++;
 			}
-			if (!FileType.TRAVEL.equals(fileAssetStore.findById(item.getFileAssetId()).getType())) {
-				throw new BadRequestException("여행 파일 타입이 올바르지 않습니다.");
-			}
+			validateViewableFile(item);
+			validateRawFile(item, rawByFile, fileByRaw);
 			assignSortOrder(item, groupSortOrders);
 		}
 		if (rootCoverCount != 1) {
@@ -229,6 +232,43 @@ public class TravelLogic {
 		item.setFileAssetId(item.getFileAssetId().trim());
 		if (FileBoxItemRole.COVER != item.getRole() && FileBoxItemRole.GALLERY != item.getRole()) {
 			throw new BadRequestException("여행 파일 role이 올바르지 않습니다.");
+		}
+	}
+
+	private void validateViewableFile(FileBoxItem item) {
+		FileAsset fileAsset = fileAssetStore.findById(item.getFileAssetId());
+		if (!FileType.TRAVEL.equals(fileAsset.getType())) {
+			throw new BadRequestException("여행 파일 타입이 올바르지 않습니다.");
+		}
+		if (fileAsset.isRaw()) {
+			throw new BadRequestException("RAW 파일은 보기용 사진으로 연결할 수 없습니다.");
+		}
+	}
+
+	/**
+	 * RAW 첨부와 보기용 사진은 1:1로 대응해야 한다. 같은 사진을 표지와 앨범에 함께 두면 같은 RAW가 여러 항목에 나오므로,
+	 * 등장 횟수가 아니라 대응 관계를 본다. RAW를 선언하지 않은 항목은 대응 비교에서 뺀다.
+	 */
+	private void validateRawFile(FileBoxItem item, Map<String, String> rawByFile, Map<String, String> fileByRaw) {
+		if (!StringUtils.hasText(item.getRawFileAssetId())) {
+			item.setRawFileAssetId(null);
+			return;
+		}
+		String rawFileAssetId = item.getRawFileAssetId().trim();
+		item.setRawFileAssetId(rawFileAssetId);
+
+		FileAsset rawFile = fileAssetStore.findOptionalById(rawFileAssetId)
+			.filter(asset -> FileType.TRAVEL.equals(asset.getType()) && asset.isRaw())
+			.orElseThrow(() -> new BadRequestException("연결할 RAW 파일이 올바르지 않습니다."));
+		if (rawFile.isPending()) {
+			throw new BadRequestException("RAW 업로드가 아직 끝나지 않았습니다.");
+		}
+
+		String pairedFile = fileByRaw.putIfAbsent(rawFileAssetId, item.getFileAssetId());
+		String pairedRaw = rawByFile.putIfAbsent(item.getFileAssetId(), rawFileAssetId);
+		if ((pairedFile != null && !pairedFile.equals(item.getFileAssetId()))
+			|| (pairedRaw != null && !pairedRaw.equals(rawFileAssetId))) {
+			throw new BadRequestException("하나의 사진에는 하나의 RAW 파일만 연결할 수 있습니다.");
 		}
 	}
 

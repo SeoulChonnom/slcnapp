@@ -36,10 +36,11 @@ spring:
       matching-strategy: ant_path_matcher
   servlet:
     multipart:
-      max-file-size: 10MB
+      # 카메라 JPG(20~40 MB)를 받는다. FileConstant.MAX_FILE_SIZE와 같게 둔다.
+      max-file-size: 50MB
       # 미설정 시 Spring Boot 기본값 10MB가 요청 전체에 적용되어 다중 업로드가 첫 파일에서 막힌다.
-      # 파일당 제한(10MB)은 그대로 두고 요청 총량만 연다.
-      max-request-size: 60MB
+      # FE는 요청당 100 MB 이하로 나눠 보내고, multipart 경계·필드 여유분을 더한다.
+      max-request-size: 110MB
 
 logging:
   level:
@@ -62,6 +63,8 @@ slcn:
   upload:
     # local 프로바이더의 기준 디렉터리이자, R2 백필의 원본 위치다.
     path: "${SLCN_UPLOAD_PATH}"
+    # 파생본 생성(동시 2건) 차례를 기다리는 최대 초. 넘기면 파생본 없이 업로드를 끝내고 조회는 원본으로 폴백한다.
+    variant-wait-seconds: "${SLCN_UPLOAD_VARIANT_WAIT_SECONDS:60}"
   storage:
     # local | r2. r2가 아니면 로컬 디스크에 저장하고 바이트를 직접 서빙한다.
     provider: "${SLCN_STORAGE_PROVIDER:local}"
@@ -73,6 +76,13 @@ slcn:
       bucket: "${SLCN_R2_BUCKET:}"
       access-key: "${SLCN_R2_ACCESS_KEY:}"
       secret-key: "${SLCN_R2_SECRET_KEY:}"
+    raw:
+      # RAW 직접 업로드 파트 크기. R2는 마지막 파트를 뺀 모든 파트가 같은 크기이고 5 MB 이상이어야 한다.
+      part-size-bytes: "${SLCN_STORAGE_RAW_PART_SIZE_BYTES:16777216}"
+      # 파트 서명 URL 만료. 넘기면 브라우저가 세션을 취소하고 처음부터 다시 올린다.
+      session-ttl-seconds: "${SLCN_STORAGE_RAW_SESSION_TTL_SECONDS:1800}"
+      # 24시간 넘게 끝나지 않은 RAW 업로드 정리. 매일 새벽 4시 30분(Asia/Seoul). "-"면 끈다.
+      cleanup-cron: "${SLCN_STORAGE_RAW_CLEANUP_CRON:0 30 4 * * *}"
     migration:
       # 기존 로컬 파일을 오브젝트 스토리지로 옮긴다. 배포 1회만 켜고 다시 내린다.
       enabled: "${SLCN_STORAGE_MIGRATION_ENABLED:false}"

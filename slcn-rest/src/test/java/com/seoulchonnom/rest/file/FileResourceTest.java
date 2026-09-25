@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -16,6 +17,7 @@ import com.seoulchonnom.spec.file.entity.FileAsset;
 import com.seoulchonnom.spec.file.entity.vo.FileType;
 import com.seoulchonnom.spec.file.entity.vo.FileVariant;
 import com.seoulchonnom.spec.file.entity.vo.ImageVariant;
+import com.seoulchonnom.spec.file.facade.sdo.DownloadUrlRdo;
 import com.seoulchonnom.spec.file.facade.sdo.ImageFileRdo;
 
 class FileResourceTest {
@@ -355,5 +357,17 @@ class FileResourceTest {
 			.variant(variant)
 			.downloadFilename(downloadFilename)
 			.build();
+	}
+
+	@Test
+	void getDownloadUrl_shouldReturnSignedUrlAsJson() {
+		DownloadUrlRdo rdo = new DownloadUrlRdo("https://r2.example/signed", "DSCF1234.RAF", 83886080L,
+			OffsetDateTime.now());
+		when(fileLogic.getDownloadUrl("raw-1")).thenReturn(rdo);
+
+		var response = fileResource.getDownloadUrl("raw-1");
+
+		assertEquals(HttpStatus.OK, response.getStatusCode());
+		assertEquals("https://r2.example/signed", response.getBody().getUrl());
 	}
 }

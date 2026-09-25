@@ -5,7 +5,9 @@ import java.util.List;
 import java.util.Optional;
 
 import com.seoulchonnom.spec.common.entity.DomainEntity;
+import com.seoulchonnom.spec.file.entity.vo.FileKind;
 import com.seoulchonnom.spec.file.entity.vo.FileReference;
+import com.seoulchonnom.spec.file.entity.vo.FileStatus;
 import com.seoulchonnom.spec.file.entity.vo.FileType;
 import com.seoulchonnom.spec.file.entity.vo.FileVariant;
 import com.seoulchonnom.spec.file.entity.vo.ImageVariant;
@@ -35,6 +37,19 @@ public class FileAsset extends DomainEntity {
 	 */
 	@Builder.Default
 	private List<FileVariant> variants = new ArrayList<>();
+	/**
+	 * 이 필드가 생기기 전에 저장된 자산은 값이 없다. 과거 자산은 모두 보기용 이미지이므로 getter에서 IMAGE로 읽는다.
+	 */
+	private FileKind kind;
+	/**
+	 * 과거 자산은 값이 없고, 모두 동기 업로드로 끝난 것이므로 getter에서 READY로 읽는다.
+	 */
+	private FileStatus status;
+	/**
+	 * 저장소 multipart 업로드 id. RAW가 PENDING인 동안 취소·정리에서 AbortMultipartUpload를 부를 때 필요하다.
+	 * 완료 요청 외에는 클라이언트가 이 값을 다시 보내지 않으므로 서버가 들고 있어야 한다.
+	 */
+	private String uploadId;
 
 	public FileAsset(FileType type, String originalFilename, String storedFilename, String mimeType, long size) {
 		super();
@@ -47,12 +62,50 @@ public class FileAsset extends DomainEntity {
 		this.variants = new ArrayList<>();
 	}
 
+	/**
+	 * 브라우저 직접 업로드를 기다리는 RAW 첨부. 서버는 바이트를 보지 않으므로 크기는 클라이언트가 선언한 값이고,
+	 * 완료 검증에서 저장소의 실제 크기와 비교한다.
+	 */
+	public static FileAsset pendingRaw(String originalFilename, String storedFilename, String mimeType, long size,
+		String uploadId) {
+		FileAsset fileAsset = new FileAsset(FileType.TRAVEL, originalFilename, storedFilename, mimeType, size);
+		fileAsset.kind = FileKind.RAW;
+		fileAsset.status = FileStatus.PENDING;
+		fileAsset.uploadId = uploadId;
+		return fileAsset;
+	}
+
+	/**
+	 * 완료 검증을 통과했다. multipart 세션은 끝났으므로 uploadId는 더 쓸 일이 없다.
+	 */
+	public void markUploadCompleted() {
+		this.status = FileStatus.READY;
+		this.uploadId = null;
+		setModifiedTime(System.currentTimeMillis());
+	}
+
+	public boolean isRaw() {
+		return getKind() == FileKind.RAW;
+	}
+
+	public boolean isPending() {
+		return getStatus() == FileStatus.PENDING;
+	}
+
 	public FileReference toFileReference() {
 		return new FileReference(type, storedFilename);
 	}
 
 	public List<FileVariant> getVariants() {
 		return variants == null ? List.of() : variants;
+	}
+
+	public FileKind getKind() {
+		return kind == null ? FileKind.IMAGE : kind;
+	}
+
+	public FileStatus getStatus() {
+		return status == null ? FileStatus.READY : status;
 	}
 
 	public List<String> variantNames() {

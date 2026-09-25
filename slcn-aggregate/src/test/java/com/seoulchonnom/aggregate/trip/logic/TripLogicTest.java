@@ -70,9 +70,19 @@ class TripLogicTest {
 	@Test
 	void registerTrip_shouldRejectPartialNavigationFields() {
 		TripCdo tripCdo = createValidTripCdo();
-		tripCdo.getFiles().add(new FileBoxItemCdo("map-file-2", FileBoxTargetType.TRIP, null,
+		tripCdo.getFiles().add(new FileBoxItemCdo("map-file-2", null, FileBoxTargetType.TRIP, null,
 			FileBoxItemRole.SECOND_MAP, null, 3));
 		tripCdo.setNextButtonText("다음");
+		stubValidFileAssets();
+
+		assertThatThrownBy(() -> tripLogic.registerTrip(tripCdo))
+			.isInstanceOf(InvalidTripRegisterException.class);
+	}
+
+	@Test
+	void registerTrip_shouldRejectRawAttachmentOnTripFiles() {
+		TripCdo tripCdo = createValidTripCdo();
+		tripCdo.getFiles().get(0).setRawFileAssetId("raw-1");
 		stubValidFileAssets();
 
 		assertThatThrownBy(() -> tripLogic.registerTrip(tripCdo))
@@ -127,8 +137,8 @@ class TripLogicTest {
 					new OptionCdo("오답", false),
 					new OptionCdo("정답", true))),
 			new ArrayList<>(List.of(
-				new FileBoxItemCdo("logo-file-1", FileBoxTargetType.TRIP, null, FileBoxItemRole.LOGO, null, 1),
-				new FileBoxItemCdo("map-file-1", FileBoxTargetType.TRIP, null, FileBoxItemRole.FIRST_MAP, null, 2))));
+				new FileBoxItemCdo("logo-file-1", null, FileBoxTargetType.TRIP, null, FileBoxItemRole.LOGO, null, 1),
+				new FileBoxItemCdo("map-file-1", null, FileBoxTargetType.TRIP, null, FileBoxItemRole.FIRST_MAP, null, 2))));
 	}
 
 	private void stubValidFileAssets() {
