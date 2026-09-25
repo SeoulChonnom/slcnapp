@@ -268,9 +268,10 @@ FE는 요청당 누적 **100 MB 이하, 6장 이하**로 나눠 보낸다(현재
 - [x] 구현 메모: `@EnableScheduling`은 `slcn-aggregate/config/SchedulingConfiguration`에 두었다. cron 속성의 기본값은 `-`(꺼짐)이고, 운영 값은 application.yml의 `SLCN_STORAGE_RAW_CLEANUP_CRON`(기본 매일 04:30, Asia/Seoul)이다. 정리 본체는 `RawUploadLogic.cleanupPendingRegisteredBefore`에 두고 스케줄러는 기준 시각만 계산한다. `ApplicationContextRunner`로 cron 작업이 실제 등록되는지와, 속성이 없으면 등록되지 않는지를 테스트했다. `findByKindAndStatusAndRegisteredTimeLessThan` 파생 쿼리는 Mongo 통합 테스트 환경이 없어 실제 DB로는 확인하지 못했다
 
 ### Task 10. 문서
-- [ ] `docs/file-asset.md`, `docs/image-asset-api.md`에 §2 계약 반영
-- [ ] 스토리지 설계 문서 §4에 "Phase 3·4는 2026-09-25 계획으로 축소 구현"을 한 줄 링크로 남긴다
-- [ ] `docs/prompts/`에 FE용 변경 요약(§2 + §4)을 남긴다
+- [x] `docs/file-asset.md`, `docs/image-asset-api.md`에 §2 계약 반영
+- [x] 스토리지 설계 문서 §4에 "Phase 3·4는 2026-09-25 계획으로 축소 구현"을 한 줄 링크로 남긴다
+- [x] `docs/prompts/`에 FE용 변경 요약(§2 + §4)을 남긴다
+- [x] 구현 메모: FE 요약은 기존 프롬프트 형식에 맞춰 `docs/prompts/260925-frontend-raw-attachment.md`에 FE 작업 요청서로 남겼다. 실제 구현의 오류 문구·상태 코드를 기준으로 적었다
 
 ---
 
