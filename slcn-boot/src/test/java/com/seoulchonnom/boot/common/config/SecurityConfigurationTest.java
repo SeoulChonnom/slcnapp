@@ -1,5 +1,6 @@
 package com.seoulchonnom.boot.common.config;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -149,6 +150,30 @@ class SecurityConfigurationTest {
 				.header("Sec-Fetch-Dest", "image"))
 			.andExpect(status().isUnauthorized());
 		verifyNoInteractions(refreshSessionStore);
+	}
+
+	@Test
+	void downloadUrl_withSessionCookieOnly_shouldReturnUnauthorized() throws Exception {
+		givenLiveSession();
+
+		mockMvc.perform(get(IMAGE_PATH + "/download-url")
+				.cookie(sessionCookie())
+				.header("Sec-Fetch-Site", "same-site")
+				.header("Sec-Fetch-Dest", "empty"))
+			.andExpect(status().isUnauthorized());
+		verifyNoInteractions(refreshSessionStore);
+	}
+
+	/**
+	 * 응답이 곧 만료되는 서명 URL이다. 이미지처럼 브라우저 캐시에 남으면 만료된 URL을 다시 쓰게 된다.
+	 */
+	@Test
+	void downloadUrl_withAccessToken_shouldKeepNoStoreCachePolicy() throws Exception {
+		givenValidAccessToken();
+
+		mockMvc.perform(get(IMAGE_PATH + "/download-url").header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, "access-token"))
+			.andExpect(status().isOk())
+			.andExpect(header().string("Cache-Control", containsString("no-store")));
 	}
 
 	/**
@@ -432,6 +457,11 @@ class SecurityConfigurationTest {
 
 		@GetMapping("/assets/files/{fileId}/download")
 		ResponseEntity<String> download(@PathVariable("fileId") String fileId) {
+			return ResponseEntity.ok(fileId);
+		}
+
+		@GetMapping("/assets/files/{fileId}/download-url")
+		ResponseEntity<String> downloadUrl(@PathVariable("fileId") String fileId) {
 			return ResponseEntity.ok(fileId);
 		}
 

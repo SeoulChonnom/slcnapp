@@ -26,6 +26,7 @@ import org.springframework.web.multipart.MultipartFile;
 import com.seoulchonnom.aggregate.file.logic.FileLogic;
 import com.seoulchonnom.spec.file.entity.vo.ImageVariant;
 import com.seoulchonnom.spec.file.facade.FileFacade;
+import com.seoulchonnom.spec.file.facade.sdo.DownloadUrlRdo;
 import com.seoulchonnom.spec.file.facade.sdo.FileAssetRdo;
 import com.seoulchonnom.spec.file.facade.sdo.ImageFileRdo;
 
@@ -95,6 +96,12 @@ public class FileResource implements FileFacade {
 
 		return toImageResponse(imageFileRdo, downloadEtagOf(fileId, imageFileRdo.getVariant()),
 			attachmentDisposition(imageFileRdo.getDownloadFilename()));
+	}
+
+	@Override
+	@GetMapping("/files/{fileId}/download-url")
+	public ResponseEntity<DownloadUrlRdo> getDownloadUrl(@PathVariable("fileId") String fileId) {
+		return ResponseEntity.ok(fileLogic.getDownloadUrl(fileId));
 	}
 
 	@Override

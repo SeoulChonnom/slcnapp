@@ -19,6 +19,11 @@ public final class AssetRequestMatchers {
 	/** ID 기반 조회와 다운로드. FileResource의 GET /assets/files/{fileId}와 대응한다. */
 	private static final String FILES_PATH_PREFIX = "/assets/files/";
 	private static final String DOWNLOAD_PATH_SUFFIX = "/download";
+	/**
+	 * 다운로드 서명 URL 발급. FileResource의 GET /assets/files/{fileId}/download-url과 대응한다.
+	 * 응답이 곧 만료되는 서명 URL이므로 캐시하면 안 되고, 사용자 클릭으로만 호출되므로 쿠키 인증도 필요 없다.
+	 */
+	private static final String DOWNLOAD_URL_PATH_SUFFIX = "/download-url";
 
 	/**
 	 * 이미지 조회 응답만 브라우저 캐시를 허용한다. 파일 ID와 저장 파일명이 불변이라 안전하며,
@@ -31,7 +36,8 @@ public final class AssetRequestMatchers {
 		}
 
 		String path = pathWithinApplication(request);
-		return FILE_PATH.equals(path) || path.startsWith(FILES_PATH_PREFIX);
+		return FILE_PATH.equals(path)
+			|| (path.startsWith(FILES_PATH_PREFIX) && !path.endsWith(DOWNLOAD_URL_PATH_SUFFIX));
 	};
 
 	/**
@@ -49,7 +55,9 @@ public final class AssetRequestMatchers {
 			return true;
 		}
 
-		return path.startsWith(FILES_PATH_PREFIX) && !path.endsWith(DOWNLOAD_PATH_SUFFIX);
+		return path.startsWith(FILES_PATH_PREFIX)
+			&& !path.endsWith(DOWNLOAD_PATH_SUFFIX)
+			&& !path.endsWith(DOWNLOAD_URL_PATH_SUFFIX);
 	};
 
 	private static boolean isGet(HttpServletRequest request) {

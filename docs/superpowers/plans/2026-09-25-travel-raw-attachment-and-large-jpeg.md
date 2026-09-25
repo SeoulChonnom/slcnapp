@@ -250,13 +250,14 @@ FE는 요청당 누적 **100 MB 이하, 6장 이하**로 나눠 보낸다(현재
 - [x] 구현 메모: 1:1 대응 비교는 RAW를 선언한 항목끼리만 한다(같은 사진이 표지엔 RAW 없이, 앨범엔 RAW와 함께 와도 허용). 빈 문자열 rawFileAssetId는 null로 정규화한다. 여행 상세의 `rawFile`은 `FileAssetStore.findOptionalById`로 채워, 연결된 RAW가 경합으로 지워졌어도 상세 조회가 실패하지 않고 `rawFile`만 null이 된다. 현재 상세 조회는 일괄 조회가 아니라 항목별 조회라 RAW도 항목별로 읽는다. 계획에 없던 나들이(Trip) 파일에도 rawFileAssetId를 거부하도록 넣었다(§ 작성 배경의 'RAW는 여행 앨범만')
 
 ### Task 8. 다운로드 URL과 RAW 인라인 조회 차단
-- [ ] `FileLogic.getDownloadUrl(fileId)`: 원본 키 presign(TTL 300초, `ContentDisposition.attachment().filename(originalFilename, UTF_8)`). 로컬 프로바이더면 501(§2.3)
-- [ ] `FileResource`: `GET /files/{fileId}/download-url`
-- [ ] `AssetRequestMatchers.IMAGE_READ_MATCHER`·`CACHEABLE_IMAGE_MATCHER`에서 `/download-url` 제외. 기존 `/download` 제외 로직과 같은 방식
-- [ ] `FileFacade`에 `download-url` 메서드를 추가하고 `FileResource`가 구현한다
-- [ ] `getImageFileById`: `kind == RAW`면 404(`FILE_ASSET_RAW_NOT_VIEWABLE`. 기존 `FILE_ASSET_NOT_FOUND`는 400이므로 새 코드를 쓴다). 현재 `FileResource`는 ETag를 먼저 비교하므로 `If-None-Match`가 맞으면 304가 나갈 수 있다. RAW의 ETag를 가진 클라이언트는 없으므로 무방하다
+- [x] `FileLogic.getDownloadUrl(fileId)`: 원본 키 presign(TTL 300초, `ContentDisposition.attachment().filename(originalFilename, UTF_8)`). 로컬 프로바이더면 501(§2.3)
+- [x] `FileResource`: `GET /files/{fileId}/download-url`
+- [x] `AssetRequestMatchers.IMAGE_READ_MATCHER`·`CACHEABLE_IMAGE_MATCHER`에서 `/download-url` 제외. 기존 `/download` 제외 로직과 같은 방식
+- [x] `FileFacade`에 `download-url` 메서드를 추가하고 `FileResource`가 구현한다
+- [x] `getImageFileById`: `kind == RAW`면 404(`FILE_ASSET_RAW_NOT_VIEWABLE`. 기존 `FILE_ASSET_NOT_FOUND`는 400이므로 새 코드를 쓴다). 현재 `FileResource`는 ETag를 먼저 비교하므로 `If-None-Match`가 맞으면 304가 나갈 수 있다. RAW의 ETag를 가진 클라이언트는 없으므로 무방하다
 - [x] `getImageFile`(경로 기반 조회): 파일명 확장자가 `raf`면 `FilePathInvalidException`(400). Task 6의 `STORED_EXT` 변경과 같은 커밋이다(Task 6 커밋에서 완료, 테스트 `getImageFile_shouldRefuseRawAttachmentOnPathBasedLookup`)
-- [ ] 테스트: 한글 파일명 `filename*=UTF-8''` 인코딩, 로컬 프로바이더 `/download-url` 501, 쿠키만으로 `/download-url` 401, RAW 인라인 404, 경로 기반 `{uuid}.raf` 조회 400(스토리지 호출 없음)
+- [x] 테스트: 한글 파일명 `filename*=UTF-8''` 인코딩, 로컬 프로바이더 `/download-url` 501, 쿠키만으로 `/download-url` 401, RAW 인라인 404, 경로 기반 `{uuid}.raf` 조회 400(스토리지 호출 없음)
+- [x] 구현 메모: 로컬 저장소의 download-url은 §2.3 합의대로 501(`PRESIGNED_URL_NOT_SUPPORTED`)이다. RAW 인라인 404는 `RawFileNotViewableException`(`FILE_ASSET_RAW_NOT_VIEWABLE`)이고, 기존 `/download`(첨부 다운로드)는 RAW도 그대로 허용한다. 보안 설정 테스트에 download-url의 쿠키 전용 401과 no-store 캐시 정책을 추가했다
 
 ### Task 9. 고아 RAW 정리
 - [ ] `@EnableScheduling`을 추가한다(현재 프로젝트 어디에도 없다. 없으면 `@Scheduled`가 조용히 돌지 않는다). 테스트 컨텍스트에서 스케줄러가 실제로 돌지 않게 cron을 설정값(`slcn.storage.raw.cleanup-cron`)으로 빼고 테스트에서는 `-`(비활성)로 둔다

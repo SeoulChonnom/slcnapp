@@ -21,6 +21,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 import com.seoulchonnom.aggregate.common.exception.BadRequestException;
 import com.seoulchonnom.aggregate.file.exception.FilePathInvalidException;
 import com.seoulchonnom.aggregate.file.exception.FileUploadException;
+import com.seoulchonnom.aggregate.file.exception.PresignedUrlNotSupportedException;
+import com.seoulchonnom.aggregate.file.exception.RawFileNotViewableException;
 import com.seoulchonnom.aggregate.file.storage.ObjectStorage;
 import com.seoulchonnom.aggregate.file.store.FileAssetStore;
 import com.seoulchonnom.aggregate.file.util.FileUtils;
@@ -28,6 +30,7 @@ import com.seoulchonnom.spec.file.entity.FileAsset;
 import com.seoulchonnom.spec.file.entity.vo.FileType;
 import com.seoulchonnom.spec.file.entity.vo.FileVariant;
 import com.seoulchonnom.spec.file.entity.vo.ImageVariant;
+import com.seoulchonnom.spec.file.facade.sdo.DownloadUrlRdo;
 
 class FileLogicTest {
 	private static final String UUID_NAME = "72d768d4-2b05-48f9-bee8-fee3b52e909f";
@@ -389,6 +392,64 @@ class FileLogicTest {
 			.isInstanceOf(FilePathInvalidException.class);
 		assertThatThrownBy(() -> fileLogic.getImageFile("travel", UUID_NAME + ".RAF"))
 			.isInstanceOf(FilePathInvalidException.class);
+		verifyNoInteractions(objectStorage);
+	}
+
+	@Test
+	void getDownloadUrl_shouldPresignOriginalAsUtf8Attachment() {
+		FileAsset fileAsset = new FileAsset(FileType.TRAVEL, "제주 여행.jpg", UUID_NAME + ".jpg", "image/jpeg", 2048L);
+		fileAsset.setId("file-1");
+		when(fileAssetStore.findById("file-1")).thenReturn(fileAsset);
+		when(objectStorage.presignedGetUrl(eq("originals/travel/" + UUID_NAME + ".jpg"), eq(Duration.ofSeconds(300)),
+			anyString())).thenReturn(Optional.of("https://r2.example/signed"));
+
+		DownloadUrlRdo rdo = fileLogic.getDownloadUrl("file-1");
+
+		ArgumentCaptor<String> disposition = ArgumentCaptor.forClass(String.class);
+		verify(objectStorage).presignedGetUrl(anyString(), any(Duration.class), disposition.capture());
+		assertThat(disposition.getValue()).startsWith("attachment;")
+			.contains("filename*=UTF-8''%EC%A0%9C%EC%A3%BC%20%EC%97%AC%ED%96%89.jpg");
+		assertThat(rdo.getUrl()).isEqualTo("https://r2.example/signed");
+		assertThat(rdo.getFilename()).isEqualTo("제주 여행.jpg");
+		assertThat(rdo.getSize()).isEqualTo(2048L);
+		assertThat(rdo.getExpiresAt()).isNotNull();
+	}
+
+	@Test
+	void getDownloadUrl_shouldServeRawAttachment() {
+		FileAsset raw = FileAsset.pendingRaw("DSCF1234.RAF", UUID_NAME + ".raf", "image/x-fujifilm-raf", 83886080L, "u");
+		raw.setId("raw-1");
+		raw.markUploadCompleted();
+		when(fileAssetStore.findById("raw-1")).thenReturn(raw);
+		when(objectStorage.presignedGetUrl(eq("originals/travel/" + UUID_NAME + ".raf"), any(Duration.class),
+			anyString())).thenReturn(Optional.of("https://r2.example/raw"));
+
+		DownloadUrlRdo rdo = fileLogic.getDownloadUrl("raw-1");
+
+		assertThat(rdo.getUrl()).isEqualTo("https://r2.example/raw");
+		assertThat(rdo.getFilename()).isEqualTo("DSCF1234.RAF");
+		assertThat(rdo.getSize()).isEqualTo(83886080L);
+	}
+
+	@Test
+	void getDownloadUrl_shouldReturn501WhenStorageCannotPresign() {
+		FileAsset fileAsset = new FileAsset(FileType.TRAVEL, "a.jpg", UUID_NAME + ".jpg", "image/jpeg", 1L);
+		when(fileAssetStore.findById("file-1")).thenReturn(fileAsset);
+
+		assertThatThrownBy(() -> fileLogic.getDownloadUrl("file-1"))
+			.isInstanceOf(PresignedUrlNotSupportedException.class);
+	}
+
+	@Test
+	void getImageFileById_shouldRefuseRawAttachmentAsNotFound() {
+		FileAsset raw = FileAsset.pendingRaw("DSCF1234.RAF", UUID_NAME + ".raf", "image/x-fujifilm-raf", 1L, "u");
+		raw.markUploadCompleted();
+		when(fileAssetStore.findById("raw-1")).thenReturn(raw);
+
+		assertThatThrownBy(() -> fileLogic.getImageFileById("raw-1", null))
+			.isInstanceOf(RawFileNotViewableException.class)
+			.extracting(e -> ((RawFileNotViewableException)e).getErrorCode().getHttpStatus().value())
+			.isEqualTo(404);
 		verifyNoInteractions(objectStorage);
 	}
 }

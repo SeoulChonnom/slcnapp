@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -23,6 +24,8 @@ import org.springframework.web.multipart.MultipartFile;
 import com.seoulchonnom.aggregate.common.exception.BadRequestException;
 import com.seoulchonnom.aggregate.file.exception.FilePathInvalidException;
 import com.seoulchonnom.aggregate.file.exception.FileUploadException;
+import com.seoulchonnom.aggregate.file.exception.PresignedUrlNotSupportedException;
+import com.seoulchonnom.aggregate.file.exception.RawFileNotViewableException;
 import com.seoulchonnom.aggregate.file.storage.MimeTypes;
 import com.seoulchonnom.aggregate.file.storage.ObjectKeys;
 import com.seoulchonnom.aggregate.file.storage.ObjectStorage;
@@ -31,6 +34,7 @@ import com.seoulchonnom.aggregate.file.util.FileUtils;
 import com.seoulchonnom.spec.file.entity.FileAsset;
 import com.seoulchonnom.spec.file.entity.vo.FileVariant;
 import com.seoulchonnom.spec.file.entity.vo.ImageVariant;
+import com.seoulchonnom.spec.file.facade.sdo.DownloadUrlRdo;
 import com.seoulchonnom.spec.file.facade.sdo.ImageFileRdo;
 
 import lombok.RequiredArgsConstructor;
@@ -173,8 +177,28 @@ public class FileLogic {
 		return readImageFileById(fileId, variant, true);
 	}
 
+	/**
+	 * 원본을 첨부 파일로 받을 서명 URL을 JSON으로 준다. RAW와 보기용 이미지 원본 모두 쓴다.
+	 * 로컬 저장소는 서명할 수 없어 501이다. 로컬에서는 RAW가 생길 수 없으므로 바이트 폴백을 두지 않는다.
+	 */
+	public DownloadUrlRdo getDownloadUrl(String fileId) {
+		FileAsset fileAsset = fileAssetStore.findById(fileId);
+		String type = fileAsset.getType().getValue();
+		fileUtils.isValidFileRef(type, fileAsset.getStoredFilename());
+
+		String filename = fileAsset.downloadFilename(null);
+		Duration ttl = Duration.ofSeconds(presignedTtlSeconds);
+		String url = objectStorage.presignedGetUrl(ObjectKeys.original(type, fileAsset.getStoredFilename()), ttl,
+				attachmentDisposition(filename))
+			.orElseThrow(PresignedUrlNotSupportedException::new);
+		return new DownloadUrlRdo(url, filename, fileAsset.getSize(), OffsetDateTime.now().plus(ttl));
+	}
+
 	private ImageFileRdo readImageFileById(String fileId, ImageVariant variant, boolean attachment) {
 		FileAsset fileAsset = fileAssetStore.findById(fileId);
+		if (!attachment && fileAsset.isRaw()) {
+			throw new RawFileNotViewableException();
+		}
 		String type = fileAsset.getType().getValue();
 
 		Optional<FileVariant> fileVariant = fileAsset.findVariant(variant);

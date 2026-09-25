@@ -84,6 +84,7 @@ public class FileConstant {
 	public static final String RAW_UPLOAD_SESSION_MISMATCH_ERROR_MESSAGE = "업로드 세션이 일치하지 않습니다.";
 	public static final String RAW_UPLOAD_PARTS_INVALID_ERROR_MESSAGE = "업로드 파트 정보가 올바르지 않습니다.";
 	public static final String RAW_UPLOAD_CONTENT_INVALID_ERROR_MESSAGE = "RAW 파일 내용이 올바르지 않습니다. 다시 올려 주세요.";
+	public static final String FILE_ASSET_RAW_NOT_VIEWABLE_ERROR_MESSAGE = "RAW 파일은 화면에 표시할 수 없습니다. 다운로드를 이용해 주세요.";
 	public static final String RAW_UPLOAD_IN_USE_ERROR_MESSAGE = "여행에 연결된 RAW 파일은 삭제할 수 없습니다. 여행 수정에서 먼저 연결을 해제해 주세요.";
 	public static final String PRESIGNED_URL_NOT_SUPPORTED_ERROR_MESSAGE = "현재 저장소 설정에서는 지원하지 않는 기능입니다.";
 }
