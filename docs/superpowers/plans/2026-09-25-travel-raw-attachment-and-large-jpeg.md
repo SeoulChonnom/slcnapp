@@ -195,16 +195,17 @@ FE는 요청당 누적 **100 MB 이하, 6장 이하**로 나눠 보낸다(현재
 - [x] 테스트: `getKind_shouldDefaultToImageWhenMissing`, `getStatus_shouldDefaultToReadyWhenMissing`, `uploadId` 포함 Doc 왕복 매핑
 
 ### Task 2. `ImageInspector` — 헤더 검증과 축소 디코딩
-- [ ] `inspect(Path)`: `ImageIO.getImageReaders(ImageInputStream)`로 reader를 얻고 `getWidth(0)`/`getHeight(0)`만 읽는다(픽셀 디코딩 없음). reader가 없으면 `FileExtException`, 픽셀 수가 `MAX_IMAGE_PIXELS`를 넘으면 400
-- [ ] `readScaled(Path, int minWidth)`: 서브샘플 계수를 **너비와 픽셀 예산 중 큰 쪽**으로 정해 `ImageReadParam.setSourceSubsampling(n, n, 0, 0)` 후 디코딩한다.
+- [x] `inspect(Path)`: `ImageIO.getImageReaders(ImageInputStream)`로 reader를 얻고 `getWidth(0)`/`getHeight(0)`만 읽는다(픽셀 디코딩 없음). reader가 없으면 `FileExtException`, 픽셀 수가 `MAX_IMAGE_PIXELS`를 넘으면 400
+- [x] `readScaled(Path, int minWidth)`: 서브샘플 계수를 **너비와 픽셀 예산 중 큰 쪽**으로 정해 `ImageReadParam.setSourceSubsampling(n, n, 0, 0)` 후 디코딩한다.
   - `nByWidth = max(1, floor(width / (minWidth * 2)))`: `minWidth`는 가장 큰 파생본 너비(960)다. 일반 사진은 결과 너비가 1920 이상이 되어 기존 절반씩 축소 품질을 유지한다
   - `nByPixels = max(1, ceil(sqrt(width * height / DECODE_PIXEL_BUDGET)))`: `DECODE_PIXEL_BUDGET = 4_000_000`(약 16 MB `INT_RGB`)
   - `n = max(nByWidth, nByPixels)`
   - 너비만 보면 세로로 긴 이미지(예: 2000×50000 PNG, 1억 픽셀 한도 이하)가 n=1로 전체 디코딩되어 약 400 MB를 쓴다. 픽셀 예산 조건이 이를 막아 메모리를 파일 크기와 무관하게 묶는다. 7728×5152 JPG는 두 조건 모두 n=4다
-- [ ] SVG는 지금처럼 `validateSvg` 경로를 유지한다(이 계획은 SVG 정책을 바꾸지 않는다)
-- [ ] `FileUtils.validateImageFile`에서 `ImageIO.read(inputStream)`을 `inspect`로 교체
-- [ ] `FileUtils.writeVariants`에서 `ImageIO.read(path)`를 `readScaled`로 교체. `ImageProfile`의 width/height는 **원본 헤더 값**을 쓴다(축소본 크기가 아님). EXIF 방향 보정은 Task 3에서 더한다
-- [ ] 테스트: 7728×5152 합성 JPEG(테스트 리소스로 생성, 단색이면 수백 KB)로 `readScaled` 결과 너비가 1932인지 확인. 2000×50000 합성 PNG(단색)가 픽셀 예산 조건으로 n≥5로 읽히는지 확인. 1억 픽셀 초과 헤더를 가진 PNG를 거부하는지 확인(헤더만 조작한 파일로, 실제로 크게 만들지 않는다)
+- [x] 구현 메모: 업로드 검증은 임시 파일로 옮기기 전 `MultipartFile` 스트림에서 하므로 `inspect(InputStream)` 오버로드를 함께 두었다. 픽셀 한도 초과는 `BadRequestException("이미지 해상도가 너무 큽니다.")`다. 파생본 생성 여부(`width <= variant.width`면 건너뜀)는 축소본이 아니라 원본 헤더 너비로 판단한다
+- [x] SVG는 지금처럼 `validateSvg` 경로를 유지한다(이 계획은 SVG 정책을 바꾸지 않는다)
+- [x] `FileUtils.validateImageFile`에서 `ImageIO.read(inputStream)`을 `inspect`로 교체
+- [x] `FileUtils.writeVariants`에서 `ImageIO.read(path)`를 `readScaled`로 교체. `ImageProfile`의 width/height는 **원본 헤더 값**을 쓴다(축소본 크기가 아님). EXIF 방향 보정은 Task 3에서 더한다
+- [x] 테스트: 7728×5152 합성 JPEG(테스트 리소스로 생성, 단색이면 수백 KB)로 `readScaled` 결과 너비가 1932인지 확인. 2000×50000 합성 PNG(단색)가 픽셀 예산 조건으로 n≥5로 읽히는지 확인. 1억 픽셀 초과 헤더를 가진 PNG를 거부하는지 확인(헤더만 조작한 파일로, 실제로 크게 만들지 않는다)
 
 ### Task 3. EXIF 방향과 색 프로필
 - [ ] `metadata-extractor`로 `ExifIFD0Directory.TAG_ORIENTATION`을 읽는다. 값 2~8이면 축소 디코딩 결과에 `AffineTransform`을 적용한다. 파생본은 항상 **똑바로 선 상태**로 저장한다(파생본에는 EXIF를 쓰지 않으므로 브라우저가 다시 돌리지 않는다)

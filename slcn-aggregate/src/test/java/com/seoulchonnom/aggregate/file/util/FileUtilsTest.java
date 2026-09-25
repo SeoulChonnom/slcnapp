@@ -32,7 +32,7 @@ class FileUtilsTest {
 	private static final byte[] PNG_BYTES = Base64.getDecoder()
 		.decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=");
 
-	private final FileUtils fileUtils = new FileUtils();
+	private final FileUtils fileUtils = new FileUtils(new ImageInspector());
 
 	@TempDir
 	Path tempDir;

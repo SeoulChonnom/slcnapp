@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
@@ -39,11 +40,23 @@ import com.seoulchonnom.spec.file.entity.vo.FileVariant;
 import com.seoulchonnom.spec.file.entity.vo.ImageFormat;
 import com.seoulchonnom.spec.file.entity.vo.ImageVariant;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class FileUtils {
+	/**
+	 * 축소 디코딩 목표 너비. 가장 큰 파생본을 절반씩 축소로 만들 수 있을 만큼만 읽는다.
+	 */
+	private static final int LARGEST_VARIANT_WIDTH = Arrays.stream(ImageVariant.values())
+		.mapToInt(ImageVariant::getWidth)
+		.max()
+		.orElseThrow();
+
+	private final ImageInspector imageInspector;
+
 	/**
 	 * 원본을 임시 디렉터리에 받아둔다. 최종 저장 위치가 서버 디스크가 아니므로 업로드 경로에 바로 쓰지 않는다.
 	 * 임시 디렉터리는 오브젝트 업로드가 끝난 뒤 호출자가 deleteStaging으로 지운다.
@@ -95,14 +108,16 @@ public class FileUtils {
 	 * 파생본 생성은 부가 작업이므로 실패해도 예외를 던지지 않는다. 업로드 자체는 성공해야 한다.
 	 */
 	public ImageProfile writeVariants(FileAsset fileAsset, Path originalPath) {
-		BufferedImage source = readImage(originalPath);
-		if (source == null) {
+		ImageInspector.ScaledImage scaled = readScaled(originalPath);
+		if (scaled == null || scaled.image() == null) {
 			log.warn("Variant generation skipped: unreadable image. path={}", fileAsset.getPath());
 			return ImageProfile.empty();
 		}
 
-		int width = source.getWidth();
-		int height = source.getHeight();
+		BufferedImage source = scaled.image();
+		// 파생본 생성 여부는 원본 크기로 판단한다. 축소본 크기로 판단하면 큰 원본에서 파생본을 건너뛰게 된다.
+		int width = scaled.originalWidth();
+		int height = scaled.originalHeight();
 		List<FileVariant> generated = new ArrayList<>();
 
 		for (ImageVariant variant : ImageVariant.values()) {
@@ -129,10 +144,14 @@ public class FileUtils {
 		}
 	}
 
-	private BufferedImage readImage(Path path) {
+	/**
+	 * 파생본은 부가 작업이므로 읽기 실패를 예외로 올리지 않는다. 헤더 검증을 통과했어도 본문이 깨졌을 수 있다.
+	 */
+	private ImageInspector.ScaledImage readScaled(Path path) {
 		try {
-			return ImageIO.read(path.toFile());
-		} catch (IOException e) {
+			return imageInspector.readScaled(path, LARGEST_VARIANT_WIDTH);
+		} catch (IOException | RuntimeException e) {
+			log.warn("Scaled decoding failed. path={}", path, e);
 			return null;
 		}
 	}
@@ -269,11 +288,9 @@ public class FileUtils {
 			return;
 		}
 
+		// 헤더만 읽는다. 전체 디코딩은 파생본 단계에서 축소해서 한 번만 한다.
 		try (InputStream inputStream = multipartFile.getInputStream()) {
-			BufferedImage image = ImageIO.read(inputStream);
-			if (image == null) {
-				throw new FileExtException();
-			}
+			imageInspector.inspect(inputStream);
 		}
 	}
 
