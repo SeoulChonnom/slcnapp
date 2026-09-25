@@ -36,10 +36,11 @@ spring:
       matching-strategy: ant_path_matcher
   servlet:
     multipart:
-      max-file-size: 10MB
+      # 카메라 JPG(20~40 MB)를 받는다. FileConstant.MAX_FILE_SIZE와 같게 둔다.
+      max-file-size: 50MB
       # 미설정 시 Spring Boot 기본값 10MB가 요청 전체에 적용되어 다중 업로드가 첫 파일에서 막힌다.
-      # 파일당 제한(10MB)은 그대로 두고 요청 총량만 연다.
-      max-request-size: 60MB
+      # FE는 요청당 100 MB 이하로 나눠 보내고, multipart 경계·필드 여유분을 더한다.
+      max-request-size: 110MB
 
 logging:
   level:
@@ -62,6 +63,8 @@ slcn:
   upload:
     # local 프로바이더의 기준 디렉터리이자, R2 백필의 원본 위치다.
     path: "${SLCN_UPLOAD_PATH}"
+    # 파생본 생성(동시 2건) 차례를 기다리는 최대 초. 넘기면 파생본 없이 업로드를 끝내고 조회는 원본으로 폴백한다.
+    variant-wait-seconds: "${SLCN_UPLOAD_VARIANT_WAIT_SECONDS:60}"
   storage:
     # local | r2. r2가 아니면 로컬 디스크에 저장하고 바이트를 직접 서빙한다.
     provider: "${SLCN_STORAGE_PROVIDER:local}"

@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.Semaphore;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -344,5 +345,41 @@ class FileLogicTest {
 		assertThat(result.getImage()).containsExactly(5);
 		assertThat(result.getMimeType()).isEqualTo("image/webp");
 		assertThat(result.getRedirectUrl()).isNull();
+	}
+
+	@Test
+	void uploadFile_shouldSaveWithoutVariantsWhenNoVariantPermitIsFree() throws Exception {
+		Semaphore permits = (Semaphore)ReflectionTestUtils.getField(fileLogic, "variantPermits");
+		permits.acquire(2);
+		MockMultipartFile file = new MockMultipartFile("file", "travel.jpg", "image/jpeg", new byte[] {1});
+		FileAsset fileAsset = new FileAsset(FileType.TRAVEL, "travel.jpg", UUID_NAME + ".jpg", "image/jpeg", 1L);
+		Path staging = Files.createDirectories(tempDir.resolve("busy"));
+		Path original = Files.write(staging.resolve(UUID_NAME + ".jpg"), new byte[] {1});
+		when(fileUtils.stageUpload(file, "travel")).thenReturn(new FileUtils.StagedUpload(fileAsset, staging, original));
+		when(fileUtils.readProfile(original)).thenReturn(new FileUtils.ImageProfile(5152, 7728, List.of()));
+		when(fileAssetStore.save(fileAsset)).thenReturn(fileAsset);
+
+		FileAsset saved = fileLogic.uploadFile(file, "travel");
+
+		assertThat(saved.getWidth()).isEqualTo(5152);
+		assertThat(saved.getHeight()).isEqualTo(7728);
+		assertThat(saved.getVariants()).isEmpty();
+		verify(fileUtils, never()).writeVariants(any(), any());
+		verify(objectStorage, times(1)).put(anyString(), any(Path.class), anyString());
+	}
+
+	@Test
+	void uploadFile_shouldReleaseVariantPermitEvenWhenGenerationThrows() throws Exception {
+		MockMultipartFile file = new MockMultipartFile("file", "travel.jpg", "image/jpeg", new byte[] {1});
+		FileAsset fileAsset = new FileAsset(FileType.TRAVEL, "travel.jpg", UUID_NAME + ".jpg", "image/jpeg", 1L);
+		Path staging = Files.createDirectories(tempDir.resolve("failing"));
+		Path original = Files.write(staging.resolve(UUID_NAME + ".jpg"), new byte[] {1});
+		when(fileUtils.stageUpload(file, "travel")).thenReturn(new FileUtils.StagedUpload(fileAsset, staging, original));
+		when(fileUtils.writeVariants(fileAsset, original)).thenThrow(new IllegalStateException("decoder crashed"));
+
+		assertThatThrownBy(() -> fileLogic.uploadFile(file, "travel")).isInstanceOf(IllegalStateException.class);
+
+		Semaphore permits = (Semaphore)ReflectionTestUtils.getField(fileLogic, "variantPermits");
+		assertThat(permits.availablePermits()).isEqualTo(2);
 	}
 }

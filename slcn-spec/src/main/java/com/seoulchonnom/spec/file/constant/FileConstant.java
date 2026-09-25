@@ -5,7 +5,10 @@ import lombok.NoArgsConstructor;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class FileConstant {
-	public static final long MAX_FILE_SIZE = 10 * 1024 * 1024L;
+	/**
+	 * 카메라 JPG(20~40 MB)를 받을 수 있는 크기. application.yml의 multipart max-file-size와 같게 둔다.
+	 */
+	public static final long MAX_FILE_SIZE = 50 * 1024 * 1024L;
 	/**
 	 * 헤더로 판단하는 최대 픽셀 수. 작은 파일이 거대한 해상도로 풀리는 압축 폭탄을 막는다.
 	 * 40 MP 카메라 JPG의 두 배 이상이라 실제 사진은 걸리지 않는다.
@@ -53,6 +56,11 @@ public class FileConstant {
 	public static final String FILE_SIZE_ERROR_MESSAGE = "파일 사이즈가 너무 큽니다.";
 	public static final String FILE_EXT_ERROR_MESSAGE = "JPG, PNG 파일만 업로드 가능합니다.";
 	public static final String FILE_PIXEL_ERROR_MESSAGE = "이미지 해상도가 너무 큽니다.";
+	/**
+	 * HEIC는 서버에서 디코딩하지 않는다. 변환은 FE가 하므로 일반 확장자 오류와 다른 안내를 준다.
+	 */
+	public static final String HEIC_REGEX_STRING = "heic|heif";
+	public static final String FILE_HEIC_ERROR_MESSAGE = "HEIC 사진은 JPG로 변환해 올려 주세요.";
 
 	public static final String FILE_PATH_INVALID_ERROR_MESSAGE = "파일 경로가 올바르지 않습니다.";
 }

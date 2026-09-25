@@ -216,10 +216,11 @@ FE는 요청당 누적 **100 MB 이하, 6장 이하**로 나눠 보낸다(현재
 - [x] **FE 참고:** 원본 `<img>`는 브라우저가 EXIF로 돌리므로 영향이 없다. 이 태스크 전에 만들어진 기존 파생본은 여전히 누워 있을 수 있다. 재생성 여부는 §5 미결정 항목이다
 
 ### Task 4. 한도 상향과 동시성 제한
-- [ ] `FileConstant.MAX_FILE_SIZE = 50 MB`, `application.yml` `max-file-size: 50MB`, `max-request-size: 110MB`
-- [ ] `FileLogic`의 파생본 생성 구간을 `Semaphore(2)`로 감싼다. 대기는 무기한이 아니라 60초 `tryAcquire`로 하고, 실패하면 파생본 없이 업로드를 성공시킨다(`variants: []`, 조회 시 원본 폴백은 기존 동작)
-- [ ] 확장자 `heic|heif`면 전용 400 문구
-- [ ] 테스트: 50 MB 초과 거부, HEIC 문구, 세마포어 획득 실패 시 `variants`가 빈 채로 저장되는지
+- [x] `FileConstant.MAX_FILE_SIZE = 50 MB`, `application.yml` `max-file-size: 50MB`, `max-request-size: 110MB`
+- [x] `FileLogic`의 파생본 생성 구간을 `Semaphore(2)`로 감싼다. 대기는 무기한이 아니라 60초 `tryAcquire`로 하고, 실패하면 파생본 없이 업로드를 성공시킨다(`variants: []`, 조회 시 원본 폴백은 기존 동작)
+- [x] 확장자 `heic|heif`면 전용 400 문구
+- [x] 테스트: 50 MB 초과 거부, HEIC 문구, 세마포어 획득 실패 시 `variants`가 빈 채로 저장되는지
+- [x] 구현 메모: 세마포어 획득에 실패하면 파생본은 건너뛰지만 가로·세로는 `FileUtils.readProfile`(헤더+EXIF만 읽음)로 기록한다. 대기 시간은 `slcn.upload.variant-wait-seconds`(기본 60초)로 뺐다. HEIC는 `FileExtException`(FILE_EXT_INVALID) 코드에 "HEIC 사진은 JPG로 변환해 올려 주세요." 문구다
 
 ### Task 5. `MultipartUploadStorage`와 R2 어댑터
 - [ ] **선행 리팩터링:** `ObjectStorageConfiguration`에서 `S3Client`/`S3Presigner` 생성을 r2 전용 빈으로 분리한다(File Structure 참고). 동작 변화가 없어야 하므로 기존 `R2ObjectStorageTest`·설정 테스트가 그대로 통과하는지 먼저 확인하고 다음 단계로 간다

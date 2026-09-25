@@ -3,11 +3,14 @@ package com.seoulchonnom.aggregate.file.logic;
 import static com.seoulchonnom.spec.file.constant.FileConstant.*;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ContentDisposition;
@@ -39,9 +42,21 @@ public class FileLogic {
 	private final FileUtils fileUtils;
 	private final FileAssetStore fileAssetStore;
 	private final ObjectStorage objectStorage;
+	/**
+	 * 파생본 생성은 축소 디코딩이라도 한 건에 수십 MB를 쓴다. 여러 장 업로드가 겹쳐도 힙 사용량이 묶이도록 동시 2건으로 제한한다.
+	 * 공정 모드라 먼저 온 요청이 먼저 들어간다.
+	 */
+	private final Semaphore variantPermits = new Semaphore(2, true);
 
 	@Value("${slcn.storage.presigned-ttl-seconds:300}")
 	private long presignedTtlSeconds;
+
+	/**
+	 * 파생본 생성 차례를 기다리는 최대 시간. 무기한 대기하면 nginx 타임아웃에 걸려 업로드 전체가 실패하므로,
+	 * 넘기면 파생본 없이 업로드를 끝낸다. 조회는 원본으로 폴백한다.
+	 */
+	@Value("${slcn.upload.variant-wait-seconds:60}")
+	private long variantWaitSeconds;
 
 	public FileAsset uploadFile(MultipartFile file, String type) {
 		return uploadFileAsset(file, type);
@@ -66,7 +81,7 @@ public class FileLogic {
 			staged = fileUtils.stageUpload(file, type);
 			FileAsset fileAsset = staged.fileAsset();
 			String assetType = fileAsset.getType().getValue();
-			FileUtils.ImageProfile profile = fileUtils.writeVariants(fileAsset, staged.originalPath());
+			FileUtils.ImageProfile profile = buildProfile(fileAsset, staged.originalPath());
 
 			objectStorage.put(ObjectKeys.original(assetType, fileAsset.getStoredFilename()),
 				staged.originalPath(), fileAsset.getMimeType());
@@ -85,6 +100,28 @@ public class FileLogic {
 			if (staged != null) {
 				fileUtils.deleteStaging(staged.stagingDirectory());
 			}
+		}
+	}
+
+	private FileUtils.ImageProfile buildProfile(FileAsset fileAsset, Path originalPath) {
+		if (!acquireVariantPermit()) {
+			log.warn("Variant generation skipped: waited too long for a permit. path={}", fileAsset.getPath());
+			return fileUtils.readProfile(originalPath);
+		}
+
+		try {
+			return fileUtils.writeVariants(fileAsset, originalPath);
+		} finally {
+			variantPermits.release();
+		}
+	}
+
+	private boolean acquireVariantPermit() {
+		try {
+			return variantPermits.tryAcquire(variantWaitSeconds, TimeUnit.SECONDS);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			return false;
 		}
 	}
 

@@ -131,6 +131,22 @@ public class FileUtils {
 		return new ImageProfile(width, height, generated);
 	}
 
+	/**
+	 * 파생본 없이 화면 방향 기준 원본 크기만 읽는다. 파생본 생성을 건너뛸 때도 클라이언트가 레이아웃을 잡을 수 있게 한다.
+	 * 헤더와 EXIF만 읽으므로 가볍다. 실패해도 업로드는 성공해야 하므로 빈 프로필을 돌려준다.
+	 */
+	public ImageProfile readProfile(Path originalPath) {
+		try {
+			ImageInspector.ImageDimension dimension = imageInspector.inspect(originalPath);
+			return ImageOrientation.swapsDimensions(ImageOrientation.read(originalPath))
+				? new ImageProfile(dimension.height(), dimension.width(), List.of())
+				: new ImageProfile(dimension.width(), dimension.height(), List.of());
+		} catch (IOException | RuntimeException e) {
+			log.warn("Image profile unreadable. path={}", originalPath, e);
+			return ImageProfile.empty();
+		}
+	}
+
 	public void isValidFilePath(String path) {
 		if (path == null || path.isEmpty() || !path.matches(FILE_PATH_REGEX_STRING)) {
 			throw new FilePathInvalidException();
@@ -274,6 +290,9 @@ public class FileUtils {
 
 	private void validateImageFile(MultipartFile multipartFile) throws IOException {
 		String ext = extractExt(multipartFile.getOriginalFilename());
+		if (ext.matches(HEIC_REGEX_STRING)) {
+			throw new FileExtException(FILE_HEIC_ERROR_MESSAGE);
+		}
 		if (!ext.matches(EXT_REGEX_STRING)) {
 			throw new FileExtException();
 		}

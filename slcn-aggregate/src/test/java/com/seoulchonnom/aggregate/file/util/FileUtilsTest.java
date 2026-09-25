@@ -24,6 +24,7 @@ import org.springframework.mock.web.MockMultipartFile;
 
 import com.seoulchonnom.aggregate.file.exception.FileExtException;
 import com.seoulchonnom.aggregate.file.exception.FilePathInvalidException;
+import com.seoulchonnom.aggregate.file.exception.FileSizeException;
 import com.seoulchonnom.spec.file.entity.FileAsset;
 import com.seoulchonnom.spec.file.entity.vo.FileVariant;
 import com.seoulchonnom.spec.file.entity.vo.FileType;
@@ -230,6 +231,65 @@ class FileUtilsTest {
 		BufferedImage feature = ImageIO.read(tempDir.resolve(profile.variants().get(0).getFilename()).toFile());
 		assertThat(feature.getWidth()).isEqualTo(960);
 		assertThat(feature.getHeight()).isEqualTo(1920);
+	}
+
+	@Test
+	void stageUpload_shouldRejectFileLargerThan50Mb() {
+		MockMultipartFile file = sizedFile("big.png", "image/png", PNG_BYTES, 50L * 1024 * 1024 + 1);
+
+		assertThatThrownBy(() -> fileUtils.stageUpload(file, "travel"))
+			.isInstanceOf(FileSizeException.class);
+	}
+
+	@Test
+	void stageUpload_shouldAcceptCameraSizedFileUnderLimit() throws Exception {
+		MockMultipartFile file = sizedFile("camera.png", "image/png", PNG_BYTES, 40L * 1024 * 1024);
+
+		var staged = fileUtils.stageUpload(file, "travel");
+
+		assertThat(Files.exists(staged.originalPath())).isTrue();
+		fileUtils.deleteStaging(staged.stagingDirectory());
+	}
+
+	@Test
+	void stageUpload_shouldAskToConvertHeicInsteadOfGenericExtensionError() {
+		MockMultipartFile file = new MockMultipartFile("file", "IMG_0001.HEIC", "image/heic", new byte[] {1, 2, 3});
+
+		assertThatThrownBy(() -> fileUtils.stageUpload(file, "travel"))
+			.isInstanceOf(FileExtException.class)
+			.hasMessage("HEIC 사진은 JPG로 변환해 올려 주세요.");
+	}
+
+	@Test
+	void readProfile_shouldReportDisplayDimensionsWithoutVariants() throws Exception {
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		ImageIO.write(new BufferedImage(200, 100, BufferedImage.TYPE_INT_RGB), "jpeg", out);
+		Path original = Files.write(tempDir.resolve("rotated.jpg"), JpegSegments.withExifOrientation(out.toByteArray(), 6));
+
+		var profile = fileUtils.readProfile(original);
+
+		assertThat(profile.width()).isEqualTo(100);
+		assertThat(profile.height()).isEqualTo(200);
+		assertThat(profile.variants()).isEmpty();
+	}
+
+	@Test
+	void readProfile_shouldReturnEmptyProfileWhenImageIsUnreadable() throws Exception {
+		Path broken = Files.writeString(tempDir.resolve("broken.png"), "nope");
+
+		assertThat(fileUtils.readProfile(broken).width()).isZero();
+	}
+
+	/**
+	 * 실제로 수십 MB를 만들지 않고 선언 크기만 키운다. 크기 검증은 getSize만 본다.
+	 */
+	private static MockMultipartFile sizedFile(String name, String contentType, byte[] content, long declaredSize) {
+		return new MockMultipartFile("file", name, contentType, content) {
+			@Override
+			public long getSize() {
+				return declaredSize;
+			}
+		};
 	}
 
 	@Test
