@@ -8,6 +8,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -127,9 +128,14 @@ public class FileLogic {
 
 	/**
 	 * 경로 기반 조회. 파일명만 받으므로 접미사로 원본/파생본을 가른다.
+	 * RAW 첨부는 거부한다. 이 경로는 쿠키 인증과 캐시가 허용되어 img 태그에 물릴 수 있고,
+	 * 그러면 수십 MB짜리 RAW가 이미지로 내려간다. RAW는 download-url로만 받는다.
 	 */
 	public ImageFileRdo getImageFile(String type, String filename) {
 		fileUtils.isValidFileRef(type, filename);
+		if (filename.toLowerCase(Locale.ROOT).endsWith("." + RAW_EXT)) {
+			throw new FilePathInvalidException();
+		}
 
 		String key = ObjectKeys.of(type, filename);
 		if (!ObjectKeys.isDerived(key)) {

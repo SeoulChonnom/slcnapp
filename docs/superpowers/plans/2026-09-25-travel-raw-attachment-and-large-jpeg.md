@@ -231,14 +231,15 @@ FE는 요청당 누적 **100 MB 이하, 6장 이하**로 나눠 보낸다(현재
 - [x] 구현 메모: S3Client/S3Presigner를 `R2Endpoint` 레코드로 접속 정보를 묶은 r2 전용 빈으로 분리했고, 스프링이 종료 시 close()를 호출한다. `abort`는 이미 없는 업로드(NoSuchUpload)를 성공으로 본다. `complete`는 파트를 번호순으로 정렬해 보낸다. 포트에 `delete(key)`를 함께 넣었다(Task 6의 READY 삭제용). 501 예외는 사용하는 Task 6에서 추가한다
 
 ### Task 6. RAW 업로드 세션 API
-- [ ] `RawUploadLogic.createSession(cdo)`: §2.2 ① 검증 → multipart 생성(key는 `ObjectKeys.original("travel", "{uuid}.raf")`) → 자산 저장(`PENDING`, `storedFilename = {uuid}.raf`, `uploadId` 포함. 저장 실패 시 `abort`) → 파트 수 `ceil(size / partSize)`만큼 presign
-- [ ] `complete(fileId, cdo)`: 요청 `uploadId`와 저장된 `uploadId`가 같은지 먼저 확인(다르면 400). 이어서 §2.2 ② 순서대로. 매직 불일치·크기 불일치면 `abort`/객체 삭제 후 자산 삭제, 400
-- [ ] `delete(fileId)`: §2.2 ③. `PENDING`이면 저장된 `uploadId`로 `abort` 후 자산 삭제. `READY`이면 `FileBoxStore.existsByItemsRawFileAssetId`로 연결 여부를 보고, 연결되지 않았으면 R2 객체 삭제 후 자산 삭제, 연결되어 있으면 409(`RAW_UPLOAD_IN_USE`). `kind != RAW`인 자산은 400이다(이 API로 보기용 이미지를 지우지 못하게 한다)
-- [ ] `MultipartUploadStorage`에 `delete(key)`를 추가한다(`READY` RAW 객체 삭제용)
-- [ ] `RawUploadResource`: `POST /assets/raw-uploads`(201), `POST /assets/raw-uploads/{fileId}/complete`(200), `DELETE /assets/raw-uploads/{fileId}`(204)
-- [ ] `FileConstant.EXT_REGEX_STRING`은 **바꾸지 않는다.** RAF는 이 세션 API로만 들어온다(기존 multipart 업로드로 RAF가 오면 지금처럼 거절)
-- [ ] `STORED_EXT_REGEX_STRING`에 `raf`를 추가해 경로 검증이 저장 파일명을 거부하지 않게 한다(`readOriginal`의 `isValidFileRef` 통과용). **이 변경은 Task 8의 경로 기반 조회 차단과 같은 커밋에 넣는다.** 따로 들어가면 그 사이에 `GET /assets/file`로 RAW가 열린다
-- [ ] 테스트: 정상 흐름, `uploadId` 불일치 400, 취소 시 저장된 `uploadId`로 `abort` 호출, `type=inspection` 거부, 확장자 거부, 크기 초과, 매직 불일치 시 정리, 크기 불일치 시 정리, 완료 멱등, 연결되지 않은 `READY` 삭제 204(객체 삭제 호출), 연결된 `READY` 삭제 409, `IMAGE` 자산 삭제 요청 400, 로컬 프로바이더 501
+- [x] `RawUploadLogic.createSession(cdo)`: §2.2 ① 검증 → multipart 생성(key는 `ObjectKeys.original("travel", "{uuid}.raf")`) → 자산 저장(`PENDING`, `storedFilename = {uuid}.raf`, `uploadId` 포함. 저장 실패 시 `abort`) → 파트 수 `ceil(size / partSize)`만큼 presign
+- [x] `complete(fileId, cdo)`: 요청 `uploadId`와 저장된 `uploadId`가 같은지 먼저 확인(다르면 400). 이어서 §2.2 ② 순서대로. 매직 불일치·크기 불일치면 `abort`/객체 삭제 후 자산 삭제, 400
+- [x] `delete(fileId)`: §2.2 ③. `PENDING`이면 저장된 `uploadId`로 `abort` 후 자산 삭제. `READY`이면 `FileBoxStore.existsByItemsRawFileAssetId`로 연결 여부를 보고, 연결되지 않았으면 R2 객체 삭제 후 자산 삭제, 연결되어 있으면 409(`RAW_UPLOAD_IN_USE`). `kind != RAW`인 자산은 400이다(이 API로 보기용 이미지를 지우지 못하게 한다)
+- [x] `MultipartUploadStorage`에 `delete(key)`를 추가한다(`READY` RAW 객체 삭제용)
+- [x] `RawUploadResource`: `POST /assets/raw-uploads`(201), `POST /assets/raw-uploads/{fileId}/complete`(200), `DELETE /assets/raw-uploads/{fileId}`(204)
+- [x] `FileConstant.EXT_REGEX_STRING`은 **바꾸지 않는다.** RAF는 이 세션 API로만 들어온다(기존 multipart 업로드로 RAF가 오면 지금처럼 거절)
+- [x] `STORED_EXT_REGEX_STRING`에 `raf`를 추가해 경로 검증이 저장 파일명을 거부하지 않게 한다(`readOriginal`의 `isValidFileRef` 통과용). **이 변경은 Task 8의 경로 기반 조회 차단과 같은 커밋에 넣는다.** 따로 들어가면 그 사이에 `GET /assets/file`로 RAW가 열린다
+- [x] 테스트: 정상 흐름, `uploadId` 불일치 400, 취소 시 저장된 `uploadId`로 `abort` 호출, `type=inspection` 거부, 확장자 거부, 크기 초과, 매직 불일치 시 정리, 크기 불일치 시 정리, 완료 멱등, 연결되지 않은 `READY` 삭제 204(객체 삭제 호출), 연결된 `READY` 삭제 409, `IMAGE` 자산 삭제 요청 400, 로컬 프로바이더 501
+- [x] 구현 메모: 완료 호출이 실패해도 객체가 이미 있으면(앞선 완료의 응답 유실) 검증으로 넘어가고, 저장소 읽기 실패는 자산을 지우지 않고 업로드 실패(400)로 돌려 재시도하게 한다. 크기·매직 불일치만 객체와 자산을 삭제한다. 연결 여부는 `FileBoxRepository.existsByItemRawFileAssetId`(@Query `items.rawFileAssetId`, exists=true)로 본다. Task 7에서 `FileBoxItem.rawFileAssetId`가 생기기 전에도 동작한다. **이 쿼리는 Mongo 통합 테스트 환경이 없어 실제 DB로는 확인하지 못했다.** Task 8의 경로 기반 `.raf` 차단(`FileLogic.getImageFile`)을 계획대로 이 커밋에 함께 넣었다. 파사드는 `RawUploadFacade`로 분리했다
 
 ### Task 7. 여행 사진과 RAW 연결
 - [ ] `FileBoxItem`·Cdo·Udo·Rdo·`FileBoxMapper`·`FileBoxDoc`(해당 시)에 `rawFileAssetId` 추가. Rdo에 `rawFile` 채우기(여행 상세 조회 흐름에서 자산 일괄 조회에 포함)
@@ -253,7 +254,7 @@ FE는 요청당 누적 **100 MB 이하, 6장 이하**로 나눠 보낸다(현재
 - [ ] `AssetRequestMatchers.IMAGE_READ_MATCHER`·`CACHEABLE_IMAGE_MATCHER`에서 `/download-url` 제외. 기존 `/download` 제외 로직과 같은 방식
 - [ ] `FileFacade`에 `download-url` 메서드를 추가하고 `FileResource`가 구현한다
 - [ ] `getImageFileById`: `kind == RAW`면 404(`FILE_ASSET_RAW_NOT_VIEWABLE`. 기존 `FILE_ASSET_NOT_FOUND`는 400이므로 새 코드를 쓴다). 현재 `FileResource`는 ETag를 먼저 비교하므로 `If-None-Match`가 맞으면 304가 나갈 수 있다. RAW의 ETag를 가진 클라이언트는 없으므로 무방하다
-- [ ] `getImageFile`(경로 기반 조회): 파일명 확장자가 `raf`면 `FilePathInvalidException`(400). Task 6의 `STORED_EXT` 변경과 같은 커밋이다
+- [x] `getImageFile`(경로 기반 조회): 파일명 확장자가 `raf`면 `FilePathInvalidException`(400). Task 6의 `STORED_EXT` 변경과 같은 커밋이다(Task 6 커밋에서 완료, 테스트 `getImageFile_shouldRefuseRawAttachmentOnPathBasedLookup`)
 - [ ] 테스트: 한글 파일명 `filename*=UTF-8''` 인코딩, 로컬 프로바이더 `/download-url` 501, 쿠키만으로 `/download-url` 401, RAW 인라인 404, 경로 기반 `{uuid}.raf` 조회 400(스토리지 호출 없음)
 
 ### Task 9. 고아 RAW 정리

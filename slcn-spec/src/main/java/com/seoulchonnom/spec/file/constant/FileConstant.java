@@ -14,6 +14,19 @@ public class FileConstant {
 	 * 40 MP 카메라 JPG의 두 배 이상이라 실제 사진은 걸리지 않는다.
 	 */
 	public static final long MAX_IMAGE_PIXELS = 100_000_000L;
+	/**
+	 * RAW는 서버를 거치지 않으므로 서버 메모리와 무관하다. 세션 파트 수와 저장 비용을 묶기 위한 상한이다.
+	 */
+	public static final long MAX_RAW_FILE_SIZE = 500 * 1024 * 1024L;
+	/**
+	 * RAW 첨부로 받는 확장자. 일반 업로드(EXT_REGEX_STRING)로는 받지 않고 직접 업로드 세션으로만 들어온다.
+	 */
+	public static final String RAW_EXT = "raf";
+	public static final String RAW_MIME_TYPE = "image/x-fujifilm-raf";
+	/**
+	 * 후지필름 RAF 파일 첫 16바이트. 끝의 공백까지 포함한다.
+	 */
+	public static final String RAF_MAGIC = "FUJIFILMCCD-RAW ";
 
 	public static final String AVAILABLE_PATH = "logo|map|travel|profile|inspection";
 	/**
@@ -21,9 +34,10 @@ public class FileConstant {
 	 */
 	public static final String EXT_REGEX_STRING = "jpg|png|jpeg|gif|svg";
 	/**
-	 * 디스크에 존재할 수 있는 확장자. 원본 확장자에 파생본 인코딩 결과가 더해진다.
+	 * 저장소에 존재할 수 있는 확장자. 원본 확장자에 파생본 인코딩 결과와 RAW 첨부가 더해진다.
+	 * RAW가 경로 기반 이미지 조회로 나가지 않게 하는 차단은 FileLogic.getImageFile이 따로 한다.
 	 */
-	private static final String STORED_EXT_REGEX_STRING = EXT_REGEX_STRING + "|webp";
+	private static final String STORED_EXT_REGEX_STRING = EXT_REGEX_STRING + "|webp|" + RAW_EXT;
 	private static final String UUID_REGEX_STRING =
 		"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}";
 	/**
@@ -63,4 +77,13 @@ public class FileConstant {
 	public static final String FILE_HEIC_ERROR_MESSAGE = "HEIC 사진은 JPG로 변환해 올려 주세요.";
 
 	public static final String FILE_PATH_INVALID_ERROR_MESSAGE = "파일 경로가 올바르지 않습니다.";
+
+	public static final String RAW_UPLOAD_TYPE_ERROR_MESSAGE = "RAW 파일은 여행 사진에만 첨부할 수 있습니다.";
+	public static final String RAW_UPLOAD_EXT_ERROR_MESSAGE = "RAF 파일만 RAW로 올릴 수 있습니다.";
+	public static final String RAW_UPLOAD_NOT_RAW_ERROR_MESSAGE = "RAW 업로드 자산이 아닙니다.";
+	public static final String RAW_UPLOAD_SESSION_MISMATCH_ERROR_MESSAGE = "업로드 세션이 일치하지 않습니다.";
+	public static final String RAW_UPLOAD_PARTS_INVALID_ERROR_MESSAGE = "업로드 파트 정보가 올바르지 않습니다.";
+	public static final String RAW_UPLOAD_CONTENT_INVALID_ERROR_MESSAGE = "RAW 파일 내용이 올바르지 않습니다. 다시 올려 주세요.";
+	public static final String RAW_UPLOAD_IN_USE_ERROR_MESSAGE = "여행에 연결된 RAW 파일은 삭제할 수 없습니다. 여행 수정에서 먼저 연결을 해제해 주세요.";
+	public static final String PRESIGNED_URL_NOT_SUPPORTED_ERROR_MESSAGE = "현재 저장소 설정에서는 지원하지 않는 기능입니다.";
 }

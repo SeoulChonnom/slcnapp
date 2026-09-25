@@ -43,6 +43,10 @@ public class FileAssetStore {
 			.toList();
 	}
 
+	public void deleteById(String fileId) {
+		fileAssetRepository.deleteById(fileId);
+	}
+
 	/**
 	 * 백필 전용 페이지 조회. 자산 전체를 한 번에 메모리에 올리지 않기 위해 나눠 읽는다.
 	 */

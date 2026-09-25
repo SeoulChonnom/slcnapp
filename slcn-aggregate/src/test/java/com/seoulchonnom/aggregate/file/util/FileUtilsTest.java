@@ -299,6 +299,18 @@ class FileUtilsTest {
 	}
 
 	@Test
+	void isValidFileRef_shouldAcceptStoredRawAttachment() {
+		fileUtils.isValidFileRef("travel", "72d768d4-2b05-48f9-bee8-fee3b52e909f.raf");
+	}
+
+	@Test
+	void stageUpload_shouldStillRejectRafThroughImageUpload() {
+		MockMultipartFile file = new MockMultipartFile("file", "DSCF1234.RAF", "image/x-fujifilm-raf", new byte[] {1});
+
+		assertThatThrownBy(() -> fileUtils.stageUpload(file, "travel")).isInstanceOf(FileExtException.class);
+	}
+
+	@Test
 	void isValidFileRef_shouldStillRejectTraversalAndUnknownShapes() {
 		assertThatThrownBy(() -> fileUtils.isValidFileRef("travel", "../secret.png"))
 			.isInstanceOf(FilePathInvalidException.class);

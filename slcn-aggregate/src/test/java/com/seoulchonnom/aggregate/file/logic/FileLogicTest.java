@@ -382,4 +382,13 @@ class FileLogicTest {
 		Semaphore permits = (Semaphore)ReflectionTestUtils.getField(fileLogic, "variantPermits");
 		assertThat(permits.availablePermits()).isEqualTo(2);
 	}
+
+	@Test
+	void getImageFile_shouldRefuseRawAttachmentOnPathBasedLookup() {
+		assertThatThrownBy(() -> fileLogic.getImageFile("travel", UUID_NAME + ".raf"))
+			.isInstanceOf(FilePathInvalidException.class);
+		assertThatThrownBy(() -> fileLogic.getImageFile("travel", UUID_NAME + ".RAF"))
+			.isInstanceOf(FilePathInvalidException.class);
+		verifyNoInteractions(objectStorage);
+	}
 }
