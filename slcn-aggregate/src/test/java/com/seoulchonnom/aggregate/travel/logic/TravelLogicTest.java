@@ -51,7 +51,7 @@ class TravelLogicTest {
 	@Test
 	void registerTravel_shouldStoreRootWithDaysAndSyncFileBox() {
 		TravelCdo cdo = new TravelCdo("서울", "서울", "2026-06-01", "2026-06-02", List.of("맛집"));
-		cdo.setFiles(List.of(new FileBoxItemCdo("travel-cover", FileBoxTargetType.TRAVEL, null,
+		cdo.setFiles(List.of(new FileBoxItemCdo("travel-cover", null, FileBoxTargetType.TRAVEL, null,
 			FileBoxItemRole.COVER, null, 1)));
 		when(idGenerator.nextDomainId("TRAVEL")).thenReturn("TRAVEL-0001");
 		when(travelStore.save(any(Travel.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -80,8 +80,8 @@ class TravelLogicTest {
 			"강릉", "메모", null, 1)));
 		cdo.setTravelDays(List.of(dayUdo));
 		cdo.setFiles(List.of(
-			new FileBoxItemCdo("travel-cover", FileBoxTargetType.TRAVEL, null, FileBoxItemRole.COVER, null, 1),
-			new FileBoxItemCdo("place-cover", FileBoxTargetType.TRAVEL_PLACE, placeKey, FileBoxItemRole.COVER, null,
+			new FileBoxItemCdo("travel-cover", null, FileBoxTargetType.TRAVEL, null, FileBoxItemRole.COVER, null, 1),
+			new FileBoxItemCdo("place-cover", null, FileBoxTargetType.TRAVEL_PLACE, placeKey, FileBoxItemRole.COVER, null,
 				1)));
 		when(idGenerator.nextDomainId("TRAVEL")).thenReturn("TRAVEL-0001");
 		when(travelStore.save(any(Travel.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -148,7 +148,7 @@ class TravelLogicTest {
 		stubTravelFile("travel-cover");
 		stubDetailRdo("travel-1", List.of(existingCover));
 		TravelUdo udo = new TravelUdo("서울", "서울", "2026-06-01", "2026-06-03", null, null);
-		udo.setFiles(List.of(new FileBoxItemUdo("item-cover", "travel-cover", FileBoxTargetType.TRAVEL, null,
+		udo.setFiles(List.of(new FileBoxItemUdo("item-cover", "travel-cover", null, FileBoxTargetType.TRAVEL, null,
 			FileBoxItemRole.COVER, null, 1)));
 
 		travelLogic.modifyTravel("travel-1", udo);

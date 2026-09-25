@@ -242,11 +242,12 @@ FE는 요청당 누적 **100 MB 이하, 6장 이하**로 나눠 보낸다(현재
 - [x] 구현 메모: 완료 호출이 실패해도 객체가 이미 있으면(앞선 완료의 응답 유실) 검증으로 넘어가고, 저장소 읽기 실패는 자산을 지우지 않고 업로드 실패(400)로 돌려 재시도하게 한다. 크기·매직 불일치만 객체와 자산을 삭제한다. 연결 여부는 `FileBoxRepository.existsByItemRawFileAssetId`(@Query `items.rawFileAssetId`, exists=true)로 본다. Task 7에서 `FileBoxItem.rawFileAssetId`가 생기기 전에도 동작한다. **이 쿼리는 Mongo 통합 테스트 환경이 없어 실제 DB로는 확인하지 못했다.** Task 8의 경로 기반 `.raf` 차단(`FileLogic.getImageFile`)을 계획대로 이 커밋에 함께 넣었다. 파사드는 `RawUploadFacade`로 분리했다
 
 ### Task 7. 여행 사진과 RAW 연결
-- [ ] `FileBoxItem`·Cdo·Udo·Rdo·`FileBoxMapper`·`FileBoxDoc`(해당 시)에 `rawFileAssetId` 추가. Rdo에 `rawFile` 채우기(여행 상세 조회 흐름에서 자산 일괄 조회에 포함)
-- [ ] `TravelLogic.validateTravelFiles`: §2.4 규칙. 문구는 "RAW 파일은 보기용 사진으로 연결할 수 없습니다.", "연결할 RAW 파일이 올바르지 않습니다.", "RAW 업로드가 아직 끝나지 않았습니다.", "하나의 사진에는 하나의 RAW 파일만 연결할 수 있습니다."(1:1 대응 위반)
-- [ ] 수정 시 "`id`를 보낸 기존 항목 유지" 규칙에 `rawFileAssetId`도 포함한다. 보내지 않으면 null로 바뀐다(전체 치환 규칙과 같은 의미)
-- [ ] `InspectionPhotoSupport`: `rawFileAssetId`가 있으면 400
-- [ ] 테스트: 각 규칙 1개씩. 같은 사진+같은 RAW를 COVER와 GALLERY에 함께 두면 **통과**, 같은 RAW를 다른 사진에 붙이면 거부, 같은 사진에 다른 RAW를 붙이면 거부. 여행 상세 응답에 `rawFile`이 채워지는지, 임장 거부
+- [x] `FileBoxItem`·Cdo·Udo·Rdo·`FileBoxMapper`·`FileBoxDoc`(해당 시)에 `rawFileAssetId` 추가. Rdo에 `rawFile` 채우기(여행 상세 조회 흐름에서 자산 일괄 조회에 포함)
+- [x] `TravelLogic.validateTravelFiles`: §2.4 규칙. 문구는 "RAW 파일은 보기용 사진으로 연결할 수 없습니다.", "연결할 RAW 파일이 올바르지 않습니다.", "RAW 업로드가 아직 끝나지 않았습니다.", "하나의 사진에는 하나의 RAW 파일만 연결할 수 있습니다."(1:1 대응 위반)
+- [x] 수정 시 "`id`를 보낸 기존 항목 유지" 규칙에 `rawFileAssetId`도 포함한다. 보내지 않으면 null로 바뀐다(전체 치환 규칙과 같은 의미)
+- [x] `InspectionPhotoSupport`: `rawFileAssetId`가 있으면 400
+- [x] 테스트: 각 규칙 1개씩. 같은 사진+같은 RAW를 COVER와 GALLERY에 함께 두면 **통과**, 같은 RAW를 다른 사진에 붙이면 거부, 같은 사진에 다른 RAW를 붙이면 거부. 여행 상세 응답에 `rawFile`이 채워지는지, 임장 거부
+- [x] 구현 메모: 1:1 대응 비교는 RAW를 선언한 항목끼리만 한다(같은 사진이 표지엔 RAW 없이, 앨범엔 RAW와 함께 와도 허용). 빈 문자열 rawFileAssetId는 null로 정규화한다. 여행 상세의 `rawFile`은 `FileAssetStore.findOptionalById`로 채워, 연결된 RAW가 경합으로 지워졌어도 상세 조회가 실패하지 않고 `rawFile`만 null이 된다. 현재 상세 조회는 일괄 조회가 아니라 항목별 조회라 RAW도 항목별로 읽는다. 계획에 없던 나들이(Trip) 파일에도 rawFileAssetId를 거부하도록 넣었다(§ 작성 배경의 'RAW는 여행 앨범만')
 
 ### Task 8. 다운로드 URL과 RAW 인라인 조회 차단
 - [ ] `FileLogic.getDownloadUrl(fileId)`: 원본 키 presign(TTL 300초, `ContentDisposition.attachment().filename(originalFilename, UTF_8)`). 로컬 프로바이더면 501(§2.3)

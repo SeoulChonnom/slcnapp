@@ -2,6 +2,7 @@ package com.seoulchonnom.aggregate.file.store;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.StreamSupport;
 
 import org.springframework.data.domain.PageRequest;
@@ -28,6 +29,13 @@ public class FileAssetStore {
 		return fileAssetRepository.findById(fileId)
 			.map(fileAssetDocMapper::toDomain)
 			.orElseThrow(FileAssetNotFoundException::new);
+	}
+
+	/**
+	 * 없을 수 있는 참조를 읽는다. 연결된 RAW가 경합으로 지워졌어도 여행 상세 조회 전체가 실패하지 않게 한다.
+	 */
+	public Optional<FileAsset> findOptionalById(String fileId) {
+		return fileAssetRepository.findById(fileId).map(fileAssetDocMapper::toDomain);
 	}
 
 	/**
