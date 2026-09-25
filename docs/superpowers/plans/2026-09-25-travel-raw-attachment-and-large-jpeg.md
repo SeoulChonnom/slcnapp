@@ -239,7 +239,7 @@ FE는 요청당 누적 **100 MB 이하, 6장 이하**로 나눠 보낸다(현재
 - [x] `FileConstant.EXT_REGEX_STRING`은 **바꾸지 않는다.** RAF는 이 세션 API로만 들어온다(기존 multipart 업로드로 RAF가 오면 지금처럼 거절)
 - [x] `STORED_EXT_REGEX_STRING`에 `raf`를 추가해 경로 검증이 저장 파일명을 거부하지 않게 한다(`readOriginal`의 `isValidFileRef` 통과용). **이 변경은 Task 8의 경로 기반 조회 차단과 같은 커밋에 넣는다.** 따로 들어가면 그 사이에 `GET /assets/file`로 RAW가 열린다
 - [x] 테스트: 정상 흐름, `uploadId` 불일치 400, 취소 시 저장된 `uploadId`로 `abort` 호출, `type=inspection` 거부, 확장자 거부, 크기 초과, 매직 불일치 시 정리, 크기 불일치 시 정리, 완료 멱등, 연결되지 않은 `READY` 삭제 204(객체 삭제 호출), 연결된 `READY` 삭제 409, `IMAGE` 자산 삭제 요청 400, 로컬 프로바이더 501
-- [x] 구현 메모: 완료 호출이 실패해도 객체가 이미 있으면(앞선 완료의 응답 유실) 검증으로 넘어가고, 저장소 읽기 실패는 자산을 지우지 않고 업로드 실패(400)로 돌려 재시도하게 한다. 크기·매직 불일치만 객체와 자산을 삭제한다. 연결 여부는 `FileBoxRepository.existsByItemRawFileAssetId`(@Query `items.rawFileAssetId`, exists=true)로 본다. Task 7에서 `FileBoxItem.rawFileAssetId`가 생기기 전에도 동작한다. **이 쿼리는 Mongo 통합 테스트 환경이 없어 실제 DB로는 확인하지 못했다.** Task 8의 경로 기반 `.raf` 차단(`FileLogic.getImageFile`)을 계획대로 이 커밋에 함께 넣었다. 파사드는 `RawUploadFacade`로 분리했다
+- [x] 구현 메모: 완료 호출이 실패해도 객체가 이미 있으면(앞선 완료의 응답 유실) 검증으로 넘어가고, 저장소 읽기 실패는 자산을 지우지 않고 업로드 실패(400)로 돌려 재시도하게 한다. 크기·매직 불일치만 객체와 자산을 삭제한다. 연결 여부는 `FileBoxRepository.existsByItemRawFileAssetId`(@Query `items.rawFileAssetId`, exists=true)로 본다. Task 7에서 `FileBoxItem.rawFileAssetId`가 생기기 전에도 동작한다. 이 쿼리는 2026-09-25 실제 MongoDB의 스크래치 DB에서 확인했다(연결된 RAW는 true, 보기용 사진 id와 연결 안 된 RAW는 false). 저장소에 Mongo 통합 테스트 환경은 없어 회귀 테스트로는 남기지 않았다. Task 8의 경로 기반 `.raf` 차단(`FileLogic.getImageFile`)을 계획대로 이 커밋에 함께 넣었다. 파사드는 `RawUploadFacade`로 분리했다
 
 ### Task 7. 여행 사진과 RAW 연결
 - [x] `FileBoxItem`·Cdo·Udo·Rdo·`FileBoxMapper`·`FileBoxDoc`(해당 시)에 `rawFileAssetId` 추가. Rdo에 `rawFile` 채우기(여행 상세 조회 흐름에서 자산 일괄 조회에 포함)
@@ -265,7 +265,7 @@ FE는 요청당 누적 **100 MB 이하, 6장 이하**로 나눠 보낸다(현재
 - [x] `RawUploadCleanupScheduler`: 매일 1회. `kind=RAW, status=PENDING, registeredTime < now-24h`를 조회해 저장된 `uploadId`로 `abort` + 자산 삭제. R2 실패는 로그만 남기고 다음 실행 때 다시 시도한다
 - [x] 어떤 여행에도 연결되지 않은 `READY` RAW는 **정리하지 않는다**(기존 이미지 고아 정책과 같다. 규모상 수동 확인이 낫다)
 - [x] 테스트: 경과분만 정리, 실패해도 다음 항목 계속
-- [x] 구현 메모: `@EnableScheduling`은 `slcn-aggregate/config/SchedulingConfiguration`에 두었다. cron 속성의 기본값은 `-`(꺼짐)이고, 운영 값은 application.yml의 `SLCN_STORAGE_RAW_CLEANUP_CRON`(기본 매일 04:30, Asia/Seoul)이다. 정리 본체는 `RawUploadLogic.cleanupPendingRegisteredBefore`에 두고 스케줄러는 기준 시각만 계산한다. `ApplicationContextRunner`로 cron 작업이 실제 등록되는지와, 속성이 없으면 등록되지 않는지를 테스트했다. `findByKindAndStatusAndRegisteredTimeLessThan` 파생 쿼리는 Mongo 통합 테스트 환경이 없어 실제 DB로는 확인하지 못했다
+- [x] 구현 메모: `@EnableScheduling`은 `slcn-aggregate/config/SchedulingConfiguration`에 두었다. cron 속성의 기본값은 `-`(꺼짐)이고, 운영 값은 application.yml의 `SLCN_STORAGE_RAW_CLEANUP_CRON`(기본 매일 04:30, Asia/Seoul)이다. 정리 본체는 `RawUploadLogic.cleanupPendingRegisteredBefore`에 두고 스케줄러는 기준 시각만 계산한다. `ApplicationContextRunner`로 cron 작업이 실제 등록되는지와, 속성이 없으면 등록되지 않는지를 테스트했다. `findByKindAndStatusAndRegisteredTimeLessThan` 파생 쿼리는 2026-09-25 실제 MongoDB의 스크래치 DB에서 확인했다(24시간 지난 PENDING RAW만 조회되고, 최근 PENDING·오래된 READY·kind 필드 없는 과거 이미지는 빠짐. 과거 문서는 IMAGE/READY로 읽힘)
 
 ### Task 10. 문서
 - [x] `docs/file-asset.md`, `docs/image-asset-api.md`에 §2 계약 반영
