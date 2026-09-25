@@ -223,11 +223,12 @@ FE는 요청당 누적 **100 MB 이하, 6장 이하**로 나눠 보낸다(현재
 - [x] 구현 메모: 세마포어 획득에 실패하면 파생본은 건너뛰지만 가로·세로는 `FileUtils.readProfile`(헤더+EXIF만 읽음)로 기록한다. 대기 시간은 `slcn.upload.variant-wait-seconds`(기본 60초)로 뺐다. HEIC는 `FileExtException`(FILE_EXT_INVALID) 코드에 "HEIC 사진은 JPG로 변환해 올려 주세요." 문구다
 
 ### Task 5. `MultipartUploadStorage`와 R2 어댑터
-- [ ] **선행 리팩터링:** `ObjectStorageConfiguration`에서 `S3Client`/`S3Presigner` 생성을 r2 전용 빈으로 분리한다(File Structure 참고). 동작 변화가 없어야 하므로 기존 `R2ObjectStorageTest`·설정 테스트가 그대로 통과하는지 먼저 확인하고 다음 단계로 간다
-- [ ] 포트: `create(key, contentType) → uploadId`, `presignPart(key, uploadId, partNumber, ttl) → url`, `complete(key, uploadId, parts)`, `abort(key, uploadId)`, `headSize(key) → long`, `readRange(key, 0, 15) → byte[]`
-- [ ] R2 구현: `CreateMultipartUpload`, `S3Presigner.presignUploadPart`, `CompleteMultipartUpload`, `AbortMultipartUpload`, `HeadObject`, `GetObject(range="bytes=0-15")`. SDK 예외는 `IOException`으로 감싼다(`R2ObjectStorage` 관례)
-- [ ] 로컬 프로바이더면 빈을 만들지 않는다. `RawUploadLogic`은 `Optional`로 받고, 비어 있으면 501을 던진다(`PRESIGNED_URL_NOT_SUPPORTED`)
-- [ ] 테스트: provider=local이면 `MultipartUploadStorage` 빈이 없고 provider=r2면 `ObjectStorage`와 같은 `S3Client`를 쓰는지. `S3Client`/`S3Presigner` 목으로 요청 파라미터(bucket, key, uploadId, partNumber, range) 검증
+- [x] **선행 리팩터링:** `ObjectStorageConfiguration`에서 `S3Client`/`S3Presigner` 생성을 r2 전용 빈으로 분리한다(File Structure 참고). 동작 변화가 없어야 하므로 기존 `R2ObjectStorageTest`·설정 테스트가 그대로 통과하는지 먼저 확인하고 다음 단계로 간다
+- [x] 포트: `create(key, contentType) → uploadId`, `presignPart(key, uploadId, partNumber, ttl) → url`, `complete(key, uploadId, parts)`, `abort(key, uploadId)`, `headSize(key) → long`, `readRange(key, 0, 15) → byte[]`
+- [x] R2 구현: `CreateMultipartUpload`, `S3Presigner.presignUploadPart`, `CompleteMultipartUpload`, `AbortMultipartUpload`, `HeadObject`, `GetObject(range="bytes=0-15")`. SDK 예외는 `IOException`으로 감싼다(`R2ObjectStorage` 관례)
+- [x] 로컬 프로바이더면 빈을 만들지 않는다. `RawUploadLogic`은 `Optional`로 받고, 비어 있으면 501을 던진다(`PRESIGNED_URL_NOT_SUPPORTED`)
+- [x] 테스트: provider=local이면 `MultipartUploadStorage` 빈이 없고 provider=r2면 `ObjectStorage`와 같은 `S3Client`를 쓰는지. `S3Client`/`S3Presigner` 목으로 요청 파라미터(bucket, key, uploadId, partNumber, range) 검증
+- [x] 구현 메모: S3Client/S3Presigner를 `R2Endpoint` 레코드로 접속 정보를 묶은 r2 전용 빈으로 분리했고, 스프링이 종료 시 close()를 호출한다. `abort`는 이미 없는 업로드(NoSuchUpload)를 성공으로 본다. `complete`는 파트를 번호순으로 정렬해 보낸다. 포트에 `delete(key)`를 함께 넣었다(Task 6의 READY 삭제용). 501 예외는 사용하는 Task 6에서 추가한다
 
 ### Task 6. RAW 업로드 세션 API
 - [ ] `RawUploadLogic.createSession(cdo)`: §2.2 ① 검증 → multipart 생성(key는 `ObjectKeys.original("travel", "{uuid}.raf")`) → 자산 저장(`PENDING`, `storedFilename = {uuid}.raf`, `uploadId` 포함. 저장 실패 시 `abort`) → 파트 수 `ceil(size / partSize)`만큼 presign
