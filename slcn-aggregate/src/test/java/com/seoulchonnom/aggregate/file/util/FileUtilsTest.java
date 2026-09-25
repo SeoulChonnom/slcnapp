@@ -212,6 +212,27 @@ class FileUtilsTest {
 	}
 
 	@Test
+	void writeVariants_shouldReportDisplayDimensionsAndUprightVariantsForRotatedJpeg() throws Exception {
+		BufferedImage landscape = new BufferedImage(2000, 1000, BufferedImage.TYPE_INT_RGB);
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		ImageIO.write(landscape, "jpeg", out);
+		Path original = Files.write(tempDir.resolve("72d768d4-2b05-48f9-bee8-fee3b52e909f.jpg"),
+			JpegSegments.withExifOrientation(out.toByteArray(), 6));
+		FileAsset fileAsset = new FileAsset(FileType.TRAVEL, "portrait.jpg",
+			"72d768d4-2b05-48f9-bee8-fee3b52e909f.jpg", "image/jpeg", Files.size(original));
+
+		var profile = fileUtils.writeVariants(fileAsset, original);
+
+		assertThat(profile.width()).isEqualTo(1000);
+		assertThat(profile.height()).isEqualTo(2000);
+		assertThat(profile.variants()).extracting(FileVariant::getVariant)
+			.containsExactly("home-feature", "home-thumb");
+		BufferedImage feature = ImageIO.read(tempDir.resolve(profile.variants().get(0).getFilename()).toFile());
+		assertThat(feature.getWidth()).isEqualTo(960);
+		assertThat(feature.getHeight()).isEqualTo(1920);
+	}
+
+	@Test
 	void isValidFileRef_shouldAcceptVariantFilenames() {
 		fileUtils.isValidFileRef("travel", "72d768d4-2b05-48f9-bee8-fee3b52e909f_home-thumb.jpg");
 		fileUtils.isValidFileRef("travel", "72d768d4-2b05-48f9-bee8-fee3b52e909f.png");

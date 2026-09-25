@@ -208,12 +208,12 @@ FE는 요청당 누적 **100 MB 이하, 6장 이하**로 나눠 보낸다(현재
 - [x] 테스트: 7728×5152 합성 JPEG(테스트 리소스로 생성, 단색이면 수백 KB)로 `readScaled` 결과 너비가 1932인지 확인. 2000×50000 합성 PNG(단색)가 픽셀 예산 조건으로 n≥5로 읽히는지 확인. 1억 픽셀 초과 헤더를 가진 PNG를 거부하는지 확인(헤더만 조작한 파일로, 실제로 크게 만들지 않는다)
 
 ### Task 3. EXIF 방향과 색 프로필
-- [ ] `metadata-extractor`로 `ExifIFD0Directory.TAG_ORIENTATION`을 읽는다. 값 2~8이면 축소 디코딩 결과에 `AffineTransform`을 적용한다. 파생본은 항상 **똑바로 선 상태**로 저장한다(파생본에는 EXIF를 쓰지 않으므로 브라우저가 다시 돌리지 않는다)
-- [ ] orientation이 5~8(90°/270° 회전 계열)이면 `ImageProfile`의 width/height를 **바꿔서** 저장한다. 헤더는 가로(7728×5152)인데 파생본과 브라우저가 보여 주는 원본은 세로다. FE는 `FileAssetRdo.width/height`로 레이아웃을 미리 잡으므로(`FileAssetRdo` 주석) 값을 바꾸지 않으면 비율이 뒤집힌다. 즉 `width/height`의 의미는 "헤더 값"이 아니라 "**화면에 보이는 방향의 원본 크기**"다
-- [ ] JPEG APP2 `ICC_PROFILE` 세그먼트를 헤더 앞부분(최대 1 MB)에서 직접 파싱해 이어 붙인다. 프로필이 sRGB가 아니면 `ColorConvertOp(ICC_Profile → sRGB)`로 축소본을 변환한다. 파싱 실패는 변환 생략 + warn 로그다(업로드는 실패시키지 않는다)
-- [ ] 적용 순서: 축소 디코딩 → 색 변환 → 회전 → 기존 `scaleToWidth`
-- [ ] 테스트: orientation 6(시계 90°) 태그를 붙인 가로 JPEG의 파생본이 세로가 되고, 저장된 width/height도 세로(width < height)인지. Display P3 프로필을 붙인 JPEG가 예외 없이 처리되는지(색 값 검증은 하지 않는다)
-- [ ] **FE 참고:** 원본 `<img>`는 브라우저가 EXIF로 돌리므로 영향이 없다. 이 태스크 전에 만들어진 기존 파생본은 여전히 누워 있을 수 있다. 재생성 여부는 §5 미결정 항목이다
+- [x] `metadata-extractor`로 `ExifIFD0Directory.TAG_ORIENTATION`을 읽는다. 값 2~8이면 축소 디코딩 결과에 `AffineTransform`을 적용한다. 파생본은 항상 **똑바로 선 상태**로 저장한다(파생본에는 EXIF를 쓰지 않으므로 브라우저가 다시 돌리지 않는다)
+- [x] orientation이 5~8(90°/270° 회전 계열)이면 `ImageProfile`의 width/height를 **바꿔서** 저장한다. 헤더는 가로(7728×5152)인데 파생본과 브라우저가 보여 주는 원본은 세로다. FE는 `FileAssetRdo.width/height`로 레이아웃을 미리 잡으므로(`FileAssetRdo` 주석) 값을 바꾸지 않으면 비율이 뒤집힌다. 즉 `width/height`의 의미는 "헤더 값"이 아니라 "**화면에 보이는 방향의 원본 크기**"다
+- [x] ~~JPEG APP2 `ICC_PROFILE` 세그먼트를 직접 파싱해 `ColorConvertOp`로 sRGB 변환~~ → **하지 않는다.** 구현 전에 확인해 보니 JDK `JPEGImageReader`가 내장 ICC 프로필을 디코딩 단계에서 sRGB로 변환하고, 축소 디코딩(`setSourceSubsampling`) 경로도 같다(선형 RGB 프로필 JPEG의 50이 약 122로 읽힘). 대신 이 전제를 지키는 회귀 테스트를 둔다(`readScaled_shouldConvertEmbeddedNonSrgbProfileToSrgb`)
+- [x] 적용 순서: 축소 디코딩(색 변환은 JDK가 이 단계에서 함) → 회전 → 기존 `scaleToWidth`. 회전은 `ImageOrientation`으로 분리했다. `ScaledImage`의 크기 필드는 `displayWidth`/`displayHeight`(화면 방향 기준 원본 크기)이고, 파생본 생성 여부도 이 값으로 판단한다
+- [x] 테스트: orientation 6(시계 90°) 태그를 붙인 가로 JPEG의 파생본이 세로가 되고, 저장된 width/height도 세로(width < height)인지. 비 sRGB 프로필 JPEG가 sRGB로 변환되는지(JDK에 Display P3 프로필이 없어 선형 RGB 프로필로 대신한다). 방향 1~8 전부의 픽셀 위치 검증
+- [x] **FE 참고:** 원본 `<img>`는 브라우저가 EXIF로 돌리므로 영향이 없다. 이 태스크 전에 만들어진 기존 파생본은 여전히 누워 있을 수 있다. 재생성 여부는 §5 미결정 항목이다
 
 ### Task 4. 한도 상향과 동시성 제한
 - [ ] `FileConstant.MAX_FILE_SIZE = 50 MB`, `application.yml` `max-file-size: 50MB`, `max-request-size: 110MB`

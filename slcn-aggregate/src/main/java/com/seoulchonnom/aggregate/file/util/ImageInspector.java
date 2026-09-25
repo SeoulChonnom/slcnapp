@@ -48,10 +48,13 @@ public class ImageInspector {
 	}
 
 	/**
-	 * 가장 큰 파생본을 만들기에 충분한 크기로만 디코딩한다.
-	 * 반환하는 원본 크기는 헤더 값이다. 축소본 크기로 기록하면 클라이언트 레이아웃이 틀어진다.
+	 * 가장 큰 파생본을 만들기에 충분한 크기로만 디코딩하고, EXIF 방향대로 똑바로 세운다.
+	 * 내장 ICC 프로필은 JDK JPEG 리더가 디코딩하면서 sRGB로 변환하므로 따로 처리하지 않는다.
+	 * 반환하는 크기는 축소본이 아니라 원본 크기이고, 화면에 보이는 방향 기준이다.
+	 * 헤더 값을 그대로 쓰면 세로 사진의 가로·세로가 뒤집혀 클라이언트 레이아웃이 틀어진다.
 	 */
 	public ScaledImage readScaled(Path path, int minWidth) throws IOException {
+		int orientation = ImageOrientation.read(path);
 		try (ImageInputStream imageInputStream = ImageIO.createImageInputStream(path.toFile())) {
 			ImageReader reader = readerFor(imageInputStream);
 			try {
@@ -62,7 +65,10 @@ public class ImageInspector {
 
 				ImageReadParam param = reader.getDefaultReadParam();
 				param.setSourceSubsampling(factor, factor, 0, 0);
-				return new ScaledImage(reader.read(0, param), width, height);
+				BufferedImage upright = ImageOrientation.apply(reader.read(0, param), orientation);
+				return ImageOrientation.swapsDimensions(orientation)
+					? new ScaledImage(upright, height, width)
+					: new ScaledImage(upright, width, height);
 			} finally {
 				reader.dispose();
 			}
@@ -120,8 +126,8 @@ public class ImageInspector {
 	}
 
 	/**
-	 * 축소 디코딩한 이미지와 원본 헤더 크기.
+	 * 똑바로 세운 축소 이미지와, 화면에 보이는 방향 기준의 원본 크기.
 	 */
-	public record ScaledImage(BufferedImage image, int originalWidth, int originalHeight) {
+	public record ScaledImage(BufferedImage image, int displayWidth, int displayHeight) {
 	}
 }

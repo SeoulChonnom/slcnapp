@@ -115,9 +115,9 @@ public class FileUtils {
 		}
 
 		BufferedImage source = scaled.image();
-		// 파생본 생성 여부는 원본 크기로 판단한다. 축소본 크기로 판단하면 큰 원본에서 파생본을 건너뛰게 된다.
-		int width = scaled.originalWidth();
-		int height = scaled.originalHeight();
+		// 파생본 생성 여부는 화면 방향 기준 원본 크기로 판단한다. 축소본 크기로 판단하면 큰 원본에서 파생본을 건너뛰게 된다.
+		int width = scaled.displayWidth();
+		int height = scaled.displayHeight();
 		List<FileVariant> generated = new ArrayList<>();
 
 		for (ImageVariant variant : ImageVariant.values()) {
