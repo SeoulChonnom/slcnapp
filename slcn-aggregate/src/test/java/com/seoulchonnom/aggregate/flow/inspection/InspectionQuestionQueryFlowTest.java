@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
@@ -55,7 +56,7 @@ class InspectionQuestionQueryFlowTest {
 	private ViewedProperty materializedProperty(InspectionQuestion question, String propertyId) {
 		ViewedProperty property = new ViewedProperty("INSPECTION_VISIT-0001", "트리마제", "101동", 1);
 		property.setId(propertyId);
-		viewedPropertyLogic.materializeAnswers(property, List.of(question));
+		viewedPropertyLogic.materializeAnswers(property, List.of(question), Map.of());
 		return property;
 	}
 

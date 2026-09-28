@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 import com.seoulchonnom.spec.inspection.entity.InspectionQuestion;
+import com.seoulchonnom.spec.inspection.entity.InspectionQuestionCategory;
 import com.seoulchonnom.spec.inspection.entity.vo.PropertyAnswer;
 import com.seoulchonnom.spec.inspection.entity.vo.QuestionChoice;
 import com.seoulchonnom.spec.inspection.entity.vo.QuestionVersion;
@@ -18,8 +19,12 @@ public class PropertyAnswerMapper {
 	/**
 	 * 매물 생성 시점의 질문을 그대로 복사해 답변을 만든다.
 	 * 여기서 복사한 값이 이후 질문 마스터가 바뀌어도 그 매물의 기준으로 남는다.
+	 *
+	 * @param category 질문이 속한 분류. null이면 과도기 미분류 질문이다(계획 §0-1) - categoryId만
+	 *                 question 기준으로 싣고, categoryName/categorySortOrder는 채우지 않는다
 	 */
-	public PropertyAnswer toPropertyAnswer(InspectionQuestion question, QuestionVersion version) {
+	public PropertyAnswer toPropertyAnswer(InspectionQuestion question, QuestionVersion version,
+		InspectionQuestionCategory category) {
 		PropertyAnswer answer = new PropertyAnswer();
 		answer.setQuestionId(question.getId());
 		answer.setQuestionVersionNo(version.getVersionNo());
@@ -33,6 +38,11 @@ public class PropertyAnswerMapper {
 			: new ArrayList<>(version.getChoices()));
 		answer.setSelectedCodes(new ArrayList<>());
 		answer.setAnswered(false);
+		answer.setCategoryId(question.getCategoryId());
+		if (category != null) {
+			answer.setCategoryName(category.getName());
+			answer.setCategorySortOrder(category.getSortOrder());
+		}
 		return answer;
 	}
 
@@ -41,6 +51,9 @@ public class PropertyAnswerMapper {
 	 *
 	 * question은 isCurrentVersion/questionEnabled 배지 계산에만 쓰고, null이면 두 필드를 비워 둔다.
 	 * 이 두 필드로 렌더링을 바꾸면 "질문 내용 변경으로 기존 기록이 변경되어서는 안 된다"는 요구가 깨진다.
+	 *
+	 * 분류(categoryId/categoryName/categorySortOrder)도 항상 answer 스냅샷에서만 읽는다. question의
+	 * 현재 categoryId를 쓰면 분류를 옮기거나 이름을 바꿨을 때 과거 매물의 분류 표시가 따라 바뀐다.
 	 */
 	public PropertyAnswerRdo toPropertyAnswerRdo(PropertyAnswer answer, InspectionQuestion question) {
 		PropertyAnswerRdo rdo = new PropertyAnswerRdo();
@@ -60,6 +73,9 @@ public class PropertyAnswerMapper {
 		rdo.setRatingValue(answer.getRatingValue());
 		rdo.setSelectedCodes(answer.getSelectedCodes() == null ? new ArrayList<>()
 			: new ArrayList<>(answer.getSelectedCodes()));
+		rdo.setCategoryId(answer.getCategoryId());
+		rdo.setCategoryName(answer.getCategoryName());
+		rdo.setCategorySortOrder(answer.getCategorySortOrder());
 		if (question != null) {
 			rdo.setIsCurrentVersion(answer.getQuestionVersionNo() == question.getCurrentVersionNo());
 			rdo.setQuestionEnabled(question.isEnabled());

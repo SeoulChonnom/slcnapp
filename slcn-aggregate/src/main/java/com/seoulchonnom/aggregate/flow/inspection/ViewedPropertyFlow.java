@@ -4,6 +4,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,8 +21,11 @@ import com.seoulchonnom.aggregate.inspection.logic.InspectionQuestionLogic;
 import com.seoulchonnom.aggregate.inspection.logic.InspectionTagLogic;
 import com.seoulchonnom.aggregate.inspection.logic.InspectionVisitLogic;
 import com.seoulchonnom.aggregate.inspection.logic.ViewedPropertyLogic;
+import com.seoulchonnom.aggregate.inspection.store.InspectionQuestionCategoryStore;
 import com.seoulchonnom.aggregate.inspection.store.InspectionTagStore;
 import com.seoulchonnom.spec.filebox.facade.sdo.FileBoxItemUdo;
+import com.seoulchonnom.spec.inspection.entity.InspectionQuestion;
+import com.seoulchonnom.spec.inspection.entity.InspectionQuestionCategory;
 import com.seoulchonnom.spec.inspection.entity.InspectionTag;
 import com.seoulchonnom.spec.inspection.entity.InspectionVisit;
 import com.seoulchonnom.spec.inspection.entity.ViewedProperty;
@@ -44,6 +51,7 @@ public class ViewedPropertyFlow {
 	private final ViewedPropertyLogic viewedPropertyLogic;
 	private final InspectionVisitLogic inspectionVisitLogic;
 	private final InspectionQuestionLogic inspectionQuestionLogic;
+	private final InspectionQuestionCategoryStore inspectionQuestionCategoryStore;
 	private final InspectionTagLogic inspectionTagLogic;
 	private final InspectionTagStore inspectionTagStore;
 	private final InspectionPhotoSupport inspectionPhotoSupport;
@@ -54,7 +62,8 @@ public class ViewedPropertyFlow {
 
 		ViewedProperty property = new ViewedProperty(visitId, null, null, nextSortOrder(visitId));
 		viewedPropertyLogic.applyUpdate(property, toUdo(viewedPropertyCdo));
-		viewedPropertyLogic.materializeAnswers(property, inspectionQuestionLogic.getEnabledQuestions());
+		List<InspectionQuestion> enabledQuestions = inspectionQuestionLogic.getEnabledQuestions();
+		viewedPropertyLogic.materializeAnswers(property, enabledQuestions, categoryMapFor(enabledQuestions));
 
 		ViewedProperty saved = viewedPropertyLogic.save(property);
 		linkTags(saved, viewedPropertyCdo.getTags());
@@ -177,6 +186,19 @@ public class ViewedPropertyFlow {
 			.mapToInt(ViewedProperty::getSortOrder)
 			.max()
 			.orElse(0) + 1;
+	}
+
+	/**
+	 * materializeAnswers에 넘길 분류 맵. InspectionQuestionQueryFlow.categoryMapFor와 같은 방식이다 -
+	 * 질문과 매물이라는 두 aggregate를 가로지르는 조립이라 Logic이 아니라 Flow가 Store를 직접 묶는다.
+	 */
+	private Map<String, InspectionQuestionCategory> categoryMapFor(List<InspectionQuestion> questions) {
+		Set<String> categoryIds = questions.stream()
+			.map(InspectionQuestion::getCategoryId)
+			.filter(Objects::nonNull)
+			.collect(Collectors.toSet());
+		return inspectionQuestionCategoryStore.findAllByIds(categoryIds).stream()
+			.collect(Collectors.toMap(InspectionQuestionCategory::getId, Function.identity()));
 	}
 
 	/**

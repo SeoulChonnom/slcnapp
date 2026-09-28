@@ -45,6 +45,14 @@ public class PropertyAnswer implements JsonSerializable {
 	 * 단위 변경은 새 버전을 만드는 변경이라 마스터를 되짚어 복원할 수도 없다.
 	 */
 	private String unit;
+	/**
+	 * 매물 생성 시점의 분류 스냅샷(계획 §1). 이후 분류 이름/순서가 바뀌어도 이 매물은 그대로다.
+	 * 과도기(categoryId=null인 질문으로 만든 매물, 백필 전 구버전 JSON)에는 셋 다 null일 수 있다.
+	 * JsonUtil이 FAIL_ON_UNKNOWN_PROPERTIES를 꺼 두어 구버전 JSON도 이 필드들을 null로 채워 읽힌다.
+	 */
+	private String categoryId;
+	private String categoryName;
+	private Integer categorySortOrder;
 	@Builder.Default
 	private List<QuestionChoice> choiceOptions = new ArrayList<>();
 
@@ -56,6 +64,22 @@ public class PropertyAnswer implements JsonSerializable {
 	private List<String> selectedCodes = new ArrayList<>();
 
 	private boolean answered;
+
+	/**
+	 * 백필 전용(계획 §5). categoryId가 이미 있으면 아무것도 하지 않는다 - 재실행해도 안전해야
+	 * 하고(백필은 여러 번 돌 수 있다), 관리자가 이미 지정한 분류를 마스터 기준으로 덮어써서는 안 된다.
+	 *
+	 * @return 값을 채웠으면 true, 이미 categoryId가 있어 건드리지 않았으면 false
+	 */
+	public boolean assignCategory(String categoryId, String categoryName, Integer categorySortOrder) {
+		if (this.categoryId != null) {
+			return false;
+		}
+		this.categoryId = categoryId;
+		this.categoryName = categoryName;
+		this.categorySortOrder = categorySortOrder;
+		return true;
+	}
 
 	/**
 	 * 값이 바뀔 때마다 다시 계산한다. 판정 규칙을 한 곳에만 둔다.

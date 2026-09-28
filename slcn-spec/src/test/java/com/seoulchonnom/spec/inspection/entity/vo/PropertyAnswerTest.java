@@ -75,4 +75,53 @@ class PropertyAnswerTest {
 		answer.refreshAnswered();
 		assertThat(answer.isAnswered()).isFalse();
 	}
+
+	@Test
+	void assignCategory_shouldFillWhenCategoryIdIsNull() {
+		PropertyAnswer answer = answerOf(QuestionAnswerType.TEXT);
+
+		boolean changed = answer.assignCategory("CATEGORY-1", "채광·환기", 1);
+
+		assertThat(changed).isTrue();
+		assertThat(answer.getCategoryId()).isEqualTo("CATEGORY-1");
+		assertThat(answer.getCategoryName()).isEqualTo("채광·환기");
+		assertThat(answer.getCategorySortOrder()).isEqualTo(1);
+	}
+
+	/**
+	 * 백필은 재실행돼도 안전해야 한다(계획 §5) - 이미 분류가 있으면 마스터 기준 값으로 덮어쓰지 않는다.
+	 */
+	@Test
+	void assignCategory_shouldNotOverwriteExistingCategory() {
+		PropertyAnswer answer = answerOf(QuestionAnswerType.TEXT);
+		answer.assignCategory("CATEGORY-1", "채광·환기", 1);
+
+		boolean changed = answer.assignCategory("CATEGORY-2", "구조", 2);
+
+		assertThat(changed).isFalse();
+		assertThat(answer.getCategoryId()).isEqualTo("CATEGORY-1");
+		assertThat(answer.getCategoryName()).isEqualTo("채광·환기");
+		assertThat(answer.getCategorySortOrder()).isEqualTo(1);
+	}
+
+	/**
+	 * JSON 컬럼 더티 체크 방지의 핵심(json-column-value-objects-need-equals 학습) - 새로 추가한
+	 * 분류 스냅샷 필드도 equals 비교 대상에서 빠지면 안 된다.
+	 */
+	@Test
+	void equals_shouldIncludeCategorySnapshotFields() {
+		PropertyAnswer withoutCategory = answerOf(QuestionAnswerType.TEXT);
+		withoutCategory.setQuestionId("q1");
+		PropertyAnswer withCategory = answerOf(QuestionAnswerType.TEXT);
+		withCategory.setQuestionId("q1");
+		withCategory.assignCategory("CATEGORY-1", "채광·환기", 1);
+
+		assertThat(withoutCategory).isNotEqualTo(withCategory);
+
+		PropertyAnswer sameCategory = answerOf(QuestionAnswerType.TEXT);
+		sameCategory.setQuestionId("q1");
+		sameCategory.assignCategory("CATEGORY-1", "채광·환기", 1);
+
+		assertThat(withCategory).isEqualTo(sameCategory);
+	}
 }

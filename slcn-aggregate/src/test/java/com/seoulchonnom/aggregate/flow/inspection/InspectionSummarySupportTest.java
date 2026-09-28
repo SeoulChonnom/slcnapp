@@ -5,6 +5,7 @@ import static org.mockito.Mockito.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
@@ -12,6 +13,7 @@ import com.seoulchonnom.aggregate.inspection.logic.ViewedPropertyLogic;
 import com.seoulchonnom.aggregate.inspection.store.ViewedPropertyStore;
 import com.seoulchonnom.aggregate.inspection.store.projection.ViewedPropertySummaryPdo;
 import com.seoulchonnom.spec.inspection.entity.InspectionQuestion;
+import com.seoulchonnom.spec.inspection.entity.InspectionQuestionCategory;
 import com.seoulchonnom.spec.inspection.entity.InspectionVisit;
 import com.seoulchonnom.spec.inspection.entity.ViewedProperty;
 import com.seoulchonnom.spec.inspection.entity.vo.InspectionStatus;
@@ -48,7 +50,8 @@ class InspectionSummarySupportTest {
 	@Test
 	void ofProperty_shouldListEveryUnmetCompletionCondition() {
 		ViewedProperty property = new ViewedProperty("INSPECTION_VISIT-0001", "트리마제", "101동", 1);
-		viewedPropertyLogic.materializeAnswers(property, List.of(question("q1", true), question("q2", false)));
+		viewedPropertyLogic.materializeAnswers(property, List.of(question("q1", true), question("q2", false)),
+			Map.of());
 
 		IncompleteSummaryRdo summary = inspectionSummarySupport.ofProperty(property);
 
@@ -60,11 +63,36 @@ class InspectionSummarySupportTest {
 		assertThat(summary.getMissingFields()).containsExactly("interestLevel");
 	}
 
+	/**
+	 * 정렬(분류.sortOrder -> sortOrder -> questionId)과 categoryName 노출을 함께 검증한다(계획 §2).
+	 * q2가 sortOrder는 앞서지만 분류 자체 순서(B=1 < A=2)가 우선이라 q1이 먼저 와야 한다.
+	 */
+	@Test
+	void ofProperty_shouldSortUnansweredQuestionsByCategoryAndExposeCategoryName() {
+		ViewedProperty property = new ViewedProperty("INSPECTION_VISIT-0001", "트리마제", "101동", 1);
+		InspectionQuestionCategory categoryA = new InspectionQuestionCategory("CATEGORY-A", "채광", 1);
+		InspectionQuestionCategory categoryB = new InspectionQuestionCategory("CATEGORY-B", "구조", 2);
+		InspectionQuestion q1 = question("q1", true);
+		q1.setCategoryId("CATEGORY-A");
+		InspectionQuestion q2 = question("q2", true);
+		q2.setCategoryId("CATEGORY-B");
+
+		viewedPropertyLogic.materializeAnswers(property, List.of(q1, q2),
+			Map.of("CATEGORY-A", categoryA, "CATEGORY-B", categoryB));
+
+		IncompleteSummaryRdo summary = inspectionSummarySupport.ofProperty(property);
+
+		assertThat(summary.getUnansweredRequiredQuestions())
+			.extracting(UnansweredQuestionRdo::getQuestionId).containsExactly("q1", "q2");
+		assertThat(summary.getUnansweredRequiredQuestions().get(0).getCategoryName()).isEqualTo("채광");
+		assertThat(summary.getUnansweredRequiredQuestions().get(1).getCategoryName()).isEqualTo("구조");
+	}
+
 	@Test
 	void ofProperty_shouldMatchTheLogicCompletionCheck() {
 		ViewedProperty property = new ViewedProperty("INSPECTION_VISIT-0001", "트리마제", "101동", 1);
 		property.setInterestLevel(4);
-		viewedPropertyLogic.materializeAnswers(property, List.of(question("q1", false)));
+		viewedPropertyLogic.materializeAnswers(property, List.of(question("q1", false)), Map.of());
 
 		IncompleteSummaryRdo summary = inspectionSummarySupport.ofProperty(property);
 

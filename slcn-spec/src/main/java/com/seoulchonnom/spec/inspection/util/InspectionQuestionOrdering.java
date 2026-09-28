@@ -5,14 +5,13 @@ import java.util.Map;
 
 import com.seoulchonnom.spec.inspection.entity.InspectionQuestion;
 import com.seoulchonnom.spec.inspection.entity.InspectionQuestionCategory;
+import com.seoulchonnom.spec.inspection.entity.vo.PropertyAnswer;
 
 /**
  * 질문/답변 정렬을 한 곳에 모은다(계획 §2). 저장 순서에 기대지 않고 읽을 때 정렬해서,
  * 분류 지정이 나중에 바뀌어도(백필 포함) 배열 순서를 다시 저장할 필요가 없게 한다.
  *
  * 도메인 엔티티만 다루고 DTO는 모른다(docs/learning/domain-entity-must-not-depend-on-api-dto.md).
- * 답변용 Comparator(categorySortOrder, nulls last -> sortOrder -> questionId)는 PropertyAnswer에
- * 분류 스냅샷 필드가 생기는 다음 단계에서 추가한다.
  */
 public final class InspectionQuestionOrdering {
 	private InspectionQuestionOrdering() {
@@ -42,5 +41,18 @@ public final class InspectionQuestionOrdering {
 		}
 		InspectionQuestionCategory category = categoriesById.get(question.getCategoryId());
 		return category == null ? null : category.getSortOrder();
+	}
+
+	/**
+	 * 답변 스냅샷 정렬: 분류.sortOrder(null이면 맨 뒤) -> 답변.sortOrder -> questionId.
+	 *
+	 * 질문용과 규칙은 같지만 마스터를 다시 찾지 않는다 - PropertyAnswer가 생성 시점의 분류 값을
+	 * 그대로 들고 있어(계획 §1), 분류 맵을 받을 필요 없이 답변 스냅샷만으로 정렬할 수 있다.
+	 */
+	public static Comparator<PropertyAnswer> answerComparator() {
+		return Comparator
+			.comparing(PropertyAnswer::getCategorySortOrder, Comparator.nullsLast(Comparator.naturalOrder()))
+			.thenComparingInt(PropertyAnswer::getSortOrder)
+			.thenComparing(PropertyAnswer::getQuestionId);
 	}
 }

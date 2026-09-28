@@ -14,6 +14,7 @@ import com.seoulchonnom.spec.inspection.entity.vo.InspectionStatus;
 import com.seoulchonnom.spec.inspection.entity.vo.PropertyAnswer;
 import com.seoulchonnom.spec.inspection.facade.sdo.IncompleteSummaryRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.UnansweredQuestionRdo;
+import com.seoulchonnom.spec.inspection.util.InspectionQuestionOrdering;
 
 /**
  * DRAFT에서 "무엇이 남았는지"를 만든다. 완료 검증과 같은 기준을 써야 하므로 한 곳에 모은다.
@@ -120,7 +121,8 @@ public class InspectionSummarySupport {
 	}
 
 	/**
-	 * 요구사항 §37-5에 대응한다.
+	 * 요구사항 §37-5에 대응한다. 정렬은 분류.sortOrder -> sortOrder -> questionId(계획 §2) -
+	 * 화면이 "채광·환기: 방향은?" 처럼 분류별로 묶어 보여줄 때 순서가 뒤섞이지 않아야 한다.
 	 */
 	private List<UnansweredQuestionRdo> unansweredQuestions(ViewedProperty property) {
 		if (property.getAnswers() == null) {
@@ -129,8 +131,9 @@ public class InspectionSummarySupport {
 		return property.getAnswers().stream()
 			.filter(PropertyAnswer::isRequired)
 			.filter(answer -> !answer.isAnswered())
+			.sorted(InspectionQuestionOrdering.answerComparator())
 			.map(answer -> new UnansweredQuestionRdo(answer.getQuestionId(), answer.getQuestionContent(),
-				answer.getSortOrder()))
+				answer.getSortOrder(), answer.getCategoryName()))
 			.collect(Collectors.toCollection(ArrayList::new));
 	}
 

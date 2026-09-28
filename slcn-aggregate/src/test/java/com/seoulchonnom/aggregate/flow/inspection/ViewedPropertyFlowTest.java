@@ -6,6 +6,8 @@ import static org.mockito.Mockito.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
@@ -16,11 +18,15 @@ import com.seoulchonnom.aggregate.inspection.logic.InspectionQuestionLogic;
 import com.seoulchonnom.aggregate.inspection.logic.InspectionTagLogic;
 import com.seoulchonnom.aggregate.inspection.logic.InspectionVisitLogic;
 import com.seoulchonnom.aggregate.inspection.logic.ViewedPropertyLogic;
+import com.seoulchonnom.aggregate.inspection.store.InspectionQuestionCategoryStore;
 import com.seoulchonnom.aggregate.inspection.store.InspectionTagStore;
+import com.seoulchonnom.spec.inspection.entity.InspectionQuestion;
+import com.seoulchonnom.spec.inspection.entity.InspectionQuestionCategory;
 import com.seoulchonnom.spec.inspection.entity.InspectionVisit;
 import com.seoulchonnom.spec.inspection.entity.ViewedProperty;
 import com.seoulchonnom.spec.inspection.entity.vo.ComplexNameScope;
 import com.seoulchonnom.spec.inspection.entity.vo.InspectionStatus;
+import com.seoulchonnom.spec.inspection.entity.vo.QuestionAnswerType;
 import com.seoulchonnom.spec.inspection.facade.sdo.PropertyAnswerBulkUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyCdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyOrderUdo;
@@ -32,12 +38,14 @@ class ViewedPropertyFlowTest {
 	private final ViewedPropertyLogic viewedPropertyLogic = mock(ViewedPropertyLogic.class);
 	private final InspectionVisitLogic inspectionVisitLogic = mock(InspectionVisitLogic.class);
 	private final InspectionQuestionLogic inspectionQuestionLogic = mock(InspectionQuestionLogic.class);
+	private final InspectionQuestionCategoryStore inspectionQuestionCategoryStore =
+		mock(InspectionQuestionCategoryStore.class);
 	private final InspectionTagLogic inspectionTagLogic = mock(InspectionTagLogic.class);
 	private final InspectionTagStore inspectionTagStore = mock(InspectionTagStore.class);
 	private final InspectionPhotoSupport inspectionPhotoSupport = mock(InspectionPhotoSupport.class);
 	private final ViewedPropertyFlow viewedPropertyFlow = new ViewedPropertyFlow(viewedPropertyLogic,
-		inspectionVisitLogic, inspectionQuestionLogic, inspectionTagLogic, inspectionTagStore,
-		inspectionPhotoSupport);
+		inspectionVisitLogic, inspectionQuestionLogic, inspectionQuestionCategoryStore, inspectionTagLogic,
+		inspectionTagStore, inspectionPhotoSupport);
 
 	private static ViewedProperty property(String id, InspectionStatus status, int sortOrder) {
 		ViewedProperty property = new ViewedProperty(VISIT_ID, "트리마제", "101동 1203호", sortOrder);
@@ -88,8 +96,29 @@ class ViewedPropertyFlowTest {
 		viewedPropertyFlow.registerViewedProperty(VISIT_ID, cdo());
 
 		InOrder order = inOrder(viewedPropertyLogic);
-		order.verify(viewedPropertyLogic).materializeAnswers(any(), anyList());
+		order.verify(viewedPropertyLogic).materializeAnswers(any(), anyList(), anyMap());
 		order.verify(viewedPropertyLogic).save(any());
+	}
+
+	/**
+	 * Flow가 InspectionQuestionCategoryStore를 직접 묶어 분류 맵을 만든다(InspectionQuestionQueryFlow와
+	 * 같은 방식) - 활성 질문의 categoryId만 모아 findAllByIds로 조회하고, materializeAnswers에 그대로 넘긴다.
+	 */
+	@Test
+	void registerViewedProperty_shouldPassResolvedCategoryMapToMaterializeAnswers() {
+		when(inspectionVisitLogic.getInspectionVisit(VISIT_ID)).thenReturn(visit(InspectionStatus.DRAFT));
+		when(viewedPropertyLogic.getViewedProperties(VISIT_ID)).thenReturn(List.of());
+		InspectionQuestion question = new InspectionQuestion("q1", QuestionAnswerType.TEXT, false, 1);
+		question.setCategoryId("CATEGORY-A");
+		when(inspectionQuestionLogic.getEnabledQuestions()).thenReturn(List.of(question));
+		InspectionQuestionCategory category = new InspectionQuestionCategory("CATEGORY-A", "채광", 1);
+		when(inspectionQuestionCategoryStore.findAllByIds(Set.of("CATEGORY-A"))).thenReturn(List.of(category));
+		echoSave();
+
+		viewedPropertyFlow.registerViewedProperty(VISIT_ID, cdo());
+
+		verify(viewedPropertyLogic).materializeAnswers(any(), eq(List.of(question)),
+			eq(Map.of("CATEGORY-A", category)));
 	}
 
 	@Test
