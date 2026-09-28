@@ -10,6 +10,8 @@ import lombok.Setter;
 
 /**
  * 등록과 동시에 v1 버전을 만든다. answerType은 여기서만 정할 수 있다.
+ * categoryId는 필수다(계획 §0-1) - 없거나 비활성 분류를 가리키면 400이다. DB 컬럼은 nullable이라
+ * 이 필수 규칙은 InspectionQuestionLogic이 지킨다.
  */
 @Getter
 @Setter
@@ -22,4 +24,5 @@ public class InspectionQuestionCdo {
 	private String unit;
 	private boolean required;
 	private int sortOrder;
+	private String categoryId;
 }

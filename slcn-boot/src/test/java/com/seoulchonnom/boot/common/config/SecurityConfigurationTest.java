@@ -206,6 +206,19 @@ class SecurityConfigurationTest {
 	}
 
 	/**
+	 * 분류 이동도 하위 경로라 "/inspection-questions/**" 패턴이 잡는다 - 별도 matcher 없이도
+	 * ADMIN 전용이어야 한다.
+	 */
+	@Test
+	void questionCategoryMove_withUserAuthority_shouldReturnForbidden() throws Exception {
+		givenAuthority("USER");
+
+		mockMvc.perform(patch("/inspection-questions/q1/category")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, "access-token"))
+			.andExpect(status().isForbidden());
+	}
+
+	/**
 	 * 권한 문자열은 서로 포함 관계가 없다. 관리자 계정은 USER와 ADMIN을 함께 가져야
 	 * 질문 관리와 나머지 API를 모두 쓸 수 있다.
 	 */
@@ -405,6 +418,11 @@ class SecurityConfigurationTest {
 
 		@PatchMapping("/inspection-questions/{questionId}/status")
 		ResponseEntity<String> toggleQuestion(@PathVariable("questionId") String questionId) {
+			return ResponseEntity.ok(questionId);
+		}
+
+		@PatchMapping("/inspection-questions/{questionId}/category")
+		ResponseEntity<String> moveQuestionCategory(@PathVariable("questionId") String questionId) {
 			return ResponseEntity.ok(questionId);
 		}
 

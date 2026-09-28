@@ -3,20 +3,27 @@ package com.seoulchonnom.aggregate.flow.inspection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.seoulchonnom.aggregate.inspection.store.InspectionQuestionCategoryStore;
 import com.seoulchonnom.aggregate.inspection.store.InspectionQuestionStore;
 import com.seoulchonnom.aggregate.inspection.store.ViewedPropertyStore;
 import com.seoulchonnom.spec.inspection.entity.InspectionQuestion;
+import com.seoulchonnom.spec.inspection.entity.InspectionQuestionCategory;
 import com.seoulchonnom.spec.inspection.entity.ViewedProperty;
 import com.seoulchonnom.spec.inspection.entity.vo.PropertyAnswer;
 import com.seoulchonnom.spec.inspection.entity.vo.QuestionVersion;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionQuestionRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionQuestionVersionRdo;
 import com.seoulchonnom.spec.inspection.mapper.InspectionQuestionMapper;
+import com.seoulchonnom.spec.inspection.util.InspectionQuestionOrdering;
 
 import lombok.RequiredArgsConstructor;
 
@@ -32,6 +39,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class InspectionQuestionQueryFlow {
 	private final InspectionQuestionStore inspectionQuestionStore;
+	private final InspectionQuestionCategoryStore inspectionQuestionCategoryStore;
 	private final ViewedPropertyStore viewedPropertyStore;
 	private final InspectionQuestionMapper inspectionQuestionMapper;
 
@@ -40,9 +48,12 @@ public class InspectionQuestionQueryFlow {
 			? inspectionQuestionStore.findAll()
 			: inspectionQuestionStore.findAllEnabled();
 		Map<String, Integer> counts = withAnswerCount ? countByQuestionId() : Map.of();
+		Map<String, InspectionQuestionCategory> categoriesById = categoryMapFor(questions);
 
 		return questions.stream()
+			.sorted(InspectionQuestionOrdering.questionComparator(categoriesById))
 			.map(question -> inspectionQuestionMapper.toInspectionQuestionRdo(question,
+				categoriesById.get(question.getCategoryId()),
 				withAnswerCount ? counts.getOrDefault(question.getId(), 0) : null))
 			.toList();
 	}
@@ -87,5 +98,14 @@ public class InspectionQuestionQueryFlow {
 				.filter(PropertyAnswer::isAnswered)
 				.forEach(consumer);
 		}
+	}
+
+	private Map<String, InspectionQuestionCategory> categoryMapFor(List<InspectionQuestion> questions) {
+		Set<String> categoryIds = questions.stream()
+			.map(InspectionQuestion::getCategoryId)
+			.filter(Objects::nonNull)
+			.collect(Collectors.toSet());
+		return inspectionQuestionCategoryStore.findAllByIds(categoryIds).stream()
+			.collect(Collectors.toMap(InspectionQuestionCategory::getId, Function.identity()));
 	}
 }

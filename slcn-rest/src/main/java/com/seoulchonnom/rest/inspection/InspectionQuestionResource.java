@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.seoulchonnom.aggregate.flow.inspection.InspectionQuestionQueryFlow;
 import com.seoulchonnom.aggregate.inspection.logic.InspectionQuestionLogic;
 import com.seoulchonnom.spec.inspection.facade.InspectionQuestionFacade;
+import com.seoulchonnom.spec.inspection.facade.sdo.InspectionQuestionCategoryMoveUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionQuestionCdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionQuestionContentUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionQuestionOrderUdo;
@@ -99,5 +100,15 @@ public class InspectionQuestionResource implements InspectionQuestionFacade {
 		@RequestBody List<InspectionQuestionOrderUdo> orders) {
 		inspectionQuestionLogic.modifyInspectionQuestionOrder(orders);
 		return ResponseEntity.noContent().build();
+	}
+
+	@Override
+	@PatchMapping("/{questionId}/category")
+	public ResponseEntity<InspectionQuestionRdo> moveInspectionQuestionCategory(
+		@PathVariable("questionId") String questionId,
+		@RequestBody InspectionQuestionCategoryMoveUdo inspectionQuestionCategoryMoveUdo) {
+		return new ResponseEntity<>(
+			inspectionQuestionLogic.moveInspectionQuestionCategory(questionId, inspectionQuestionCategoryMoveUdo),
+			HttpStatus.OK);
 	}
 }

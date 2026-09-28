@@ -8,6 +8,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import com.seoulchonnom.aggregate.inspection.logic.ViewedPropertyLogic;
+import com.seoulchonnom.aggregate.inspection.store.InspectionQuestionCategoryStore;
 import com.seoulchonnom.aggregate.inspection.store.InspectionQuestionStore;
 import com.seoulchonnom.aggregate.inspection.store.ViewedPropertyStore;
 import com.seoulchonnom.spec.inspection.entity.InspectionQuestion;
@@ -21,9 +22,12 @@ import com.seoulchonnom.spec.inspection.mapper.PropertyAnswerMapper;
 
 class InspectionQuestionQueryFlowTest {
 	private final InspectionQuestionStore inspectionQuestionStore = mock(InspectionQuestionStore.class);
+	private final InspectionQuestionCategoryStore inspectionQuestionCategoryStore =
+		mock(InspectionQuestionCategoryStore.class);
 	private final ViewedPropertyStore viewedPropertyStore = mock(ViewedPropertyStore.class);
 	private final InspectionQuestionQueryFlow inspectionQuestionQueryFlow = new InspectionQuestionQueryFlow(
-		inspectionQuestionStore, viewedPropertyStore, new InspectionQuestionMapper());
+		inspectionQuestionStore, inspectionQuestionCategoryStore, viewedPropertyStore,
+		new InspectionQuestionMapper());
 	private final ViewedPropertyLogic viewedPropertyLogic = new ViewedPropertyLogic(viewedPropertyStore,
 		new PropertyAnswerMapper());
 

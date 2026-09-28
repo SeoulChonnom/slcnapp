@@ -12,6 +12,8 @@ import lombok.Setter;
 /**
  * 질문 마스터 + 현재 버전의 문구를 합쳐 내린다.
  * answerCount는 withAnswerCount=true일 때만 채운다 — 목록 조회가 답변 집계를 항상 끌고 가지 않게 한다.
+ * categoryName, categorySortOrder는 분류가 지정된 경우에만 채운다. categoryId가 null인 과도기
+ * 질문(계획 §0-1)은 둘 다 null이다.
  */
 @Getter
 @Setter
@@ -28,4 +30,7 @@ public class InspectionQuestionRdo {
 	private List<QuestionChoiceSdo> choices = new ArrayList<>();
 	private String unit;
 	private Integer answerCount;
+	private String categoryId;
+	private String categoryName;
+	private Integer categorySortOrder;
 }
