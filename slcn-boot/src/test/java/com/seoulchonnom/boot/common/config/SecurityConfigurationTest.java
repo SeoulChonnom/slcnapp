@@ -230,6 +230,71 @@ class SecurityConfigurationTest {
 			.andExpect(status().isForbidden());
 	}
 
+	/**
+	 * 질문 대분류도 조회까지 ADMIN으로 막으면 매물 문답 화면이 분류별 섹션을 그리지 못한다.
+	 * 읽기는 USER로 열려 있어야 한다.
+	 */
+	@Test
+	void categoryLookup_withUserAuthority_shouldReturnOk() throws Exception {
+		givenAuthority("USER");
+
+		mockMvc.perform(get("/inspection-question-categories")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, "access-token"))
+			.andExpect(status().isOk());
+	}
+
+	@Test
+	void categoryRegister_withUserAuthority_shouldReturnForbidden() throws Exception {
+		givenAuthority("USER");
+
+		mockMvc.perform(post("/inspection-question-categories")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, "access-token"))
+			.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void categoryRename_withUserAuthority_shouldReturnForbidden() throws Exception {
+		givenAuthority("USER");
+
+		mockMvc.perform(put("/inspection-question-categories/c1")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, "access-token"))
+			.andExpect(status().isForbidden());
+	}
+
+	/**
+	 * PUT /inspection-question-categories/order는 하위 경로라 "/inspection-question-categories/**"
+	 * 패턴이 잡는다.
+	 */
+	@Test
+	void categoryReorder_withUserAuthority_shouldReturnForbidden() throws Exception {
+		givenAuthority("USER");
+
+		mockMvc.perform(put("/inspection-question-categories/order")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, "access-token"))
+			.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void categoryStatusToggle_withUserAuthority_shouldReturnForbidden() throws Exception {
+		givenAuthority("USER");
+
+		mockMvc.perform(patch("/inspection-question-categories/c1/status")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, "access-token"))
+			.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void categoryWrite_withAdminAndUserAuthority_shouldReturnOk() throws Exception {
+		givenAuthority("USER", "ADMIN");
+
+		mockMvc.perform(post("/inspection-question-categories")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, "access-token"))
+			.andExpect(status().isOk());
+		mockMvc.perform(patch("/inspection-question-categories/c1/status")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, "access-token"))
+			.andExpect(status().isOk());
+	}
+
 	private void givenAuthority(String... authorities) {
 		Claims claims = mock(Claims.class);
 		Authentication authentication = new UsernamePasswordAuthenticationToken(USER_ID, "",
@@ -341,6 +406,31 @@ class SecurityConfigurationTest {
 		@PatchMapping("/inspection-questions/{questionId}/status")
 		ResponseEntity<String> toggleQuestion(@PathVariable("questionId") String questionId) {
 			return ResponseEntity.ok(questionId);
+		}
+
+		@GetMapping("/inspection-question-categories")
+		ResponseEntity<String> categories() {
+			return ResponseEntity.ok("categories");
+		}
+
+		@PostMapping("/inspection-question-categories")
+		ResponseEntity<String> registerCategory() {
+			return ResponseEntity.ok("registered");
+		}
+
+		@PutMapping("/inspection-question-categories/{categoryId}")
+		ResponseEntity<String> renameCategory(@PathVariable("categoryId") String categoryId) {
+			return ResponseEntity.ok(categoryId);
+		}
+
+		@PutMapping("/inspection-question-categories/order")
+		ResponseEntity<String> reorderCategories() {
+			return ResponseEntity.ok("reordered");
+		}
+
+		@PatchMapping("/inspection-question-categories/{categoryId}/status")
+		ResponseEntity<String> toggleCategory(@PathVariable("categoryId") String categoryId) {
+			return ResponseEntity.ok(categoryId);
 		}
 	}
 }
