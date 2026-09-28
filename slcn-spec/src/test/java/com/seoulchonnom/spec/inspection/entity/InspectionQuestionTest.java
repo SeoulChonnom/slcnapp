@@ -76,4 +76,17 @@ class InspectionQuestionTest {
 		assertThat(question.getVersions()).hasSize(1);
 		assertThat(question.getCurrentVersionNo()).isEqualTo(1);
 	}
+
+	@Test
+	void moveCategory_shouldSetCategoryIdAndSortOrderWithoutBumpingVersion() {
+		InspectionQuestion question = question();
+		question.addVersion("v1", null, null, null);
+
+		question.moveCategory("INSPECTION_QUESTION_CATEGORY-0001", 3);
+
+		assertThat(question.getCategoryId()).isEqualTo("INSPECTION_QUESTION_CATEGORY-0001");
+		assertThat(question.getSortOrder()).isEqualTo(3);
+		assertThat(question.getCurrentVersionNo()).isEqualTo(1);
+		assertThat(question.getVersions()).hasSize(1);
+	}
 }

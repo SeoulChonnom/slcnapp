@@ -16,7 +16,8 @@ public class InspectionQuestionJpoMapper {
 			question.getSortOrder(),
 			question.isEnabled(),
 			question.getVersions() == null ? new ArrayList<>() : new ArrayList<>(question.getVersions()),
-			question.getCurrentVersionNo()
+			question.getCurrentVersionNo(),
+			question.getCategoryId()
 		);
 		jpo.setId(question.getId());
 		jpo.setEntityVersion(question.getEntityVersion());
@@ -33,6 +34,7 @@ public class InspectionQuestionJpoMapper {
 			.enabled(jpo.isEnabled())
 			.versions(jpo.getVersions() == null ? new ArrayList<>() : new ArrayList<>(jpo.getVersions()))
 			.currentVersionNo(jpo.getCurrentVersionNo())
+			.categoryId(jpo.getCategoryId())
 			.build();
 		question.setId(jpo.getId());
 		question.setEntityVersion(jpo.getEntityVersion());

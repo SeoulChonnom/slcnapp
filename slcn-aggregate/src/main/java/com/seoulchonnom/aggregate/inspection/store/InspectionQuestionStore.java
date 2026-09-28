@@ -1,6 +1,7 @@
 package com.seoulchonnom.aggregate.inspection.store;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -84,5 +85,34 @@ public class InspectionQuestionStore {
 
 	private List<InspectionQuestion> toDomains(List<InspectionQuestionJpo> jpos) {
 		return jpos.stream().map(inspectionQuestionJpoMapper::toDomain).toList();
+	}
+
+	/**
+	 * 분류 비활성화 검증용(계획 §0-3, §4 aggregate-4).
+	 */
+	public long countEnabledByCategoryId(String categoryId) {
+		return inspectionQuestionRepository.countByCategoryIdAndEnabledTrue(categoryId);
+	}
+
+	/**
+	 * 분류 안에서의 채번(질문 등록/이동)용.
+	 */
+	public int findMaxSortOrderInCategory(String categoryId) {
+		return inspectionQuestionRepository.findMaxSortOrderByCategoryId(categoryId);
+	}
+
+	/**
+	 * 분류별 활성 질문 수. categoryId가 null인 질문(미분류 과도기)은 버린다 — 호출자는
+	 * getOrDefault(categoryId, 0)으로 특정 분류의 카운트만 조회하면 충분하다.
+	 */
+	public Map<String, Integer> countEnabledGroupByCategoryId() {
+		Map<String, Integer> counts = new HashMap<>();
+		for (Object[] row : inspectionQuestionRepository.countEnabledGroupByCategoryId()) {
+			if (row[0] == null) {
+				continue;
+			}
+			counts.put((String)row[0], ((Number)row[1]).intValue());
+		}
+		return counts;
 	}
 }

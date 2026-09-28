@@ -33,6 +33,11 @@ public class InspectionQuestion extends DomainEntity {
 	@Builder.Default
 	private List<QuestionVersion> versions = new ArrayList<>();
 	private int currentVersionNo;
+	/**
+	 * 과도기(계획 §0-1)에는 null일 수 있다 — DB 컬럼은 nullable로 두고 필수 여부는 등록/이동 시
+	 * 도메인 검증(Logic)이 지킨다. null인 질문은 조회·스냅샷에서 "미분류"로 취급하고 맨 뒤에 둔다.
+	 */
+	private String categoryId;
 
 	public InspectionQuestion(String id, QuestionAnswerType answerType, boolean required, int sortOrder) {
 		super(id);
@@ -87,6 +92,17 @@ public class InspectionQuestion extends DomainEntity {
 
 	public void changeEnabled(boolean enabled) {
 		this.enabled = enabled;
+		this.modifiedTime = System.currentTimeMillis();
+	}
+
+	/**
+	 * 분류 이동은 버전을 올리지 않는다(계획 §1) — required, sortOrder와 같은 수집 정책 성격이다.
+	 * 이동하면 항상 대상 분류의 맨 뒤에 배치한다. sortOrder는 호출자(Logic)가 대상 분류 안의
+	 * max(sortOrder)+1로 채번해 넘긴다.
+	 */
+	public void moveCategory(String categoryId, int sortOrder) {
+		this.categoryId = categoryId;
+		this.sortOrder = sortOrder;
 		this.modifiedTime = System.currentTimeMillis();
 	}
 }

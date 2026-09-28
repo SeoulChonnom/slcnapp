@@ -22,7 +22,8 @@ import lombok.Setter;
 
 @Entity
 @Table(name = "inspection_question", schema = "slcn", indexes = {
-	@Index(name = "idx_inspection_question_enabled_sort", columnList = "enabled,sort_order")
+	@Index(name = "idx_inspection_question_enabled_sort", columnList = "enabled,sort_order"),
+	@Index(name = "idx_inspection_question_category_enabled", columnList = "category_id,enabled")
 })
 @Getter
 @Setter
@@ -38,4 +39,9 @@ public class InspectionQuestionJpo extends DomainEntityJpo {
 	@Column(columnDefinition = "TEXT")
 	private List<QuestionVersion> versions = new ArrayList<>();
 	private int currentVersionNo;
+	/**
+	 * 과도기(계획 §0-1)에는 null 허용. ddl-auto=update로는 행이 있는 테이블에 NOT NULL 컬럼을
+	 * 추가할 수 없어 DB 제약이 아니라 도메인 검증(Logic)이 필수 여부를 지킨다.
+	 */
+	private String categoryId;
 }

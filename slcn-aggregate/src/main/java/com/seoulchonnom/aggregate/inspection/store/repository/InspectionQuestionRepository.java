@@ -4,6 +4,8 @@ import java.util.Collection;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.seoulchonnom.aggregate.inspection.store.jpo.InspectionQuestionJpo;
@@ -19,4 +21,22 @@ public interface InspectionQuestionRepository extends JpaRepository<InspectionQu
 	List<InspectionQuestionJpo> findAllByEnabledTrueOrderBySortOrderAscIdAsc();
 
 	List<InspectionQuestionJpo> findAllByIdIn(Collection<String> ids);
+
+	/**
+	 * 분류 비활성화 검증용(계획 §0-3). 활성 질문이 하나라도 있으면 그 분류는 비활성화할 수 없다.
+	 */
+	long countByCategoryIdAndEnabledTrue(String categoryId);
+
+	/**
+	 * 분류 안에서의 채번(질문 등록/이동)용. 분류에 속한 질문이 없으면 0이다.
+	 */
+	@Query("SELECT COALESCE(MAX(q.sortOrder), 0) FROM InspectionQuestionJpo q WHERE q.categoryId = :categoryId")
+	int findMaxSortOrderByCategoryId(@Param("categoryId") String categoryId);
+
+	/**
+	 * 분류 목록 응답의 enabledQuestionCount용. categoryId가 null(미분류 과도기 질문)인 행은
+	 * 그룹 키가 null로 잡히고, Store가 그 그룹을 버린다.
+	 */
+	@Query("SELECT q.categoryId, COUNT(q) FROM InspectionQuestionJpo q WHERE q.enabled = true GROUP BY q.categoryId")
+	List<Object[]> countEnabledGroupByCategoryId();
 }
