@@ -53,6 +53,13 @@ public class FileBoxStore {
 			.toList();
 	}
 
+	/**
+	 * RAW 첨부가 어떤 FileBox 항목에라도 연결되어 있는지 본다. 연결된 RAW를 지우면 여행의 다운로드 버튼이 깨진다.
+	 */
+	public boolean isRawFileLinked(String rawFileAssetId) {
+		return fileBoxRepository.existsByItemRawFileAssetId(rawFileAssetId);
+	}
+
 	public FileBox createForOwner(FileBoxOwnerType ownerType, String ownerId) {
 		return findOptionalByOwner(ownerType, ownerId)
 			.orElseGet(() -> save(FileBox.builder()

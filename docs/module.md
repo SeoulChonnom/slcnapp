@@ -414,6 +414,11 @@ Logic
         └── Doc
 ```
 
+삭제 정책은 도메인별로 다를 수 있습니다. 예: 복구 API가 없는 `Schedule`은 hard
+delete 단일 경로를 쓰고, `Travel`은 `hidden` 플래그 기반 soft delete를 씁니다 —
+같은 프로젝트 안에서도 도메인의 복구 요구에 따라 삭제 정책이 갈릴 수 있다는
+의도된 분기입니다.
+
 ### JPO vs Entity 분리
 
 도메인 모델과 영속성 모델은 분리합니다.

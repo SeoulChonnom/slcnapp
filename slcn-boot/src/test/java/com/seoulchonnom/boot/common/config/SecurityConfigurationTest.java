@@ -1,5 +1,6 @@
 package com.seoulchonnom.boot.common.config;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -12,9 +13,13 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.CacheControl;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -24,6 +29,7 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -146,6 +152,30 @@ class SecurityConfigurationTest {
 		verifyNoInteractions(refreshSessionStore);
 	}
 
+	@Test
+	void downloadUrl_withSessionCookieOnly_shouldReturnUnauthorized() throws Exception {
+		givenLiveSession();
+
+		mockMvc.perform(get(IMAGE_PATH + "/download-url")
+				.cookie(sessionCookie())
+				.header("Sec-Fetch-Site", "same-site")
+				.header("Sec-Fetch-Dest", "empty"))
+			.andExpect(status().isUnauthorized());
+		verifyNoInteractions(refreshSessionStore);
+	}
+
+	/**
+	 * 응답이 곧 만료되는 서명 URL이다. 이미지처럼 브라우저 캐시에 남으면 만료된 URL을 다시 쓰게 된다.
+	 */
+	@Test
+	void downloadUrl_withAccessToken_shouldKeepNoStoreCachePolicy() throws Exception {
+		givenValidAccessToken();
+
+		mockMvc.perform(get(IMAGE_PATH + "/download-url").header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, "access-token"))
+			.andExpect(status().isOk())
+			.andExpect(header().string("Cache-Control", containsString("no-store")));
+	}
+
 	/**
 	 * 쿠키 인증이 이미지 조회 밖으로 새면 액세스 토큰이 만료된 요청이 403이 되어
 	 * 프론트가 재발급을 시도하지 못한다. 반드시 401이어야 한다.
@@ -160,6 +190,132 @@ class SecurityConfigurationTest {
 				.header("Sec-Fetch-Dest", "empty"))
 			.andExpect(status().isUnauthorized());
 		verifyNoInteractions(refreshSessionStore);
+	}
+
+	@Test
+	void calendarFeed_withValidTokenWithoutJwt_shouldReachResource() throws Exception {
+		mockMvc.perform(get("/schedule/feeds/valid-token/calendar.ics"))
+			.andExpect(status().isOk());
+	}
+
+	@Test
+	void calendarFeed_withApiContextPath_shouldReachResource() throws Exception {
+		mockMvc.perform(get("/api/schedule/feeds/valid-token/calendar.ics").contextPath("/api"))
+			.andExpect(status().isOk());
+	}
+
+	@Test
+	void calendarFeed_withResourceCachePolicy_shouldKeepPrivateNoCacheUnderSecurityChain() throws Exception {
+		mockMvc.perform(get("/schedule/feeds/valid-token/calendar.ics"))
+			.andExpect(status().isOk())
+			.andExpect(header().string("Cache-Control", "no-cache, private"));
+	}
+
+	@Test
+	void feedManagementCreate_withoutJwt_shouldReturnUnauthorized() throws Exception {
+		mockMvc.perform(post("/schedule/feeds"))
+			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void feedManagementList_withoutJwt_shouldReturnUnauthorized() throws Exception {
+		mockMvc.perform(get("/schedule/feeds"))
+			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void feedManagementDelete_withoutJwt_shouldReturnUnauthorized() throws Exception {
+		mockMvc.perform(delete("/schedule/feeds/feed-id"))
+			.andExpect(status().isUnauthorized());
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"USER", "CLIENT"})
+	void feedManagement_withNonAdminJwt_shouldReturnForbidden(String authority) throws Exception {
+		String token = authority.toLowerCase() + "-token";
+		givenValidAccessToken(token, authority);
+
+		mockMvc.perform(post("/schedule/feeds")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, token))
+			.andExpect(status().isForbidden());
+
+		mockMvc.perform(get("/schedule/feeds")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, token))
+			.andExpect(status().isForbidden());
+
+		mockMvc.perform(delete("/schedule/feeds/feed-id")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, token))
+			.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void feedManagement_withAdminJwt_shouldReachResource() throws Exception {
+		givenValidAccessToken("admin-token", "ADMIN");
+
+		mockMvc.perform(post("/schedule/feeds")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, "admin-token"))
+			.andExpect(status().isOk());
+		mockMvc.perform(get("/schedule/feeds")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, "admin-token"))
+			.andExpect(status().isOk());
+		mockMvc.perform(delete("/schedule/feeds/feed-id")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, "admin-token"))
+			.andExpect(status().isNoContent());
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"USER", "CLIENT"})
+	void invalidCalendarFeedToken_withValidJwt_shouldReturnNotFound(String authority) throws Exception {
+		String token = authority.toLowerCase() + "-token";
+		givenValidAccessToken(token, authority);
+
+		mockMvc.perform(get("/schedule/feeds/invalid-token/calendar.ics")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, token))
+			.andExpect(status().isNotFound());
+	}
+
+	@Test
+	void calendarFeed_wrongMethodOrNearMiss_withoutJwt_shouldRemainProtected() throws Exception {
+		mockMvc.perform(post("/schedule/feeds/valid-token/calendar.ics"))
+			.andExpect(status().isUnauthorized());
+		mockMvc.perform(put("/schedule/feeds/valid-token/calendar.ics"))
+			.andExpect(status().isUnauthorized());
+		mockMvc.perform(delete("/schedule/feeds/valid-token/calendar.ics"))
+			.andExpect(status().isUnauthorized());
+		mockMvc.perform(get("/schedule/feeds/valid-token/not-calendar.ics"))
+			.andExpect(status().isUnauthorized());
+		mockMvc.perform(get("/schedule/feeds/valid-token/calendar.ics/extra"))
+			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void unsupportedFeedManagementPath_withoutJwt_shouldRemainProtected() throws Exception {
+		mockMvc.perform(get("/schedule/feeds/feed-id/extra"))
+			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void existingScheduleApi_withoutJwt_shouldRemainProtected() throws Exception {
+		mockMvc.perform(get("/schedule"))
+			.andExpect(status().isUnauthorized());
+	}
+
+	private void givenLiveSession() {
+		when(refreshSessionStore.findBySessionId(SESSION_ID)).thenReturn(Optional.of(new RefreshSession(
+			SESSION_ID, USER_ID, "hash", System.currentTimeMillis(), System.currentTimeMillis() + 60_000)));
+	}
+
+	private void givenValidAccessToken() {
+		givenValidAccessToken("access-token", "USER");
+	}
+
+	private void givenValidAccessToken(String token, String authority) {
+		Claims claims = mock(Claims.class);
+		Authentication authentication = new UsernamePasswordAuthenticationToken(
+			USER_ID, "", List.of(new SimpleGrantedAuthority(authority)));
+		when(jwtTokenProvider.resolveToken(any())).thenReturn(token);
+		when(jwtTokenProvider.validateAccessToken(token)).thenReturn(TokenValidationResult.valid(claims));
+		when(jwtTokenProvider.getAuthentication(claims)).thenReturn(authentication);
 	}
 
 	/**
@@ -317,20 +473,6 @@ class SecurityConfigurationTest {
 		when(jwtTokenProvider.getAuthentication(claims)).thenReturn(authentication);
 	}
 
-	private void givenLiveSession() {
-		when(refreshSessionStore.findBySessionId(SESSION_ID)).thenReturn(Optional.of(new RefreshSession(
-			SESSION_ID, USER_ID, "hash", System.currentTimeMillis(), System.currentTimeMillis() + 60_000)));
-	}
-
-	private void givenValidAccessToken() {
-		Claims claims = mock(Claims.class);
-		Authentication authentication = new UsernamePasswordAuthenticationToken(
-			USER_ID, "", List.of(new SimpleGrantedAuthority("USER")));
-		when(jwtTokenProvider.resolveToken(any())).thenReturn("access-token");
-		when(jwtTokenProvider.validateAccessToken("access-token")).thenReturn(TokenValidationResult.valid(claims));
-		when(jwtTokenProvider.getAuthentication(claims)).thenReturn(authentication);
-	}
-
 	private Cookie sessionCookie() {
 		return new Cookie(AuthConstant.SESSION_ID_COOKIE_NAME, SESSION_ID);
 	}
@@ -377,6 +519,11 @@ class SecurityConfigurationTest {
 		StubAssetController stubAssetController() {
 			return new StubAssetController();
 		}
+
+		@Bean
+		StubScheduleFeedController stubScheduleFeedController() {
+			return new StubScheduleFeedController();
+		}
 	}
 
 	@RestController
@@ -388,6 +535,11 @@ class SecurityConfigurationTest {
 
 		@GetMapping("/assets/files/{fileId}/download")
 		ResponseEntity<String> download(@PathVariable("fileId") String fileId) {
+			return ResponseEntity.ok(fileId);
+		}
+
+		@GetMapping("/assets/files/{fileId}/download-url")
+		ResponseEntity<String> downloadUrl(@PathVariable("fileId") String fileId) {
 			return ResponseEntity.ok(fileId);
 		}
 
@@ -449,6 +601,39 @@ class SecurityConfigurationTest {
 		@PatchMapping("/inspection-question-categories/{categoryId}/status")
 		ResponseEntity<String> toggleCategory(@PathVariable("categoryId") String categoryId) {
 			return ResponseEntity.ok(categoryId);
+		}
+	}
+
+	@RestController
+	static class StubScheduleFeedController {
+		@PostMapping("/schedule/feeds")
+		ResponseEntity<String> createFeed() {
+			return ResponseEntity.ok("created");
+		}
+
+		@GetMapping("/schedule/feeds")
+		ResponseEntity<String> getFeeds() {
+			return ResponseEntity.ok("feeds");
+		}
+
+		@DeleteMapping("/schedule/feeds/{feedId}")
+		ResponseEntity<Void> deleteFeed(@PathVariable("feedId") String feedId) {
+			return ResponseEntity.noContent().build();
+		}
+
+		@GetMapping(value = "/schedule/feeds/{feedToken}/calendar.ics", produces = "text/calendar; charset=UTF-8")
+		ResponseEntity<String> getCalendar(@PathVariable("feedToken") String feedToken) {
+			if (!"valid-token".equals(feedToken)) {
+				return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+			}
+			return ResponseEntity.ok()
+				.cacheControl(CacheControl.noCache().cachePrivate())
+				.body("calendar");
+		}
+
+		@GetMapping("/schedule")
+		ResponseEntity<String> getSchedule() {
+			return ResponseEntity.ok("schedule");
 		}
 	}
 }

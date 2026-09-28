@@ -26,6 +26,7 @@
 - Do not add Google/Apple SDKs, OAuth, CalDAV, webhook, or provider sync state.
 - Token plaintext is returned only at creation and never persisted, logged, listed, placed in ETag, or echoed in errors.
 - Invalid and deleted feed tokens return 404.
+- Feed management APIs require ADMIN authority; unauthenticated requests return 401 and authenticated non-ADMIN requests return 403.
 - Existing JWT Schedule/Calendar APIs remain protected and unchanged.
 - Use tabs and existing repository conventions.
 
@@ -301,7 +302,7 @@ git commit -m "feat: Schedule 피드 토큰 발급 및 검증 추가"
 - `POST /schedule/feeds` with `ScheduleFeedCdo{name}` returns 201 and `ScheduleFeedCreatedRdo{id,name,feedUrl,registeredTime}`.
 - `GET /schedule/feeds` returns `List<ScheduleFeedRdo{id,name,registeredTime}>`.
 - `DELETE /schedule/feeds/{feedId}` returns 204.
-- These management routes retain the default USER JWT requirement.
+- These management routes require ADMIN authority; USER-only and CLIENT-only JWTs receive 403.
 
 - [ ] **Step 1: Write failing Resource delegation tests**
 
@@ -696,7 +697,7 @@ git commit -m "feat: Schedule ICS 구독 API 추가"
 
 ---
 
-### Task 7: Open Only the Tokenized GET Route in Spring Security
+### Task 7: Open Only the Tokenized GET Route and Restrict Management to ADMIN
 
 **Files:**
 - Modify: `slcn-boot/src/main/java/com/seoulchonnom/boot/common/config/SecurityConfiguration.java`
@@ -704,7 +705,7 @@ git commit -m "feat: Schedule ICS 구독 API 추가"
 
 **Interfaces:**
 - Permit unauthenticated GET matching `/schedule/feeds/*/calendar.ics` inside the `/api` context.
-- Do not permit POST/GET collection/DELETE management routes.
+- Require ADMIN authority for POST/GET collection/DELETE management routes.
 - DB token validation remains mandatory after Security permits entry.
 
 - [ ] **Step 1: Write failing security tests**
@@ -716,6 +717,10 @@ GET    /schedule/feeds/valid-token/calendar.ics  without JWT -> reaches Resource
 POST   /schedule/feeds                           without JWT -> 401
 GET    /schedule/feeds                           without JWT -> 401
 DELETE /schedule/feeds/feed-id                   without JWT -> 401
+POST   /schedule/feeds                           with USER or CLIENT JWT -> 403
+GET    /schedule/feeds                           with USER or CLIENT JWT -> 403
+DELETE /schedule/feeds/feed-id                   with USER or CLIENT JWT -> 403
+POST/GET/DELETE management routes                with ADMIN JWT -> reaches Resource
 GET    /schedule                                 without JWT -> 401
 ```
 
@@ -735,6 +740,7 @@ Place the rule before the default `anyRequest().hasAuthority("USER")`:
 
 ```java
 .requestMatchers(HttpMethod.GET, "/schedule/feeds/*/calendar.ics").permitAll()
+.requestMatchers("/schedule/feeds", "/schedule/feeds/*").hasAuthority(ADMIN_AUTHORITY)
 ```
 
 Do not permit `/schedule/feeds/**` for every method. The existing JWT filter already lets requests without a token continue to the authorization layer, so leave `JwtAuthenticationFilter` unchanged.
@@ -894,7 +900,7 @@ git commit -m "test: Apple Google ICS 호환성 결과 기록"
 
 - `./gradlew test` reports BUILD SUCCESSFUL.
 - Valid secret URLs work without SLCN JWT; invalid/deleted URLs return 404.
-- Feed management routes still require USER JWT.
+- Feed management routes require ADMIN authority; unauthenticated requests return 401 and USER/CLIENT-only requests return 403.
 - DB and API inspection show no persisted or listed plaintext token.
 - ICS round-trip tests cover Korean text, escaping, timed, all-day, recurrence, modification, hide, and delete.
 - Calendar name appears in SUMMARY prefix and CATEGORIES, not DESCRIPTION.

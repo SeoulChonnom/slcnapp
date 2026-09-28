@@ -29,9 +29,6 @@ public interface ScheduleFacade {
 	@Operation(summary = "일정 수정", description = "일정 수정 API")
 	ResponseEntity<ScheduleRdo> modifySchedule(ScheduleUdo scheduleUdo);
 
-	@Operation(summary = "일정 삭제(숨김)", description = "일정 목록 삭제 API")
-	ResponseEntity<Void> hideSchedule(String scheduleId);
-
-	@Operation(summary = "일정 완전 삭제", description = "일정 데이터 삭제 API")
+	@Operation(summary = "일정 삭제", description = "일정 삭제 API")
 	ResponseEntity<Void> deleteSchedule(String scheduleId);
 }

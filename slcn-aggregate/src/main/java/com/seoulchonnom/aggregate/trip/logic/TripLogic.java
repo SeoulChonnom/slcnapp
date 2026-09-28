@@ -142,6 +142,8 @@ public class TripLogic {
 			&& StringUtils.hasText(item.getFileAssetId())
 			&& FileBoxTargetType.TRIP == item.getTargetType()
 			&& item.getTargetId() == null
+			// RAW 첨부는 여행 앨범 전용이다. 로고·지도에 붙어 저장되지 않게 막는다.
+			&& !StringUtils.hasText(item.getRawFileAssetId())
 			&& (FileBoxItemRole.LOGO == item.getRole()
 			|| FileBoxItemRole.FIRST_MAP == item.getRole()
 			|| FileBoxItemRole.SECOND_MAP == item.getRole());

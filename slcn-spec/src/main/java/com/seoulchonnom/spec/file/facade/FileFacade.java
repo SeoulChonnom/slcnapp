@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.seoulchonnom.spec.file.facade.sdo.DownloadUrlRdo;
 import com.seoulchonnom.spec.file.facade.sdo.FileAssetRdo;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -59,6 +60,13 @@ public interface FileFacade {
 		@PathVariable("fileId") String fileId,
 		@RequestParam(value = "variant", required = false) String variant,
 		@RequestHeader(value = HttpHeaders.IF_NONE_MATCH, required = false) String ifNoneMatch);
+
+	@Operation(summary = "다운로드 URL 발급 API",
+		description = "원본(RAW 첨부 포함)을 첨부 파일로 받을 서명 URL을 발급합니다. 브라우저는 location.href로 이동합니다. "
+			+ "쿠키 인증은 허용하지 않으며, 로컬 저장소 설정에서는 501입니다.")
+	@ApiResponse(responseCode = "200", description = "발급 성공")
+	@ApiResponse(responseCode = "501", description = "서명 URL을 지원하지 않는 저장소 설정")
+	ResponseEntity<DownloadUrlRdo> getDownloadUrl(@PathVariable("fileId") String fileId);
 
 	@Operation(summary = "파일 조회 API", description = "파일 경로를 통해 파일을 조회합니다.")
 	@ApiResponse(responseCode = "200", description = "파일 조회 성공")

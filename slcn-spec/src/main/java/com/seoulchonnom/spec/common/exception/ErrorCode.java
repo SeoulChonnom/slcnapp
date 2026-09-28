@@ -5,6 +5,7 @@ import static com.seoulchonnom.spec.client.constant.ClientConstant.*;
 import static com.seoulchonnom.spec.file.constant.FileConstant.*;
 import static com.seoulchonnom.spec.inspection.constant.InspectionConstant.*;
 import static com.seoulchonnom.spec.schedule.constant.ScheduleConstant.*;
+import static com.seoulchonnom.spec.schedule.feed.constant.ScheduleFeedConstant.*;
 import static com.seoulchonnom.spec.travel.constant.TravelConstant.*;
 import static com.seoulchonnom.spec.trip.constant.TripConstant.*;
 import static com.seoulchonnom.spec.user.constant.UserConstant.*;
@@ -33,8 +34,11 @@ public enum ErrorCode {
 	INVALID_CLIENT(HttpStatus.BAD_REQUEST, INVALID_CLIENT_ERROR_MESSAGE),
 
 	INVALID_SCHEDULE_DATE(HttpStatus.BAD_REQUEST, INVALID_DATE_ERROR_MESSAGE),
+	INVALID_SCHEDULE_RECURRENCE(HttpStatus.BAD_REQUEST, INVALID_RECURRENCE_RULE_ERROR_MESSAGE),
 	SCHEDULE_NOT_FOUND(HttpStatus.BAD_REQUEST, SCHEDULE_NOT_FOND_ERROR_MESSAGE),
+	SCHEDULE_FEED_NOT_FOUND(HttpStatus.NOT_FOUND, SCHEDULE_FEED_NOT_FOUND_ERROR_MESSAGE),
 	CALENDAR_NOT_FOUND(HttpStatus.BAD_REQUEST, CALENDAR_NOT_FOUND_ERROR_MESSAGE),
+	CALENDAR_SCHEDULE_CONFLICT(HttpStatus.CONFLICT, CALENDAR_SCHEDULE_CONFLICT_ERROR_MESSAGE),
 	TRIP_NOT_FOUND(HttpStatus.BAD_REQUEST, TRIP_NOT_FOUND_ERROR_MESSAGE),
 	TRAVEL_NOT_FOUND(HttpStatus.BAD_REQUEST, TRAVEL_NOT_FOUND_ERROR_MESSAGE),
 	TRAVEL_DAY_NOT_FOUND(HttpStatus.BAD_REQUEST, TRAVEL_DAY_NOT_FOUND_ERROR_MESSAGE),
@@ -48,6 +52,9 @@ public enum ErrorCode {
 	FILE_EXT_INVALID(HttpStatus.BAD_REQUEST, FILE_EXT_ERROR_MESSAGE),
 	FILE_PATH_INVALID(HttpStatus.BAD_REQUEST, FILE_PATH_INVALID_ERROR_MESSAGE),
 	FILE_ASSET_NOT_FOUND(HttpStatus.BAD_REQUEST, "해당 파일 정보가 없습니다."),
+	FILE_ASSET_RAW_NOT_VIEWABLE(HttpStatus.NOT_FOUND, FILE_ASSET_RAW_NOT_VIEWABLE_ERROR_MESSAGE),
+	RAW_UPLOAD_IN_USE(HttpStatus.CONFLICT, RAW_UPLOAD_IN_USE_ERROR_MESSAGE),
+	PRESIGNED_URL_NOT_SUPPORTED(HttpStatus.NOT_IMPLEMENTED, PRESIGNED_URL_NOT_SUPPORTED_ERROR_MESSAGE),
 
 	INSPECTION_AREA_NOT_FOUND(HttpStatus.BAD_REQUEST, INSPECTION_AREA_NOT_FOUND_ERROR_MESSAGE),
 	INSPECTION_AREA_IN_USE(HttpStatus.CONFLICT, INSPECTION_AREA_IN_USE_ERROR_MESSAGE),

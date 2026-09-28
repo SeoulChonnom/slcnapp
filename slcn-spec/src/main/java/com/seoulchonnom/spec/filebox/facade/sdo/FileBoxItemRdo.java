@@ -16,10 +16,15 @@ import lombok.Setter;
 public class FileBoxItemRdo {
 	private String id;
 	private String fileAssetId;
+	private String rawFileAssetId;
 	private FileBoxTargetType targetType;
 	private String targetId;
 	private FileBoxItemRole role;
 	private String caption;
 	private int sortOrder;
 	private FileAssetRdo file;
+	/**
+	 * 다운로드 버튼용 RAW 첨부 정보(originalFilename, size). RAW가 없거나 찾을 수 없으면 null이다.
+	 */
+	private FileAssetRdo rawFile;
 }

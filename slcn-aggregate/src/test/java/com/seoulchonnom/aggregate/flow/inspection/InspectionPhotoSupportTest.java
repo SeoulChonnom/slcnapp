@@ -104,6 +104,18 @@ class InspectionPhotoSupportTest {
 	}
 
 	@Test
+	void syncVisitPhotos_shouldRejectRawAttachment() {
+		existing();
+		inspectionAsset();
+		FileBoxItemUdo withRaw = udo(null, "file-9", FileBoxItemRole.GALLERY, null);
+		withRaw.setRawFileAssetId("raw-1");
+
+		assertThatThrownBy(() -> inspectionPhotoSupport.syncVisitPhotos(VISIT_ID, List.of(withRaw)))
+			.isInstanceOf(InvalidInspectionFileException.class)
+			.hasMessage("임장 사진에는 RAW 파일을 첨부할 수 없습니다.");
+	}
+
+	@Test
 	void syncVisitPhotos_shouldSetTargetFromPathNotFromRequest() {
 		existing();
 		inspectionAsset();

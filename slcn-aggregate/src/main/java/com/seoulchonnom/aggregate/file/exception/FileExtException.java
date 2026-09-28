@@ -7,4 +7,8 @@ public class FileExtException extends BadRequestException {
 	public FileExtException() {
 		super(ErrorCode.FILE_EXT_INVALID);
 	}
+
+	public FileExtException(String message) {
+		super(ErrorCode.FILE_EXT_INVALID, message);
+	}
 }

@@ -23,6 +23,9 @@ public class FileAssetDocMapper {
 			fileAsset.getWidth(),
 			fileAsset.getHeight(),
 			new ArrayList<>(fileAsset.getVariants()),
+			fileAsset.getKind(),
+			fileAsset.getStatus(),
+			fileAsset.getUploadId(),
 			fileAsset.getRegisteredTime(),
 			fileAsset.getModifiedTime()
 		);
@@ -39,6 +42,9 @@ public class FileAssetDocMapper {
 			.width(doc.getWidth())
 			.height(doc.getHeight())
 			.variants(variantsOf(doc))
+			.kind(doc.getKind())
+			.status(doc.getStatus())
+			.uploadId(doc.getUploadId())
 			.build();
 		fileAsset.setId(doc.getId());
 		fileAsset.setRegisteredTime(doc.getRegisteredTime());

@@ -7,6 +7,8 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import com.seoulchonnom.spec.file.entity.vo.FileKind;
+import com.seoulchonnom.spec.file.entity.vo.FileStatus;
 import com.seoulchonnom.spec.file.entity.vo.FileType;
 import com.seoulchonnom.spec.file.entity.vo.FileVariant;
 
@@ -34,6 +36,12 @@ public class FileAssetDoc {
 	private int width;
 	private int height;
 	private List<FileVariant> variants = new ArrayList<>();
+	/**
+	 * 이 필드가 생기기 전 문서에는 값이 없다. 도메인 getter가 IMAGE/READY로 읽는다.
+	 */
+	private FileKind kind;
+	private FileStatus status;
+	private String uploadId;
 	private long registeredTime;
 	private long modifiedTime;
 }
