@@ -75,6 +75,10 @@ slcn:
       # 기존 로컬 파일을 오브젝트 스토리지로 옮긴다. 배포 1회만 켜고 다시 내린다.
       enabled: "${SLCN_STORAGE_MIGRATION_ENABLED:false}"
       batch-size: "${SLCN_STORAGE_MIGRATION_BATCH_SIZE:100}"
+  inspection:
+    category-backfill:
+      # 기존 매물 문답 스냅샷에 질문 대분류를 채운다(계획 §5). 배포 1회만 켜고 다시 내린다.
+      enabled: "${SLCN_INSPECTION_CATEGORY_BACKFILL_ENABLED:false}"
 
 cookie:
   expire:

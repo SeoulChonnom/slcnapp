@@ -67,4 +67,15 @@ class ViewedPropertyStoreTest {
 		verify(viewedPropertyRepository).saveAllAndFlush(anyList());
 		verify(viewedPropertyRepository, never()).saveAll(anyList());
 	}
+
+	@Test
+	void findAllIds_shouldDelegateToRepository() {
+		// 백필(계획 §5) 전용 조회. answers를 읽지 않는 id 목록만 그대로 전달한다.
+		when(viewedPropertyRepository.findAllIds()).thenReturn(List.of("prop-1", "prop-2"));
+
+		List<String> ids = viewedPropertyStore.findAllIds();
+
+		assertThat(ids).containsExactly("prop-1", "prop-2");
+		verify(viewedPropertyRepository).findAllIds();
+	}
 }

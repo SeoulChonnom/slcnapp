@@ -24,6 +24,13 @@ public interface ViewedPropertyRepository extends JpaRepository<ViewedPropertyJp
 	List<ViewedPropertyJpo> findAllByIdIn(Collection<String> ids);
 
 	/**
+	 * 백필 전용(계획 §5). answers TEXT 컬럼을 읽지 않고 id만 뽑아, 매물을 한 건씩 별도
+	 * 트랜잭션으로 처리하기 전에 대상 id 목록만 먼저 확보한다.
+	 */
+	@Query("select p.id from ViewedPropertyJpo p order by p.id")
+	List<String> findAllIds();
+
+	/**
 	 * answers를 읽지 않는 projection 조회.
 	 */
 	List<ViewedPropertySummaryPdo> findAllByInspectionVisitIdIn(Collection<String> inspectionVisitIds);
