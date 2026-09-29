@@ -15,6 +15,8 @@ import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitStatusUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyOrderUdo;
 
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+
 public interface InspectionVisitFacade {
 	/**
 	 * visitedAt 내림차순, 동점은 id 오름차순. 모든 필터(areaId/status/revisitIntent/tag/from/to)는
@@ -38,15 +40,18 @@ public interface InspectionVisitFacade {
 	/**
 	 * 요청에 빠진 매물은 기존 순서를 유지한다. 상태 전이를 유발하지 않으므로 COMPLETED 임장에서도 허용한다.
 	 */
+	@ApiResponse(responseCode = "204", description = "성공. 본문 없음")
 	ResponseEntity<Void> modifyViewedPropertyOrder(String visitId, List<ViewedPropertyOrderUdo> orders);
 
 	/**
 	 * 임장 사진과 매물 사진을 함께 처리한다. itemId가 FileBox 문서 안에서 유일하다.
 	 */
+	@ApiResponse(responseCode = "204", description = "성공. 본문 없음")
 	ResponseEntity<Void> modifyInspectionImageOrder(String visitId, List<FileBoxItemOrderUdo> orders);
 
 	/**
 	 * 하위 매물/문답/태그 연결을 먼저 지우고 RDB 커밋에 성공한 뒤에 FileBox를 지운다.
 	 */
+	@ApiResponse(responseCode = "204", description = "성공. 본문 없음")
 	ResponseEntity<Void> deleteInspectionVisit(String visitId);
 }

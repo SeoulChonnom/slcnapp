@@ -13,6 +13,8 @@ import com.seoulchonnom.spec.inspection.facade.sdo.InspectionQuestionRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionQuestionStatusUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionQuestionVersionRdo;
 
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+
 /**
  * 쓰기만 ADMIN이고 조회는 USER로 남긴다. 조회까지 막으면 일반 사용자가
  * 매물 생성 시 활성 질문 목록을 읽지 못해 문답을 작성할 수 없다.
@@ -41,6 +43,7 @@ public interface InspectionQuestionFacade {
 	ResponseEntity<InspectionQuestionRdo> changeInspectionQuestionStatus(String questionId,
 		InspectionQuestionStatusUdo inspectionQuestionStatusUdo);
 
+	@ApiResponse(responseCode = "204", description = "성공. 본문 없음")
 	ResponseEntity<Void> modifyInspectionQuestionOrder(List<InspectionQuestionOrderUdo> orders);
 
 	/**

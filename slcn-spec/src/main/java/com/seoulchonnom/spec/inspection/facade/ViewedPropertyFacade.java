@@ -11,6 +11,8 @@ import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyDetailRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyStatusUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyUdo;
 
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+
 public interface ViewedPropertyFacade {
 	/**
 	 * DRAFT로 만들고 활성 질문의 답변 행을 그 자리에서 생성한다(문답 스냅샷).
@@ -43,5 +45,6 @@ public interface ViewedPropertyFacade {
 	ResponseEntity<ViewedPropertyDetailRdo> changeViewedPropertyStatus(String visitId, String propertyId,
 		ViewedPropertyStatusUdo viewedPropertyStatusUdo);
 
+	@ApiResponse(responseCode = "204", description = "성공. 본문 없음")
 	ResponseEntity<Void> deleteViewedProperty(String visitId, String propertyId);
 }

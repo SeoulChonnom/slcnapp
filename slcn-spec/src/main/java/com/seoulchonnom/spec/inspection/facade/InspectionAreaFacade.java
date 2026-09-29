@@ -13,6 +13,8 @@ import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaListRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaUdo;
 
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+
 public interface InspectionAreaFacade {
 	/**
 	 * keyword는 지역명·설명·단지명·매물명·태그명을 모두 대소문자 무시로 훑는다.
@@ -56,5 +58,6 @@ public interface InspectionAreaFacade {
 	/**
 	 * 임장 기록이 1건이라도 있으면 409로 막는다.
 	 */
+	@ApiResponse(responseCode = "204", description = "성공. 본문 없음")
 	ResponseEntity<Void> deleteInspectionArea(String areaId);
 }

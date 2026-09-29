@@ -10,6 +10,8 @@ import com.seoulchonnom.spec.inspection.facade.sdo.InspectionQuestionCategoryRdo
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionQuestionCategoryStatusUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionQuestionCategoryUdo;
 
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+
 /**
  * 질문 대분류 관리. 쓰기는 ADMIN, 조회는 USER — 매물 문답 화면이 분류별 섹션을 그리려면
  * 일반 사용자도 목록을 읽어야 한다. 물리 삭제 경로는 두지 않는다.
@@ -35,5 +37,6 @@ public interface InspectionQuestionCategoryFacade {
 	/**
 	 * 요청에 빠진 분류는 기존 순서를 유지한다.
 	 */
+	@ApiResponse(responseCode = "204", description = "성공. 본문 없음")
 	ResponseEntity<Void> modifyInspectionQuestionCategoryOrder(List<InspectionQuestionCategoryOrderUdo> orders);
 }
