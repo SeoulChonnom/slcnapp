@@ -17,9 +17,8 @@ public class InspectionQuestionMapper {
 	 * categoryId는 cdo 값을 그대로 싣는다 - 필수 검증과 활성 분류 확인은 Logic의 책임이다.
 	 */
 	public InspectionQuestion toInspectionQuestion(String id, InspectionQuestionCdo cdo) {
-		InspectionQuestion question = new InspectionQuestion(id, cdo.getAnswerType(), cdo.isRequired(),
-			cdo.getSortOrder());
-		question.setCategoryId(cdo.getCategoryId());
+		InspectionQuestion question = new InspectionQuestion(id, cdo.getCategoryId(), cdo.getAnswerType(),
+			cdo.isRequired(), cdo.getSortOrder());
 		question.addVersion(cdo.getContent(), cdo.getDescription(),
 			PropertyAnswerMapper.toQuestionChoices(cdo.getChoices()), cdo.getUnit());
 		return question;
@@ -35,8 +34,7 @@ public class InspectionQuestionMapper {
 	}
 
 	/**
-	 * @param category     질문이 속한 분류. null이면 과도기 미분류 질문이다(계획 §0-1) - categoryName,
-	 *                     categorySortOrder는 채우지 않는다
+	 * @param category     질문이 속한 분류
 	 * @param answerCount  withAnswerCount 요청일 때만 채우고, 아니면 null
 	 */
 	public InspectionQuestionRdo toInspectionQuestionRdo(InspectionQuestion question,
@@ -56,10 +54,8 @@ public class InspectionQuestionMapper {
 		});
 		rdo.setAnswerCount(answerCount);
 		rdo.setCategoryId(question.getCategoryId());
-		if (category != null) {
-			rdo.setCategoryName(category.getName());
-			rdo.setCategorySortOrder(category.getSortOrder());
-		}
+		rdo.setCategoryName(category.getName());
+		rdo.setCategorySortOrder(category.getSortOrder());
 		return rdo;
 	}
 

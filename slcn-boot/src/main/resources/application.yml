@@ -83,10 +83,6 @@ slcn:
       session-ttl-seconds: "${SLCN_STORAGE_RAW_SESSION_TTL_SECONDS:1800}"
       # 24시간 넘게 끝나지 않은 RAW 업로드 정리. 매일 새벽 4시 30분(Asia/Seoul). "-"면 끈다.
       cleanup-cron: "${SLCN_STORAGE_RAW_CLEANUP_CRON:0 30 4 * * *}"
-  inspection:
-    category-backfill:
-      # 기존 매물 문답 스냅샷에 질문 대분류를 채운다(계획 §5). 배포 1회만 켜고 다시 내린다.
-      enabled: "${SLCN_INSPECTION_CATEGORY_BACKFILL_ENABLED:false}"
   ics:
     window:
       past-months: ${SLCN_ICS_WINDOW_PAST_MONTHS:12}

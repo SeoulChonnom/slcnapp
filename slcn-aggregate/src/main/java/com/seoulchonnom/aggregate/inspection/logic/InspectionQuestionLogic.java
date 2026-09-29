@@ -5,9 +5,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -15,6 +13,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import com.seoulchonnom.aggregate.common.generator.store.entity.SequenceName;
+import com.seoulchonnom.aggregate.inspection.exception.InspectionQuestionCategoryDisabledException;
+import com.seoulchonnom.aggregate.inspection.exception.InspectionQuestionCategoryRequiredException;
+import com.seoulchonnom.aggregate.inspection.exception.InspectionQuestionReactivationBlockedException;
 import com.seoulchonnom.aggregate.inspection.exception.InvalidInspectionQuestionException;
 import com.seoulchonnom.aggregate.inspection.store.InspectionQuestionCategoryStore;
 import com.seoulchonnom.aggregate.inspection.store.InspectionQuestionStore;
@@ -99,8 +100,7 @@ public class InspectionQuestionLogic {
 			inspectionQuestionCdo.getDescription(), inspectionQuestionCdo.getChoices(),
 			inspectionQuestionCdo.getUnit());
 
-		InspectionQuestionCategory category = requireEnabledCategory(inspectionQuestionCdo.getCategoryId(),
-			"질문 분류는 필수입니다.", "비활성화된 분류에는 질문을 등록할 수 없습니다.");
+		InspectionQuestionCategory category = requireEnabledCategory(inspectionQuestionCdo.getCategoryId());
 
 		String questionId = idGenerator.nextDomainId(SequenceName.INSPECTION_QUESTION.toString());
 		InspectionQuestion question = inspectionQuestionMapper.toInspectionQuestion(questionId,
@@ -138,17 +138,16 @@ public class InspectionQuestionLogic {
 
 	/**
 	 * 비활성 분류에 속한 질문은 다시 활성화할 수 없다(계획 §1) - 이 규칙이 없으면 분류
-	 * 비활성화 조건(결정 3)을 질문 재활성화로 우회할 수 있다. categoryId가 null인 과도기
-	 * 질문(계획 §0-1)은 관리자가 분류를 지정할 때까지 이 검증에서 예외로 둔다.
+	 * 비활성화 조건(결정 3)을 질문 재활성화로 우회할 수 있다.
 	 */
 	@Transactional
 	public InspectionQuestionRdo changeInspectionQuestionStatus(String questionId,
 		InspectionQuestionStatusUdo inspectionQuestionStatusUdo) {
 		InspectionQuestion question = inspectionQuestionStore.findById(questionId);
-		if (inspectionQuestionStatusUdo.isEnabled() && question.getCategoryId() != null) {
+		if (inspectionQuestionStatusUdo.isEnabled()) {
 			InspectionQuestionCategory category = inspectionQuestionCategoryStore.findById(question.getCategoryId());
 			if (!category.isEnabled()) {
-				throw new InvalidInspectionQuestionException("비활성화된 분류의 질문은 다시 활성화할 수 없습니다.");
+				throw new InspectionQuestionReactivationBlockedException();
 			}
 		}
 		question.changeEnabled(inspectionQuestionStatusUdo.isEnabled());
@@ -164,8 +163,7 @@ public class InspectionQuestionLogic {
 		InspectionQuestionCategoryMoveUdo inspectionQuestionCategoryMoveUdo) {
 		InspectionQuestion question = inspectionQuestionStore.findById(questionId);
 		InspectionQuestionCategory targetCategory = requireEnabledCategory(
-			inspectionQuestionCategoryMoveUdo.getCategoryId(), "이동할 분류는 필수입니다.",
-			"비활성화된 분류로는 이동할 수 없습니다.");
+			inspectionQuestionCategoryMoveUdo.getCategoryId());
 
 		if (targetCategory.getId().equals(question.getCategoryId())) {
 			return inspectionQuestionMapper.toInspectionQuestionRdo(question, targetCategory, null);
@@ -202,38 +200,28 @@ public class InspectionQuestionLogic {
 	}
 
 	/**
-	 * 등록/이동에서 함께 쓰는 검증: categoryId가 없으면 blankMessage로, 존재하지 않으면
-	 * NotFound(Store가 던짐)로, 비활성이면 disabledMessage로 막는다.
+	 * 등록/이동에서 함께 쓰는 검증. 누락, 없음(Store가 NotFound를 던진다), 비활성을
+	 * 서로 다른 코드로 막아 FE가 코드만 보고 구분할 수 있게 한다.
 	 */
-	private InspectionQuestionCategory requireEnabledCategory(String categoryId, String blankMessage,
-		String disabledMessage) {
+	private InspectionQuestionCategory requireEnabledCategory(String categoryId) {
 		if (!StringUtils.hasText(categoryId)) {
-			throw new InvalidInspectionQuestionException(blankMessage);
+			throw new InspectionQuestionCategoryRequiredException();
 		}
 		InspectionQuestionCategory category = inspectionQuestionCategoryStore.findById(categoryId);
 		if (!category.isEnabled()) {
-			throw new InvalidInspectionQuestionException(disabledMessage);
+			throw new InspectionQuestionCategoryDisabledException();
 		}
 		return category;
 	}
 
-	/**
-	 * categoryId가 null인 과도기 질문(계획 §0-1)은 조회 없이 곧장 미분류 Rdo를 만든다.
-	 */
 	private InspectionQuestionRdo toRdo(InspectionQuestion question) {
-		InspectionQuestionCategory category = question.getCategoryId() == null
-			? null
-			: inspectionQuestionCategoryStore.findById(question.getCategoryId());
+		InspectionQuestionCategory category = inspectionQuestionCategoryStore.findById(question.getCategoryId());
 		return inspectionQuestionMapper.toInspectionQuestionRdo(question, category, null);
 	}
 
 	private Map<String, InspectionQuestionCategory> categoryMapFor(List<InspectionQuestion> questions) {
-		Set<String> categoryIds = questions.stream()
-			.map(InspectionQuestion::getCategoryId)
-			.filter(Objects::nonNull)
-			.collect(Collectors.toSet());
-		return inspectionQuestionCategoryStore.findAllByIds(categoryIds).stream()
-			.collect(Collectors.toMap(InspectionQuestionCategory::getId, Function.identity()));
+		return inspectionQuestionCategoryStore.findMapByIds(
+			questions.stream().map(InspectionQuestion::getCategoryId).collect(Collectors.toSet()));
 	}
 
 	private List<QuestionVersion> versionsOf(InspectionQuestion question) {

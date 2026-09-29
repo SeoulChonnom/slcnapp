@@ -102,15 +102,12 @@ public class InspectionQuestionStore {
 	}
 
 	/**
-	 * 분류별 활성 질문 수. categoryId가 null인 질문(미분류 과도기)은 버린다 — 호출자는
-	 * getOrDefault(categoryId, 0)으로 특정 분류의 카운트만 조회하면 충분하다.
+	 * 분류별 활성 질문 수. 활성 질문이 없는 분류는 키가 없으므로 호출자는
+	 * getOrDefault(categoryId, 0)으로 조회한다.
 	 */
 	public Map<String, Integer> countEnabledGroupByCategoryId() {
 		Map<String, Integer> counts = new HashMap<>();
 		for (Object[] row : inspectionQuestionRepository.countEnabledGroupByCategoryId()) {
-			if (row[0] == null) {
-				continue;
-			}
 			counts.put((String)row[0], ((Number)row[1]).intValue());
 		}
 		return counts;

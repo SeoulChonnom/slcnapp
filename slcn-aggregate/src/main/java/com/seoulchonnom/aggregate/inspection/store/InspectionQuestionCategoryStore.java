@@ -2,7 +2,10 @@ package com.seoulchonnom.aggregate.inspection.store;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -78,6 +81,14 @@ public class InspectionQuestionCategoryStore {
 			return List.of();
 		}
 		return toDomains(inspectionQuestionCategoryRepository.findAllByIdIn(categoryIds));
+	}
+
+	/**
+	 * 질문 목록의 분류를 한 번에 붙일 때 쓴다. 정렬과 Rdo 조립이 categoryId로 곧장 찾는다.
+	 */
+	public Map<String, InspectionQuestionCategory> findMapByIds(Collection<String> categoryIds) {
+		return findAllByIds(categoryIds).stream()
+			.collect(Collectors.toMap(InspectionQuestionCategory::getId, Function.identity()));
 	}
 
 	/**

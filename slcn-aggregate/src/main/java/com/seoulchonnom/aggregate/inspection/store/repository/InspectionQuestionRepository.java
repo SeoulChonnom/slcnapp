@@ -34,8 +34,7 @@ public interface InspectionQuestionRepository extends JpaRepository<InspectionQu
 	int findMaxSortOrderByCategoryId(@Param("categoryId") String categoryId);
 
 	/**
-	 * 분류 목록 응답의 enabledQuestionCount용. categoryId가 null(미분류 과도기 질문)인 행은
-	 * 그룹 키가 null로 잡히고, Store가 그 그룹을 버린다.
+	 * 분류 목록 응답의 enabledQuestionCount용.
 	 */
 	@Query("SELECT q.categoryId, COUNT(q) FROM InspectionQuestionJpo q WHERE q.enabled = true GROUP BY q.categoryId")
 	List<Object[]> countEnabledGroupByCategoryId();

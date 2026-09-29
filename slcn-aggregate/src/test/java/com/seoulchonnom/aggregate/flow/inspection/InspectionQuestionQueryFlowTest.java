@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 import java.util.List;
 import java.util.Map;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.seoulchonnom.aggregate.inspection.logic.ViewedPropertyLogic;
@@ -13,6 +14,7 @@ import com.seoulchonnom.aggregate.inspection.store.InspectionQuestionCategorySto
 import com.seoulchonnom.aggregate.inspection.store.InspectionQuestionStore;
 import com.seoulchonnom.aggregate.inspection.store.ViewedPropertyStore;
 import com.seoulchonnom.spec.inspection.entity.InspectionQuestion;
+import com.seoulchonnom.spec.inspection.entity.InspectionQuestionCategory;
 import com.seoulchonnom.spec.inspection.entity.ViewedProperty;
 import com.seoulchonnom.spec.inspection.entity.vo.QuestionAnswerType;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionQuestionRdo;
@@ -32,8 +34,16 @@ class InspectionQuestionQueryFlowTest {
 	private final ViewedPropertyLogic viewedPropertyLogic = new ViewedPropertyLogic(viewedPropertyStore,
 		new PropertyAnswerMapper());
 
+	private static final Map<String, InspectionQuestionCategory> CATEGORIES = Map.of(
+		"CATEGORY-1", new InspectionQuestionCategory("CATEGORY-1", "기본", 1));
+
+	@BeforeEach
+	void setUp() {
+		when(inspectionQuestionCategoryStore.findMapByIds(anyCollection())).thenReturn(CATEGORIES);
+	}
+
 	private static InspectionQuestion question(String id) {
-		InspectionQuestion question = new InspectionQuestion(id, QuestionAnswerType.TEXT, true, 1);
+		InspectionQuestion question = new InspectionQuestion(id, "CATEGORY-1", QuestionAnswerType.TEXT, true, 1);
 		question.addVersion("v1 문구", null, null, null);
 		return question;
 	}
@@ -56,7 +66,7 @@ class InspectionQuestionQueryFlowTest {
 	private ViewedProperty materializedProperty(InspectionQuestion question, String propertyId) {
 		ViewedProperty property = new ViewedProperty("INSPECTION_VISIT-0001", "트리마제", "101동", 1);
 		property.setId(propertyId);
-		viewedPropertyLogic.materializeAnswers(property, List.of(question), Map.of());
+		viewedPropertyLogic.materializeAnswers(property, List.of(question), CATEGORIES);
 		return property;
 	}
 

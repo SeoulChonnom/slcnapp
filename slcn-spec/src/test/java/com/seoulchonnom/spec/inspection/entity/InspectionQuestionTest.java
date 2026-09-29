@@ -12,7 +12,7 @@ import com.seoulchonnom.spec.inspection.entity.vo.QuestionVersion;
 
 class InspectionQuestionTest {
 	private static InspectionQuestion question() {
-		return new InspectionQuestion("INSPECTION_QUESTION-0001", QuestionAnswerType.SINGLE_SELECT, true, 1);
+		return new InspectionQuestion("INSPECTION_QUESTION-0001", "CATEGORY-1", QuestionAnswerType.SINGLE_SELECT, true, 1);
 	}
 
 	@Test

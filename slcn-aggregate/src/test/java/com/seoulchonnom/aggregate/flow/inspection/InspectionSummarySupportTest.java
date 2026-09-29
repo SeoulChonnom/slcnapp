@@ -41,8 +41,11 @@ class InspectionSummarySupportTest {
 		return visit;
 	}
 
+	private static final Map<String, InspectionQuestionCategory> CATEGORIES = Map.of(
+		"CATEGORY-1", new InspectionQuestionCategory("CATEGORY-1", "기본", 1));
+
 	private static InspectionQuestion question(String id, boolean required) {
-		InspectionQuestion question = new InspectionQuestion(id, QuestionAnswerType.TEXT, required, 2);
+		InspectionQuestion question = new InspectionQuestion(id, "CATEGORY-1", QuestionAnswerType.TEXT, required, 2);
 		question.addVersion("질문 " + id, null, null, null);
 		return question;
 	}
@@ -51,7 +54,7 @@ class InspectionSummarySupportTest {
 	void ofProperty_shouldListEveryUnmetCompletionCondition() {
 		ViewedProperty property = new ViewedProperty("INSPECTION_VISIT-0001", "트리마제", "101동", 1);
 		viewedPropertyLogic.materializeAnswers(property, List.of(question("q1", true), question("q2", false)),
-			Map.of());
+			CATEGORIES);
 
 		IncompleteSummaryRdo summary = inspectionSummarySupport.ofProperty(property);
 
@@ -92,7 +95,7 @@ class InspectionSummarySupportTest {
 	void ofProperty_shouldMatchTheLogicCompletionCheck() {
 		ViewedProperty property = new ViewedProperty("INSPECTION_VISIT-0001", "트리마제", "101동", 1);
 		property.setInterestLevel(4);
-		viewedPropertyLogic.materializeAnswers(property, List.of(question("q1", false)), Map.of());
+		viewedPropertyLogic.materializeAnswers(property, List.of(question("q1", false)), CATEGORIES);
 
 		IncompleteSummaryRdo summary = inspectionSummarySupport.ofProperty(property);
 

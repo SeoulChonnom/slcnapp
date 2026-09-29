@@ -75,14 +75,6 @@ public class ViewedPropertyStore {
 	}
 
 	/**
-	 * 백필 전용(계획 §5). answers를 읽지 않고 id만 가져와, 한 건씩 별도 트랜잭션으로
-	 * 처리하기 전에 대상 목록만 먼저 확보한다.
-	 */
-	public List<String> findAllIds() {
-		return viewedPropertyRepository.findAllIds();
-	}
-
-	/**
 	 * 목록·집계용. answers를 읽지 않는다.
 	 */
 	public List<ViewedPropertySummaryPdo> findSummariesByVisitIds(Collection<String> inspectionVisitIds) {

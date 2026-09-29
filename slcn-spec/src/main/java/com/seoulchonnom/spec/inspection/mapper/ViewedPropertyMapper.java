@@ -107,8 +107,8 @@ public class ViewedPropertyMapper {
 	}
 
 	/**
-	 * 저장 순서에 기대지 않고 읽을 때 분류 순서로 정렬한다(계획 §2) - 백필로 기존 매물의 분류가
-	 * 나중에 채워져도 배열 순서를 다시 저장할 필요가 없다.
+	 * 저장 순서에 기대지 않고 읽을 때 분류 순서로 정렬한다(계획 §2) - 스냅샷 배열이 어떤 순서로
+	 * 저장돼 있든 응답 순서가 같다.
 	 */
 	private List<PropertyAnswerRdo> toPropertyAnswerRdos(List<PropertyAnswer> answers,
 		Map<String, InspectionQuestion> questions) {

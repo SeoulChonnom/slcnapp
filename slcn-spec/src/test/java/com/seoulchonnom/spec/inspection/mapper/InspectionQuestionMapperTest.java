@@ -73,7 +73,7 @@ class InspectionQuestionMapperTest {
 		udo.setContent("채광은 어떤가?");
 		inspectionQuestionMapper.addVersion(question, udo);
 
-		InspectionQuestionRdo rdo = inspectionQuestionMapper.toInspectionQuestionRdo(question, null, null);
+		InspectionQuestionRdo rdo = inspectionQuestionMapper.toInspectionQuestionRdo(question, category(), null);
 
 		assertThat(rdo.getContent()).isEqualTo("채광은 어떤가?");
 		assertThat(rdo.getCurrentVersionNo()).isEqualTo(2);
@@ -82,28 +82,13 @@ class InspectionQuestionMapperTest {
 
 	@Test
 	void toInspectionQuestionRdo_shouldTolerateQuestionWithoutVersion() {
-		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0002", QuestionAnswerType.TEXT,
-			false, 1);
+		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0002", "CATEGORY-1",
+			QuestionAnswerType.TEXT, false, 1);
 
-		InspectionQuestionRdo rdo = inspectionQuestionMapper.toInspectionQuestionRdo(question, null, null);
+		InspectionQuestionRdo rdo = inspectionQuestionMapper.toInspectionQuestionRdo(question, category(), null);
 
 		assertThat(rdo.getContent()).isNull();
 		assertThat(rdo.getChoices()).isEmpty();
-	}
-
-	/**
-	 * category가 null이면 categoryId가 있어도(과도기 전이거나 목록 조회에서 못 찾은 경우) 이름/순서는
-	 * 채우지 않는다.
-	 */
-	@Test
-	void toInspectionQuestionRdo_shouldLeaveCategoryNameNullWhenCategoryMissing() {
-		InspectionQuestion question = inspectionQuestionMapper.toInspectionQuestion("INSPECTION_QUESTION-0001", cdo());
-
-		InspectionQuestionRdo rdo = inspectionQuestionMapper.toInspectionQuestionRdo(question, null, null);
-
-		assertThat(rdo.getCategoryId()).isEqualTo("INSPECTION_QUESTION_CATEGORY-0001");
-		assertThat(rdo.getCategoryName()).isNull();
-		assertThat(rdo.getCategorySortOrder()).isNull();
 	}
 
 	@Test
@@ -135,5 +120,9 @@ class InspectionQuestionMapperTest {
 		assertThat(v1.getAnswerCount()).isEqualTo(7);
 		assertThat(v1.getUnit()).isEqualTo("방위");
 		assertThat(v2.isCurrent()).isTrue();
+	}
+
+	private InspectionQuestionCategory category() {
+		return new InspectionQuestionCategory("INSPECTION_QUESTION_CATEGORY-0001", "채광·환기", 1);
 	}
 }

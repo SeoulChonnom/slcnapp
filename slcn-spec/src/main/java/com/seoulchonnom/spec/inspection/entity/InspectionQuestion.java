@@ -34,13 +34,14 @@ public class InspectionQuestion extends DomainEntity {
 	private List<QuestionVersion> versions = new ArrayList<>();
 	private int currentVersionNo;
 	/**
-	 * 과도기(계획 §0-1)에는 null일 수 있다 — DB 컬럼은 nullable로 두고 필수 여부는 등록/이동 시
-	 * 도메인 검증(Logic)이 지킨다. null인 질문은 조회·스냅샷에서 "미분류"로 취급하고 맨 뒤에 둔다.
+	 * 모든 질문은 분류에 속한다. 분류를 바꾸는 경로는 moveCategory 하나뿐이다.
 	 */
 	private String categoryId;
 
-	public InspectionQuestion(String id, QuestionAnswerType answerType, boolean required, int sortOrder) {
+	public InspectionQuestion(String id, String categoryId, QuestionAnswerType answerType, boolean required,
+		int sortOrder) {
 		super(id);
+		this.categoryId = categoryId;
 		this.answerType = answerType;
 		this.required = required;
 		this.sortOrder = sortOrder;

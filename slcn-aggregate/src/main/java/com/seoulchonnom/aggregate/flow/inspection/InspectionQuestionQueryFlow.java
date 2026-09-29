@@ -3,10 +3,7 @@ package com.seoulchonnom.aggregate.flow.inspection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -101,11 +98,7 @@ public class InspectionQuestionQueryFlow {
 	}
 
 	private Map<String, InspectionQuestionCategory> categoryMapFor(List<InspectionQuestion> questions) {
-		Set<String> categoryIds = questions.stream()
-			.map(InspectionQuestion::getCategoryId)
-			.filter(Objects::nonNull)
-			.collect(Collectors.toSet());
-		return inspectionQuestionCategoryStore.findAllByIds(categoryIds).stream()
-			.collect(Collectors.toMap(InspectionQuestionCategory::getId, Function.identity()));
+		return inspectionQuestionCategoryStore.findMapByIds(
+			questions.stream().map(InspectionQuestion::getCategoryId).collect(Collectors.toSet()));
 	}
 }

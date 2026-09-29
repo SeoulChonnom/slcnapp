@@ -45,9 +45,9 @@ public class PropertyAnswerRdo {
 	private Boolean questionEnabled;
 
 	/**
-	 * 매물 생성 시점의 분류 스냅샷이다. 백필 전 과거 매물은 셋 다 null이다("미분류").
+	 * 매물 생성 시점의 분류 스냅샷이다. 이후 분류 이름·순서가 바뀌어도 그대로다.
 	 */
 	private String categoryId;
 	private String categoryName;
-	private Integer categorySortOrder;
+	private int categorySortOrder;
 }

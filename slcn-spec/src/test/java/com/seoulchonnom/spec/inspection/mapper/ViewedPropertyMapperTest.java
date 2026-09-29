@@ -58,7 +58,7 @@ class ViewedPropertyMapperTest {
 		assertThat(detailRdo.getComplexName()).isEqualTo("트리마제");
 	}
 
-	private static PropertyAnswer answer(String questionId, Integer categorySortOrder, int sortOrder) {
+	private static PropertyAnswer answer(String questionId, int categorySortOrder, int sortOrder) {
 		PropertyAnswer answer = new PropertyAnswer();
 		answer.setQuestionId(questionId);
 		answer.setCategorySortOrder(categorySortOrder);
@@ -67,24 +67,23 @@ class ViewedPropertyMapperTest {
 	}
 
 	/**
-	 * 계획 §2: 저장 순서에 기대지 않고 읽을 때 정렬한다. 백필 전후로 배열 순서가 섞여 있어도
-	 * 응답은 항상 분류 순서로 나가야 한다.
+	 * 계획 §2: 저장 순서에 기대지 않고 읽을 때 정렬한다. 배열 순서가 섞여 있어도
+	 * 응답은 항상 분류 순서 -> 분류 안 순서로 나가야 한다.
 	 */
 	@Test
 	void toViewedPropertyDetailRdo_shouldSortAnswersAtReadTimeEvenWhenStoredOrderIsScrambled() {
 		ViewedProperty property = new ViewedProperty("INSPECTION_VISIT-0001", "트리마제", "101동", 1);
-		// 저장 순서는 뒤섞여 있다: 분류 순서(2) -> 분류 순서(1) -> 미분류(null)
+		// 저장 순서는 뒤섞여 있다: 분류 순서(2) -> 분류 순서(1, 안에서 2번째) -> 분류 순서(1, 안에서 1번째)
 		property.setAnswers(List.of(
 			answer("q-late", 2, 1),
-			answer("q-early", 1, 1),
-			answer("q-uncategorized", null, 1)));
+			answer("q-early-second", 1, 2),
+			answer("q-early-first", 1, 1)));
 
 		var detailRdo = viewedPropertyMapper.toViewedPropertyDetailRdo(property, null, null, Map.of(), null,
 			null, null, null, null, null);
 
-		// 미분류(categorySortOrder=null)는 맨 뒤로 밀린다
 		assertThat(detailRdo.getAnswers()).extracting(PropertyAnswerRdo::getQuestionId)
-			.containsExactly("q-early", "q-late", "q-uncategorized");
+			.containsExactly("q-early-first", "q-early-second", "q-late");
 	}
 
 	@Test

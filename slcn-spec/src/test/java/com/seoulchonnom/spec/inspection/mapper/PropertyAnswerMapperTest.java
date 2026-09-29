@@ -15,13 +15,15 @@ import com.seoulchonnom.spec.inspection.entity.vo.QuestionVersion;
 import com.seoulchonnom.spec.inspection.facade.sdo.PropertyAnswerRdo;
 
 class PropertyAnswerMapperTest {
+	private static final InspectionQuestionCategory CATEGORY = new InspectionQuestionCategory("CATEGORY-1", "기본", 1);
+
 	private final PropertyAnswerMapper propertyAnswerMapper = new PropertyAnswerMapper();
 
 	/**
 	 * v1 "방향은?" → v2 "주된 방향은?"으로 한 번 고쳐진 질문.
 	 */
 	private static InspectionQuestion question() {
-		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001",
+		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001", "CATEGORY-1",
 			QuestionAnswerType.SINGLE_SELECT, true, 3);
 		question.addVersion("방향은?", "v1 도움말", List.of(new QuestionChoice("SOUTH", "남향", 1)), "방위");
 		question.addVersion("주된 방향은?", "v2 도움말", List.of(new QuestionChoice("SOUTH", "남향", 1)), "방위");
@@ -33,7 +35,7 @@ class PropertyAnswerMapperTest {
 		InspectionQuestion question = question();
 		QuestionVersion current = question.currentVersion().orElseThrow();
 
-		PropertyAnswer answer = propertyAnswerMapper.toPropertyAnswer(question, current, null);
+		PropertyAnswer answer = propertyAnswerMapper.toPropertyAnswer(question, current, CATEGORY);
 
 		assertThat(answer.getQuestionId()).isEqualTo("INSPECTION_QUESTION-0001");
 		assertThat(answer.getQuestionVersionNo()).isEqualTo(2);
@@ -50,7 +52,7 @@ class PropertyAnswerMapperTest {
 	void toPropertyAnswer_shouldSnapshotUnitSoLaterUnitChangeDoesNotLeak() {
 		InspectionQuestion question = question();
 		PropertyAnswer answer = propertyAnswerMapper.toPropertyAnswer(question,
-			question.currentVersion().orElseThrow(), null);
+			question.currentVersion().orElseThrow(), CATEGORY);
 
 		question.addVersion("주된 방향은?", "v3", List.of(), "도");
 
@@ -62,7 +64,7 @@ class PropertyAnswerMapperTest {
 		InspectionQuestion question = question();
 		QuestionVersion current = question.currentVersion().orElseThrow();
 
-		PropertyAnswer answer = propertyAnswerMapper.toPropertyAnswer(question, current, null);
+		PropertyAnswer answer = propertyAnswerMapper.toPropertyAnswer(question, current, CATEGORY);
 		answer.getChoiceOptions().clear();
 
 		assertThat(current.getChoices()).hasSize(1);
@@ -73,7 +75,7 @@ class PropertyAnswerMapperTest {
 		InspectionQuestion question = question();
 		// v1 문구에 답한 오래된 기록
 		PropertyAnswer answer = propertyAnswerMapper.toPropertyAnswer(question,
-			question.findVersion(1).orElseThrow(), null);
+			question.findVersion(1).orElseThrow(), CATEGORY);
 		question.changeEnabled(false);
 
 		PropertyAnswerRdo rdo = propertyAnswerMapper.toPropertyAnswerRdo(answer, question);
@@ -88,7 +90,7 @@ class PropertyAnswerMapperTest {
 	void toPropertyAnswerRdo_shouldMarkCurrentVersion() {
 		InspectionQuestion question = question();
 		PropertyAnswer answer = propertyAnswerMapper.toPropertyAnswer(question,
-			question.currentVersion().orElseThrow(), null);
+			question.currentVersion().orElseThrow(), CATEGORY);
 
 		PropertyAnswerRdo rdo = propertyAnswerMapper.toPropertyAnswerRdo(answer, question);
 
@@ -99,7 +101,7 @@ class PropertyAnswerMapperTest {
 	void toPropertyAnswerRdo_shouldStillRenderWhenQuestionMasterIsMissing() {
 		InspectionQuestion question = question();
 		PropertyAnswer answer = propertyAnswerMapper.toPropertyAnswer(question,
-			question.currentVersion().orElseThrow(), null);
+			question.currentVersion().orElseThrow(), CATEGORY);
 
 		PropertyAnswerRdo rdo = propertyAnswerMapper.toPropertyAnswerRdo(answer, null);
 
@@ -122,23 +124,6 @@ class PropertyAnswerMapperTest {
 		assertThat(answer.getCategoryId()).isEqualTo("CATEGORY-1");
 		assertThat(answer.getCategoryName()).isEqualTo("채광·환기");
 		assertThat(answer.getCategorySortOrder()).isEqualTo(1);
-	}
-
-	/**
-	 * 과도기(계획 §0-1): 질문에 categoryId는 있지만 분류를 못 찾은 경우도 카버한다 -
-	 * categoryId만 싣고 이름/순서는 비운다.
-	 */
-	@Test
-	void toPropertyAnswer_shouldKeepCategoryIdOnlyWhenCategoryIsMissing() {
-		InspectionQuestion question = question();
-		question.setCategoryId("CATEGORY-1");
-
-		PropertyAnswer answer = propertyAnswerMapper.toPropertyAnswer(question,
-			question.currentVersion().orElseThrow(), null);
-
-		assertThat(answer.getCategoryId()).isEqualTo("CATEGORY-1");
-		assertThat(answer.getCategoryName()).isNull();
-		assertThat(answer.getCategorySortOrder()).isNull();
 	}
 
 	/**

@@ -102,17 +102,17 @@ class ViewedPropertyFlowTest {
 
 	/**
 	 * Flow가 InspectionQuestionCategoryStore를 직접 묶어 분류 맵을 만든다(InspectionQuestionQueryFlow와
-	 * 같은 방식) - 활성 질문의 categoryId만 모아 findAllByIds로 조회하고, materializeAnswers에 그대로 넘긴다.
+	 * 같은 방식) - 활성 질문의 categoryId만 모아 findMapByIds로 조회하고, materializeAnswers에 그대로 넘긴다.
 	 */
 	@Test
 	void registerViewedProperty_shouldPassResolvedCategoryMapToMaterializeAnswers() {
 		when(inspectionVisitLogic.getInspectionVisit(VISIT_ID)).thenReturn(visit(InspectionStatus.DRAFT));
 		when(viewedPropertyLogic.getViewedProperties(VISIT_ID)).thenReturn(List.of());
-		InspectionQuestion question = new InspectionQuestion("q1", QuestionAnswerType.TEXT, false, 1);
-		question.setCategoryId("CATEGORY-A");
+		InspectionQuestion question = new InspectionQuestion("q1", "CATEGORY-A", QuestionAnswerType.TEXT, false, 1);
 		when(inspectionQuestionLogic.getEnabledQuestions()).thenReturn(List.of(question));
 		InspectionQuestionCategory category = new InspectionQuestionCategory("CATEGORY-A", "채광", 1);
-		when(inspectionQuestionCategoryStore.findAllByIds(Set.of("CATEGORY-A"))).thenReturn(List.of(category));
+		when(inspectionQuestionCategoryStore.findMapByIds(Set.of("CATEGORY-A")))
+			.thenReturn(Map.of("CATEGORY-A", category));
 		echoSave();
 
 		viewedPropertyFlow.registerViewedProperty(VISIT_ID, cdo());

@@ -20,8 +20,7 @@ public class PropertyAnswerMapper {
 	 * 매물 생성 시점의 질문을 그대로 복사해 답변을 만든다.
 	 * 여기서 복사한 값이 이후 질문 마스터가 바뀌어도 그 매물의 기준으로 남는다.
 	 *
-	 * @param category 질문이 속한 분류. null이면 과도기 미분류 질문이다(계획 §0-1) - categoryId만
-	 *                 question 기준으로 싣고, categoryName/categorySortOrder는 채우지 않는다
+	 * @param category 질문이 속한 분류. 이름과 순서도 이 시점 값으로 고정된다
 	 */
 	public PropertyAnswer toPropertyAnswer(InspectionQuestion question, QuestionVersion version,
 		InspectionQuestionCategory category) {
@@ -39,10 +38,8 @@ public class PropertyAnswerMapper {
 		answer.setSelectedCodes(new ArrayList<>());
 		answer.setAnswered(false);
 		answer.setCategoryId(question.getCategoryId());
-		if (category != null) {
-			answer.setCategoryName(category.getName());
-			answer.setCategorySortOrder(category.getSortOrder());
-		}
+		answer.setCategoryName(category.getName());
+		answer.setCategorySortOrder(category.getSortOrder());
 		return answer;
 	}
 

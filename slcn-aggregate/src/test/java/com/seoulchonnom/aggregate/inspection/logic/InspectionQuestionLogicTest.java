@@ -10,6 +10,9 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import com.seoulchonnom.aggregate.inspection.exception.InspectionQuestionCategoryNotFoundException;
+import com.seoulchonnom.aggregate.inspection.exception.InspectionQuestionCategoryDisabledException;
+import com.seoulchonnom.aggregate.inspection.exception.InspectionQuestionCategoryRequiredException;
+import com.seoulchonnom.aggregate.inspection.exception.InspectionQuestionReactivationBlockedException;
 import com.seoulchonnom.aggregate.inspection.exception.InvalidInspectionQuestionException;
 import com.seoulchonnom.aggregate.inspection.store.InspectionQuestionCategoryStore;
 import com.seoulchonnom.aggregate.inspection.store.InspectionQuestionStore;
@@ -153,7 +156,7 @@ class InspectionQuestionLogicTest {
 		cdo.setCategoryId("   ");
 
 		assertThatThrownBy(() -> inspectionQuestionLogic.registerInspectionQuestion(cdo))
-			.isInstanceOf(InvalidInspectionQuestionException.class);
+			.isInstanceOf(InspectionQuestionCategoryRequiredException.class);
 		verifyNoInteractions(idGenerator);
 	}
 
@@ -174,7 +177,7 @@ class InspectionQuestionLogicTest {
 
 		assertThatThrownBy(() -> inspectionQuestionLogic.registerInspectionQuestion(
 			cdo(QuestionAnswerType.TEXT, "메모")))
-			.isInstanceOf(InvalidInspectionQuestionException.class);
+			.isInstanceOf(InspectionQuestionCategoryDisabledException.class);
 		verify(inspectionQuestionStore, never()).save(any());
 	}
 
@@ -212,10 +215,11 @@ class InspectionQuestionLogicTest {
 
 	@Test
 	void modifyInspectionQuestionContent_shouldAppendVersionAndKeepTheOldOne() {
-		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001",
+		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001", CATEGORY_ID,
 			QuestionAnswerType.LONG_TEXT, true, 1);
 		question.addVersion("거실 채광은 어떤가?", "v1 도움말", null, null);
 		when(inspectionQuestionStore.findById("INSPECTION_QUESTION-0001")).thenReturn(question);
+		givenEnabledCategory();
 		echoSave();
 
 		InspectionQuestionRdo rdo = inspectionQuestionLogic.modifyInspectionQuestionContent(
@@ -229,7 +233,7 @@ class InspectionQuestionLogicTest {
 
 	@Test
 	void modifyInspectionQuestionContent_shouldValidateAgainstStoredAnswerType() {
-		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001",
+		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001", CATEGORY_ID,
 			QuestionAnswerType.SINGLE_SELECT, true, 1);
 		question.addVersion("방향은?", null, List.of(new QuestionChoice("S", "남향", 1)), null);
 		when(inspectionQuestionStore.findById("INSPECTION_QUESTION-0001")).thenReturn(question);
@@ -243,10 +247,11 @@ class InspectionQuestionLogicTest {
 
 	@Test
 	void modifyInspectionQuestionPolicy_shouldKeepVersion() {
-		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001", QuestionAnswerType.TEXT,
-			true, 1);
+		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001", CATEGORY_ID,
+			QuestionAnswerType.TEXT, true, 1);
 		question.addVersion("메모", null, null, null);
 		when(inspectionQuestionStore.findById("INSPECTION_QUESTION-0001")).thenReturn(question);
+		givenEnabledCategory();
 		echoSave();
 
 		InspectionQuestionRdo rdo = inspectionQuestionLogic.modifyInspectionQuestionPolicy(
@@ -260,10 +265,11 @@ class InspectionQuestionLogicTest {
 
 	@Test
 	void changeInspectionQuestionStatus_shouldKeepVersion() {
-		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001", QuestionAnswerType.TEXT,
-			true, 1);
+		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001", CATEGORY_ID,
+			QuestionAnswerType.TEXT, true, 1);
 		question.addVersion("메모", null, null, null);
 		when(inspectionQuestionStore.findById("INSPECTION_QUESTION-0001")).thenReturn(question);
+		givenEnabledCategory();
 		echoSave();
 
 		InspectionQuestionRdo rdo = inspectionQuestionLogic.changeInspectionQuestionStatus(
@@ -279,44 +285,23 @@ class InspectionQuestionLogicTest {
 	 */
 	@Test
 	void changeInspectionQuestionStatus_shouldRejectEnablingWhenCategoryDisabled() {
-		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001", QuestionAnswerType.TEXT,
-			true, 1);
-		question.setCategoryId(CATEGORY_ID);
+		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001", CATEGORY_ID,
+			QuestionAnswerType.TEXT, true, 1);
 		question.changeEnabled(false);
 		when(inspectionQuestionStore.findById("INSPECTION_QUESTION-0001")).thenReturn(question);
 		when(inspectionQuestionCategoryStore.findById(CATEGORY_ID)).thenReturn(disabledCategory(CATEGORY_ID));
 
 		assertThatThrownBy(() -> inspectionQuestionLogic.changeInspectionQuestionStatus(
 			"INSPECTION_QUESTION-0001", new InspectionQuestionStatusUdo(true)))
-			.isInstanceOf(InvalidInspectionQuestionException.class);
+			.isInstanceOf(InspectionQuestionReactivationBlockedException.class);
 		assertThat(question.isEnabled()).isFalse();
 		verify(inspectionQuestionStore, never()).save(any());
 	}
 
-	/**
-	 * categoryId가 null인 과도기 질문(계획 §0-1)은 관리자가 분류를 지정할 때까지 예외로
-	 * 재활성화를 허용한다.
-	 */
-	@Test
-	void changeInspectionQuestionStatus_shouldAllowEnablingLegacyQuestionWithoutCategory() {
-		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001", QuestionAnswerType.TEXT,
-			true, 1);
-		question.changeEnabled(false);
-		when(inspectionQuestionStore.findById("INSPECTION_QUESTION-0001")).thenReturn(question);
-		echoSave();
-
-		InspectionQuestionRdo rdo = inspectionQuestionLogic.changeInspectionQuestionStatus(
-			"INSPECTION_QUESTION-0001", new InspectionQuestionStatusUdo(true));
-
-		assertThat(rdo.isEnabled()).isTrue();
-		verifyNoInteractions(inspectionQuestionCategoryStore);
-	}
-
 	@Test
 	void changeInspectionQuestionStatus_shouldAllowEnablingWhenCategoryEnabled() {
-		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001", QuestionAnswerType.TEXT,
-			true, 1);
-		question.setCategoryId(CATEGORY_ID);
+		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001", CATEGORY_ID,
+			QuestionAnswerType.TEXT, true, 1);
 		question.changeEnabled(false);
 		when(inspectionQuestionStore.findById("INSPECTION_QUESTION-0001")).thenReturn(question);
 		givenEnabledCategory();
@@ -330,8 +315,8 @@ class InspectionQuestionLogicTest {
 
 	@Test
 	void getInspectionQuestionVersions_shouldReturnWholeHistoryWithCurrentFlag() {
-		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001", QuestionAnswerType.TEXT,
-			true, 1);
+		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001", CATEGORY_ID,
+			QuestionAnswerType.TEXT, true, 1);
 		question.addVersion("v1", null, null, null);
 		question.addVersion("v2", null, null, null);
 		when(inspectionQuestionStore.findById("INSPECTION_QUESTION-0001")).thenReturn(question);
@@ -356,10 +341,10 @@ class InspectionQuestionLogicTest {
 
 	@Test
 	void modifyInspectionQuestionOrder_shouldApplyRequestedOrderOnly() {
-		InspectionQuestion first = new InspectionQuestion("INSPECTION_QUESTION-0001", QuestionAnswerType.TEXT,
-			true, 1);
-		InspectionQuestion second = new InspectionQuestion("INSPECTION_QUESTION-0002", QuestionAnswerType.TEXT,
-			true, 2);
+		InspectionQuestion first = new InspectionQuestion("INSPECTION_QUESTION-0001", CATEGORY_ID,
+			QuestionAnswerType.TEXT, true, 1);
+		InspectionQuestion second = new InspectionQuestion("INSPECTION_QUESTION-0002", CATEGORY_ID,
+			QuestionAnswerType.TEXT, true, 2);
 		when(inspectionQuestionStore.findAllByIds(anyCollection())).thenReturn(List.of(first, second));
 
 		inspectionQuestionLogic.modifyInspectionQuestionOrder(List.of(
@@ -373,21 +358,21 @@ class InspectionQuestionLogicTest {
 
 	@Test
 	void moveInspectionQuestionCategory_shouldRejectBlankCategoryId() {
-		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001", QuestionAnswerType.TEXT,
-			true, 1);
+		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001", CATEGORY_ID,
+			QuestionAnswerType.TEXT, true, 1);
 		when(inspectionQuestionStore.findById("INSPECTION_QUESTION-0001")).thenReturn(question);
 
 		assertThatThrownBy(() -> inspectionQuestionLogic.moveInspectionQuestionCategory(
 			"INSPECTION_QUESTION-0001", new InspectionQuestionCategoryMoveUdo("   ")))
-			.isInstanceOf(InvalidInspectionQuestionException.class);
+			.isInstanceOf(InspectionQuestionCategoryRequiredException.class);
 		verify(inspectionQuestionStore, never()).save(any());
 		verifyNoInteractions(inspectionQuestionCategoryStore);
 	}
 
 	@Test
 	void moveInspectionQuestionCategory_shouldRejectUnknownCategory() {
-		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001", QuestionAnswerType.TEXT,
-			true, 1);
+		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001", CATEGORY_ID,
+			QuestionAnswerType.TEXT, true, 1);
 		when(inspectionQuestionStore.findById("INSPECTION_QUESTION-0001")).thenReturn(question);
 		when(inspectionQuestionCategoryStore.findById("CATEGORY-UNKNOWN"))
 			.thenThrow(new InspectionQuestionCategoryNotFoundException());
@@ -400,14 +385,14 @@ class InspectionQuestionLogicTest {
 
 	@Test
 	void moveInspectionQuestionCategory_shouldRejectDisabledCategory() {
-		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001", QuestionAnswerType.TEXT,
-			true, 1);
+		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001", CATEGORY_ID,
+			QuestionAnswerType.TEXT, true, 1);
 		when(inspectionQuestionStore.findById("INSPECTION_QUESTION-0001")).thenReturn(question);
 		when(inspectionQuestionCategoryStore.findById(CATEGORY_ID)).thenReturn(disabledCategory(CATEGORY_ID));
 
 		assertThatThrownBy(() -> inspectionQuestionLogic.moveInspectionQuestionCategory(
 			"INSPECTION_QUESTION-0001", new InspectionQuestionCategoryMoveUdo(CATEGORY_ID)))
-			.isInstanceOf(InvalidInspectionQuestionException.class);
+			.isInstanceOf(InspectionQuestionCategoryDisabledException.class);
 		verify(inspectionQuestionStore, never()).save(any());
 	}
 
@@ -416,8 +401,8 @@ class InspectionQuestionLogicTest {
 	 */
 	@Test
 	void moveInspectionQuestionCategory_shouldPlaceAtEndAndKeepVersion() {
-		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001", QuestionAnswerType.TEXT,
-			true, 1);
+		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001", CATEGORY_ID,
+			QuestionAnswerType.TEXT, true, 1);
 		question.setCategoryId("CATEGORY-OLD");
 		question.addVersion("메모", null, null, null);
 		question.addVersion("메모 v2", null, null, null);
@@ -441,9 +426,8 @@ class InspectionQuestionLogicTest {
 	 */
 	@Test
 	void moveInspectionQuestionCategory_shouldNoOpWhenAlreadyInTargetCategory() {
-		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001", QuestionAnswerType.TEXT,
-			true, 7);
-		question.setCategoryId(CATEGORY_ID);
+		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0001", CATEGORY_ID,
+			QuestionAnswerType.TEXT, true, 7);
 		when(inspectionQuestionStore.findById("INSPECTION_QUESTION-0001")).thenReturn(question);
 		when(inspectionQuestionCategoryStore.findById(CATEGORY_ID)).thenReturn(enabledCategory(CATEGORY_ID));
 

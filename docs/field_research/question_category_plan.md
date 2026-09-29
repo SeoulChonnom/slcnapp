@@ -7,8 +7,8 @@
 
 | # | 결정 | 코드에 반영되는 규칙 |
 |---|---|---|
-| 1 | 분류 필수 | 질문을 등록하거나 옮길 때 `categoryId`가 없으면 400. **DB 컬럼은 nullable로 둔다.** `ddl-auto=update`로는 행이 있는 테이블에 NOT NULL 컬럼을 추가할 수 없다. 필수 여부는 도메인 검증이 지키고, 기존 질문은 관리자가 지정할 때까지 과도기 상태로 둔다 |
-| 2 | 기존 매물 스냅샷: B안 | 관리자가 분류 지정을 마친 뒤, 기존 매물 답변 스냅샷에 현재 마스터 기준으로 분류를 **한 번만** 채운다 |
+| 1 | 분류 필수 | 질문을 등록하거나 옮길 때 `categoryId`가 없으면 400. ~~DB 컬럼은 nullable로 두고 과도기를 허용한다~~ → **§9에서 NOT NULL로 전환**했다 |
+| 2 | 기존 매물 스냅샷: B안 | 관리자가 분류 지정을 마친 뒤, 기존 매물 답변 스냅샷에 현재 마스터 기준으로 분류를 **한 번만** 채운다. ~~백필 러너~~ → **§9에서 이관 SQL로 대체**했다 |
 | 3 | 비활성화: A안 | 활성 질문이 하나라도 있는 분류는 비활성화할 수 없다(409) |
 | 4 | 분류에 sortOrder | 정렬은 `분류.sortOrder → 질문.sortOrder → questionId` 순서다. 질문의 `sortOrder`는 **분류 안에서의 순서**로 의미가 바뀐다 |
 | 5 | 1단계 | 중분류는 계획에 없다. `parentId`를 두지 않는다 |
@@ -198,3 +198,18 @@
 4. `feat: 문답 스냅샷에 대분류를 싣고 읽기 시점 정렬로 전환`
 5. `feat: 기존 매물 문답 대분류 백필 러너 추가`
 6. `docs: api.md에 질문 대분류 계약 반영`
+
+## 9. 이후 변경 (FE 검토 반영)
+
+구현을 마친 뒤 FE 검토와 AGENTS.md의 서비스 규모 원칙("대량 백필을 기본으로 두지 않고, 영향받는 행을 직접
+조회해 확인한 뒤 처리한다")에 따라 아래를 바꿨다. §1~§8은 당시 계획 그대로 남긴다.
+
+| 항목 | 변경 |
+| --- | --- |
+| 백필 | `InspectionQuestionCategoryBackfillLogic`과 러너, `PropertyAnswer.assignCategory`, `ViewedPropertyStore.findAllIds`를 제거했다. 배포 전에 `question_category_migration.sql`로 한 트랜잭션 안에서 이관한다. 같은 이유로 R2 오브젝트 스토리지 백필 러너(`FileAssetMigrationLogic`)도 제거했다 |
+| 과도기 | 없앴다. `inspection_question.category_id`는 NOT NULL이고 분류 FK가 걸린다(이관 SQL). `InspectionQuestion`은 생성자에서 `categoryId`를 받는다. 미분류 정렬·재활성화 예외·null 분기를 모두 걷어냈다 |
+| 스냅샷 타입 | `PropertyAnswer`/`PropertyAnswerRdo`/`InspectionQuestionRdo`의 `categorySortOrder`를 `int`로 바꿨다. 세 분류 필드는 항상 채워져 있다 |
+| 정렬 | 분류 맵에 없는 질문은 뒤로 미루지 않고 `IllegalStateException`으로 드러낸다 |
+| 에러 응답 | 전 도메인 공통 `ErrorResponse`를 `{title, status, code, errors}`로 바꿨다. `INVALID_INSPECTION_QUESTION`에서 분류 관련 원인을 `INSPECTION_QUESTION_CATEGORY_REQUIRED`/`_DISABLED`/`INSPECTION_QUESTION_REACTIVATION_BLOCKED`로 분리했다. 분류 이름 중복 응답에서 기존 id를 뺐다 |
+| OpenAPI | 본문 없는 204 응답 7곳에 `@ApiResponse(responseCode = "204")`를 달았다 |
+| 분류를 넘나드는 드래그 | API를 바꾸지 않는다. UI를 "분류 이동은 별도 선택, 순서는 분류 안에서만"으로 나눈다(api.md §10) |

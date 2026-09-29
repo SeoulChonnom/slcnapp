@@ -30,13 +30,16 @@ class ViewedPropertyLogicTest {
 	private final ViewedPropertyLogic viewedPropertyLogic = new ViewedPropertyLogic(viewedPropertyStore,
 		new PropertyAnswerMapper());
 
+	private static final Map<String, InspectionQuestionCategory> CATEGORIES = Map.of(
+		"CATEGORY-1", new InspectionQuestionCategory("CATEGORY-1", "기본", 1));
+
 	private static ViewedProperty property() {
 		return new ViewedProperty("INSPECTION_VISIT-0001", "트리마제", "101동 1203호", 1);
 	}
 
 	private static InspectionQuestion question(String id, QuestionAnswerType answerType, boolean required,
 		List<QuestionChoice> choices) {
-		InspectionQuestion question = new InspectionQuestion(id, answerType, required, 1);
+		InspectionQuestion question = new InspectionQuestion(id, "CATEGORY-1", answerType, required, 1);
 		question.addVersion("질문 " + id, null, choices, answerType == QuestionAnswerType.NUMBER ? "만원" : null);
 		return question;
 	}
@@ -60,7 +63,7 @@ class ViewedPropertyLogicTest {
 
 		viewedPropertyLogic.materializeAnswers(property, List.of(
 			question("q1", QuestionAnswerType.LONG_TEXT, true, null),
-			question("q2", QuestionAnswerType.NUMBER, false, null)), Map.of());
+			question("q2", QuestionAnswerType.NUMBER, false, null)), CATEGORIES);
 
 		assertThat(property.getAnswers()).hasSize(2);
 		assertThat(property.getRequiredAnswerCount()).isEqualTo(1);
@@ -71,9 +74,9 @@ class ViewedPropertyLogicTest {
 	@Test
 	void materializeAnswers_shouldSkipQuestionWithoutVersion() {
 		ViewedProperty property = property();
-		InspectionQuestion broken = new InspectionQuestion("q9", QuestionAnswerType.TEXT, true, 1);
+		InspectionQuestion broken = new InspectionQuestion("q9", "CATEGORY-1", QuestionAnswerType.TEXT, true, 1);
 
-		viewedPropertyLogic.materializeAnswers(property, List.of(broken), Map.of());
+		viewedPropertyLogic.materializeAnswers(property, List.of(broken), CATEGORIES);
 
 		assertThat(property.getAnswers()).isEmpty();
 		assertThat(property.getUnansweredRequiredCount()).isZero();
@@ -83,7 +86,7 @@ class ViewedPropertyLogicTest {
 	void materializeAnswers_shouldAllowNoEnabledQuestion() {
 		ViewedProperty property = property();
 
-		viewedPropertyLogic.materializeAnswers(property, List.of(), Map.of());
+		viewedPropertyLogic.materializeAnswers(property, List.of(), CATEGORIES);
 
 		assertThat(property.getAnswers()).isEmpty();
 		assertThatCode(() -> viewedPropertyLogic.validateCompletable(withInterest(property)))
@@ -118,7 +121,7 @@ class ViewedPropertyLogicTest {
 
 	/**
 	 * 스냅샷은 생성 시점 값을 복사한다(계획 §1) - 이후 분류 이름/순서가 바뀌어도 이미 만든 매물은
-	 * 그대로다. 백필과 같은 원칙이라 renaming이 기존 매물을 건드리면 안 된다.
+	 * 그대로다. 분류 이름 변경이 기존 매물을 건드리면 안 된다.
 	 */
 	@Test
 	void materializeAnswers_shouldNotBeAffectedByLaterCategoryRename() {
@@ -141,7 +144,7 @@ class ViewedPropertyLogicTest {
 		ViewedProperty property = property();
 		viewedPropertyLogic.materializeAnswers(property, List.of(
 			question("q1", QuestionAnswerType.LONG_TEXT, true, null),
-			question("q2", QuestionAnswerType.LONG_TEXT, true, null)), Map.of());
+			question("q2", QuestionAnswerType.LONG_TEXT, true, null)), CATEGORIES);
 
 		PropertyAnswerUdo udo = answerUdo("q1");
 		udo.setTextValue("오후에도 밝았다");
@@ -155,7 +158,7 @@ class ViewedPropertyLogicTest {
 	@Test
 	void applyAnswers_shouldRejectUnknownQuestionId() {
 		ViewedProperty property = property();
-		viewedPropertyLogic.materializeAnswers(property, List.of(question("q1", QuestionAnswerType.TEXT, true, null)), Map.of());
+		viewedPropertyLogic.materializeAnswers(property, List.of(question("q1", QuestionAnswerType.TEXT, true, null)), CATEGORIES);
 
 		assertThatThrownBy(() -> viewedPropertyLogic.applyAnswers(property, List.of(answerUdo("q9"))))
 			.isInstanceOf(InspectionQuestionNotFoundException.class);
@@ -164,7 +167,7 @@ class ViewedPropertyLogicTest {
 	@Test
 	void applyAnswers_shouldRejectValueOfAnotherType() {
 		ViewedProperty property = property();
-		viewedPropertyLogic.materializeAnswers(property, List.of(question("q1", QuestionAnswerType.NUMBER, true, null)), Map.of());
+		viewedPropertyLogic.materializeAnswers(property, List.of(question("q1", QuestionAnswerType.NUMBER, true, null)), CATEGORIES);
 		PropertyAnswerUdo udo = answerUdo("q1");
 		udo.setNumberValue(BigDecimal.TEN);
 		udo.setTextValue("설명");
@@ -176,7 +179,7 @@ class ViewedPropertyLogicTest {
 	@Test
 	void applyAnswers_shouldRejectRatingOutOfRange() {
 		ViewedProperty property = property();
-		viewedPropertyLogic.materializeAnswers(property, List.of(question("q1", QuestionAnswerType.RATING, true, null)), Map.of());
+		viewedPropertyLogic.materializeAnswers(property, List.of(question("q1", QuestionAnswerType.RATING, true, null)), CATEGORIES);
 		PropertyAnswerUdo udo = answerUdo("q1");
 		udo.setRatingValue(6);
 
@@ -188,7 +191,7 @@ class ViewedPropertyLogicTest {
 	void applyAnswers_shouldRejectUnknownChoiceCode() {
 		ViewedProperty property = property();
 		viewedPropertyLogic.materializeAnswers(property, List.of(question("q1", QuestionAnswerType.SINGLE_SELECT,
-			true, List.of(new QuestionChoice("SOUTH", "남향", 1)))), Map.of());
+			true, List.of(new QuestionChoice("SOUTH", "남향", 1)))), CATEGORIES);
 		PropertyAnswerUdo udo = answerUdo("q1");
 		udo.setSelectedCodes(List.of("NORTH"));
 
@@ -200,7 +203,7 @@ class ViewedPropertyLogicTest {
 	void applyAnswers_shouldRejectTwoCodesForSingleSelect() {
 		ViewedProperty property = property();
 		viewedPropertyLogic.materializeAnswers(property, List.of(question("q1", QuestionAnswerType.SINGLE_SELECT,
-			true, List.of(new QuestionChoice("SOUTH", "남향", 1), new QuestionChoice("EAST", "동향", 2)))), Map.of());
+			true, List.of(new QuestionChoice("SOUTH", "남향", 1), new QuestionChoice("EAST", "동향", 2)))), CATEGORIES);
 		PropertyAnswerUdo udo = answerUdo("q1");
 		udo.setSelectedCodes(List.of("SOUTH", "EAST"));
 
@@ -212,7 +215,7 @@ class ViewedPropertyLogicTest {
 	void applyAnswers_shouldRejectDuplicatedCodeForMultiSelect() {
 		ViewedProperty property = property();
 		viewedPropertyLogic.materializeAnswers(property, List.of(question("q1", QuestionAnswerType.MULTI_SELECT,
-			true, List.of(new QuestionChoice("SOUTH", "남향", 1)))), Map.of());
+			true, List.of(new QuestionChoice("SOUTH", "남향", 1)))), CATEGORIES);
 		PropertyAnswerUdo udo = answerUdo("q1");
 		udo.setSelectedCodes(List.of("SOUTH", "SOUTH"));
 
@@ -223,7 +226,7 @@ class ViewedPropertyLogicTest {
 	@Test
 	void applyAnswers_shouldClearValueWhenEmptyTextGiven() {
 		ViewedProperty property = property();
-		viewedPropertyLogic.materializeAnswers(property, List.of(question("q1", QuestionAnswerType.TEXT, true, null)), Map.of());
+		viewedPropertyLogic.materializeAnswers(property, List.of(question("q1", QuestionAnswerType.TEXT, true, null)), CATEGORIES);
 		PropertyAnswerUdo filled = answerUdo("q1");
 		filled.setTextValue("밝음");
 		viewedPropertyLogic.applyAnswers(property, List.of(filled));
@@ -297,7 +300,7 @@ class ViewedPropertyLogicTest {
 	@Test
 	void validateCompletable_shouldReportUnansweredRequiredQuestionIds() {
 		ViewedProperty property = withInterest(property());
-		viewedPropertyLogic.materializeAnswers(property, List.of(question("q1", QuestionAnswerType.TEXT, true, null)), Map.of());
+		viewedPropertyLogic.materializeAnswers(property, List.of(question("q1", QuestionAnswerType.TEXT, true, null)), CATEGORIES);
 
 		assertThatThrownBy(() -> viewedPropertyLogic.validateCompletable(property))
 			.isInstanceOf(InspectionAnswerRequiredException.class)
@@ -307,7 +310,7 @@ class ViewedPropertyLogicTest {
 	@Test
 	void revalidateIfCompleted_shouldRejectEmptyingARequiredAnswer() {
 		ViewedProperty property = withInterest(property());
-		viewedPropertyLogic.materializeAnswers(property, List.of(question("q1", QuestionAnswerType.TEXT, true, null)), Map.of());
+		viewedPropertyLogic.materializeAnswers(property, List.of(question("q1", QuestionAnswerType.TEXT, true, null)), CATEGORIES);
 		PropertyAnswerUdo filled = answerUdo("q1");
 		filled.setTextValue("밝음");
 		viewedPropertyLogic.applyAnswers(property, List.of(filled));
@@ -325,7 +328,7 @@ class ViewedPropertyLogicTest {
 	@Test
 	void revalidateIfCompleted_shouldDoNothingForDraft() {
 		ViewedProperty property = property();
-		viewedPropertyLogic.materializeAnswers(property, List.of(question("q1", QuestionAnswerType.TEXT, true, null)), Map.of());
+		viewedPropertyLogic.materializeAnswers(property, List.of(question("q1", QuestionAnswerType.TEXT, true, null)), CATEGORIES);
 
 		assertThatCode(() -> viewedPropertyLogic.revalidateIfCompleted(property)).doesNotThrowAnyException();
 	}
@@ -335,7 +338,7 @@ class ViewedPropertyLogicTest {
 		ViewedProperty property = property();
 		viewedPropertyLogic.materializeAnswers(property, List.of(
 			question("q1", QuestionAnswerType.TEXT, false, null),
-			question("q2", QuestionAnswerType.TEXT, true, null)), Map.of());
+			question("q2", QuestionAnswerType.TEXT, true, null)), CATEGORIES);
 
 		assertThat(viewedPropertyLogic.findUnansweredRequired(property))
 			.extracting(PropertyAnswer::getQuestionId).containsExactly("q2");

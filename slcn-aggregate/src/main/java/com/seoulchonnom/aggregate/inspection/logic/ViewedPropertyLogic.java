@@ -110,11 +110,9 @@ public class ViewedPropertyLogic {
 	 * 활성 질문이 0개여도 매물 생성은 허용한다. 필수 문답 검증이 자동으로 통과할 뿐이다.
 	 *
 	 * 저장 순서도 분류 순서로 맞춰 둔다(계획 §2). 읽을 때 다시 정렬하므로 필수는 아니지만,
-	 * DB에 쌓이는 원본 데이터가 분류별로 정리돼 있으면 백필/디버깅 때 굳이 정렬해 보지 않아도 된다.
+	 * DB에 쌓이는 원본 데이터가 분류별로 정리돼 있으면 디버깅 때 굳이 정렬해 보지 않아도 된다.
 	 *
-	 * @param categoriesById enabledQuestions의 categoryId를 모두 포함해야 한다 - 빠진 항목은
-	 *                        questionComparator에서 미분류로 취급되고, 스냅샷에는 categoryId만 남고
-	 *                        categoryName/categorySortOrder는 비워진다
+	 * @param categoriesById enabledQuestions의 categoryId를 모두 포함해야 한다
 	 */
 	public void materializeAnswers(ViewedProperty property, List<InspectionQuestion> enabledQuestions,
 		Map<String, InspectionQuestionCategory> categoriesById) {
@@ -128,9 +126,8 @@ public class ViewedPropertyLogic {
 				// 버전 없는 질문은 물어볼 문구가 없다. 스냅샷에서 제외한다
 				continue;
 			}
-			InspectionQuestionCategory category = question.getCategoryId() == null ? null
-				: categoriesById.get(question.getCategoryId());
-			answers.add(propertyAnswerMapper.toPropertyAnswer(question, version, category));
+			answers.add(propertyAnswerMapper.toPropertyAnswer(question, version,
+				categoriesById.get(question.getCategoryId())));
 		}
 		property.setAnswers(answers);
 		property.refreshAnswerCounts();

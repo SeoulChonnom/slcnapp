@@ -40,8 +40,9 @@ public class InspectionQuestionJpo extends DomainEntityJpo {
 	private List<QuestionVersion> versions = new ArrayList<>();
 	private int currentVersionNo;
 	/**
-	 * 과도기(계획 §0-1)에는 null 허용. ddl-auto=update로는 행이 있는 테이블에 NOT NULL 컬럼을
-	 * 추가할 수 없어 DB 제약이 아니라 도메인 검증(Logic)이 필수 여부를 지킨다.
+	 * ddl-auto=update는 이미 있는 컬럼의 NULL 허용 여부를 바꾸지 않는다. 기존 DB에는
+	 * docs/field_research/api.md의 이관 SQL로 NOT NULL을 직접 건다.
 	 */
+	@Column(nullable = false)
 	private String categoryId;
 }
