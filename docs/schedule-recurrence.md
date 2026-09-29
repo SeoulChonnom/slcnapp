@@ -86,7 +86,7 @@
 HTTP/1.1 400 Bad Request
 Content-Type: application/json
 
-{"success":false,"message":"올바르지 않은 반복 일정 규칙입니다."}
+{"title":"올바르지 않은 반복 일정 규칙입니다.","status":400,"code":"INVALID_SCHEDULE_RECURRENCE","errors":[]}
 ```
 
 ## 조회와 mutation 의미

@@ -80,7 +80,8 @@ class InspectionQuestionCategoryLogicTest {
 		assertThatThrownBy(() -> inspectionQuestionCategoryLogic.registerInspectionQuestionCategory(
 			new InspectionQuestionCategoryCdo("채광·환기", 1)))
 			.isInstanceOf(InspectionQuestionCategoryDuplicatedException.class)
-			.hasMessageContaining("INSPECTION_QUESTION_CATEGORY-0001");
+			// title은 사용자에게 그대로 보이므로 내부 id를 싣지 않는다
+			.hasMessage("같은 이름의 질문 분류가 이미 있습니다.");
 		verify(inspectionQuestionCategoryStore, never()).save(any());
 	}
 

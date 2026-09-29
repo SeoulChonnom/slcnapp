@@ -154,7 +154,9 @@ class InspectionQuestionCategoryResourceTest {
 					{ "name": "채광·환기", "sortOrder": 1 }
 					"""))
 			.andExpect(status().isConflict())
-			.andExpect(jsonPath("$.success").value(false));
+			.andExpect(jsonPath("$.code").value("INSPECTION_QUESTION_CATEGORY_DUPLICATED"))
+			.andExpect(jsonPath("$.status").value(409))
+			.andExpect(jsonPath("$.errors").isEmpty());
 	}
 
 	@Test
@@ -169,7 +171,9 @@ class InspectionQuestionCategoryResourceTest {
 					{ "name": "채광" }
 					"""))
 			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.success").value(false));
+			.andExpect(jsonPath("$.code").value("INSPECTION_QUESTION_CATEGORY_NOT_FOUND"))
+			.andExpect(jsonPath("$.status").value(400))
+			.andExpect(jsonPath("$.errors").isEmpty());
 	}
 
 	@Test
@@ -184,7 +188,9 @@ class InspectionQuestionCategoryResourceTest {
 					{ "enabled": false }
 					"""))
 			.andExpect(status().isConflict())
-			.andExpect(jsonPath("$.success").value(false));
+			.andExpect(jsonPath("$.code").value("INSPECTION_QUESTION_CATEGORY_IN_USE"))
+			.andExpect(jsonPath("$.status").value(409))
+			.andExpect(jsonPath("$.errors").isEmpty());
 	}
 
 	/**

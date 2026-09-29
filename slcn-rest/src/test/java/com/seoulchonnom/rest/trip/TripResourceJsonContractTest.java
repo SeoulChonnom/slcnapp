@@ -129,7 +129,8 @@ class TripResourceJsonContractTest {
 					}
 					"""))
 			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.message").value("나들이 파일 데이터는 필수값 입니다."));
+			.andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+			.andExpect(jsonPath("$.title").value("나들이 파일 데이터는 필수값 입니다."));
 
 		verifyNoInteractions(tripLogic);
 	}
@@ -169,7 +170,8 @@ class TripResourceJsonContractTest {
 					}
 					"""))
 			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.message").value("입력이 올바르지 않습니다."));
+			.andExpect(jsonPath("$.code").value("INVALID_REQUEST_BODY"))
+			.andExpect(jsonPath("$.title").value("입력이 올바르지 않습니다."));
 
 		verifyNoInteractions(tripLogic);
 	}
@@ -187,7 +189,8 @@ class TripResourceJsonContractTest {
 					}
 					"""))
 			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.message").value("입력이 올바르지 않습니다."));
+			.andExpect(jsonPath("$.code").value("INVALID_REQUEST_BODY"))
+			.andExpect(jsonPath("$.title").value("입력이 올바르지 않습니다."));
 
 		verifyNoInteractions(tripLogic);
 	}

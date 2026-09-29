@@ -32,6 +32,6 @@ public class CommonAuthenticationEntryPoint implements AuthenticationEntryPoint 
 		response.setCharacterEncoding("UTF-8");
 		response.setStatus(ErrorCode.UNAUTHORIZED.getHttpStatus().value());
 		response.getWriter().write(objectMapper.writeValueAsString(
-			ErrorResponse.from(false, ErrorCode.UNAUTHORIZED.getMessage())));
+			ErrorResponse.of(ErrorCode.UNAUTHORIZED)));
 	}
 }

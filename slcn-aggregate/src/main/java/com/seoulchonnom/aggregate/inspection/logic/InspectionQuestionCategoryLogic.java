@@ -152,12 +152,13 @@ public class InspectionQuestionCategoryLogic {
 
 	/**
 	 * 비활성 분류까지 포함해 검사한다(계획 §0-6) — Store.findOptionalByName은 enabled를 가리지 않는다.
+	 * 기존 분류 id는 응답에 싣지 않는다. title은 사용자에게 그대로 보이는 문장이고, FE는
+	 * includeDisabled=true 목록에서 이름으로 기존 분류를 찾는다.
 	 */
 	private void rejectDuplicateName(String name, String excludingCategoryId) {
 		Optional<InspectionQuestionCategory> existing = inspectionQuestionCategoryStore.findOptionalByName(name);
 		if (existing.isPresent() && !existing.get().getId().equals(excludingCategoryId)) {
-			throw new InspectionQuestionCategoryDuplicatedException(
-				"같은 이름의 질문 분류가 이미 있습니다. categoryId=" + existing.get().getId());
+			throw new InspectionQuestionCategoryDuplicatedException();
 		}
 	}
 }

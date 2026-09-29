@@ -42,7 +42,7 @@ FE의 주요 화면은 목록, 상세, 전체 수정 화면이므로 상세 조�
 - 여행 ID는 `id_sequence`의 `TRAVEL` 행을 사용해 `TRAVEL-{번호}` 형식으로 생성한다.
 - 생성/기간 증가는 날짜 범위에 맞춰 `TravelDay`를 자동 생성하고 `dayNumber`, `sortOrder`를 순서대로 부여한다.
 - 기간 감소로 삭제될 day에 `title`, `memo`, `coverPhotoId`, place, photo 연결이 있으면 `confirmDeleteDays=true`가 없을 때 `409 Conflict`를 반환한다.
-- 기간 충돌 응답은 `ErrorResponse.message`에 삭제 대상 날짜 목록을 포함한다.
+- 기간 충돌 응답은 `ErrorResponse.title`에 삭제 대상 날짜 목록을 포함한다.
 - `confirmDeleteDays=true`면 삭제 대상 day/place/photo 연결을 삭제한다. 실제 파일 API는 호출하지 않는다.
 - 같은 대상과 `photoFileId` 조합의 중복 사진 연결은 로직에서 거부한다. nullable target 때문에 DB unique 대신 분기 검증한다.
 - 태그는 trim 후 저장하며 빈 값, 동일 여행 내 중복, 10개 초과를 거부한다.

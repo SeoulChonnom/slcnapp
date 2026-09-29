@@ -94,7 +94,7 @@ class UserResourceJsonContractTest {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{}"))
 			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.message").value("password는 필수입니다."));
+			.andExpect(jsonPath("$.title").value("password는 필수입니다."));
 
 		verifyNoInteractions(userFlow);
 	}
