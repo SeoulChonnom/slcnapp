@@ -7,12 +7,16 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.seoulchonnom.aggregate.inspection.exception.InspectionQuestionCategoryDisabledException;
 import com.seoulchonnom.aggregate.user.exception.InvalidUserException;
@@ -91,6 +95,34 @@ class CommonExceptionHandlerTest {
 		assertThat(response.getBody().getCode()).isEqualTo(ErrorCode.INVALID_PARAMETER.name());
 		assertThat(response.getBody().getErrors()).extracting(Violation::field, Violation::code)
 			.containsExactly(tuple("page", "TYPE_MISMATCH"));
+	}
+
+	/**
+	 * 없는 경로가 아래 Exception 핸들러로 떨어져 500이 되던 문제를 막는다.
+	 */
+	@Test
+	void noResourceFoundException_shouldMapToNotFound() {
+		ResponseEntity<ErrorResponse> response = handler.noResourceFoundException(
+			new NoResourceFoundException(HttpMethod.GET, "no-such-path"));
+
+		assertThat(response.getStatusCode().value()).isEqualTo(404);
+		assertThat(response.getBody().getCode()).isEqualTo(ErrorCode.NOT_FOUND.name());
+	}
+
+	@Test
+	void httpMediaTypeNotSupportedException_shouldMapToUnsupportedMediaType() {
+		ResponseEntity<ErrorResponse> response = handler.httpMediaTypeNotSupportedException(
+			new HttpMediaTypeNotSupportedException("text/plain"));
+
+		assertThat(response.getStatusCode().value()).isEqualTo(415);
+		assertThat(response.getBody().getCode()).isEqualTo(ErrorCode.UNSUPPORTED_MEDIA_TYPE.name());
+	}
+
+	@Test
+	void respond_shouldPinApplicationJsonContentType() {
+		ResponseEntity<ErrorResponse> response = handler.businessException(new InvalidUserException());
+
+		assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.APPLICATION_JSON);
 	}
 
 	@Test

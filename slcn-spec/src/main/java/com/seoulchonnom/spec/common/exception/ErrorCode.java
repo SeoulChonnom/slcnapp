@@ -27,6 +27,7 @@ public enum ErrorCode {
 	INVALID_REQUEST_BODY(HttpStatus.BAD_REQUEST, "입력이 올바르지 않습니다."),
 	MISSING_PARAMETER(HttpStatus.BAD_REQUEST, "필수 파라미터가 없습니다."),
 	INVALID_PARAMETER(HttpStatus.BAD_REQUEST, "파라미터 값이 올바르지 않습니다."),
+	NOT_FOUND(HttpStatus.NOT_FOUND, "요청한 경로를 찾을 수 없습니다."),
 	METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "지원하지 않는 HTTP 메서드입니다."),
 
 	INVALID_USER(HttpStatus.BAD_REQUEST, USERNAME_NOT_FOUND_ERROR_MESSAGE),

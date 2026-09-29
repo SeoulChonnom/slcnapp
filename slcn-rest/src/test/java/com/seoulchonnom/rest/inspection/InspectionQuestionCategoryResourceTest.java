@@ -159,6 +159,36 @@ class InspectionQuestionCategoryResourceTest {
 			.andExpect(jsonPath("$.errors").isEmpty());
 	}
 
+	/**
+	 * 본문이 ProblemDetail과 비슷해도 우리 형식은 RFC 9457 문서가 아니다. Accept에
+	 * problem+json을 넣어도 FE가 JSON으로 파싱하는 application/json으로 내려가야 한다.
+	 */
+	@Test
+	void errorResponse_withProblemJsonAccept_shouldStillBeApplicationJson() throws Exception {
+		when(inspectionQuestionCategoryLogic.registerInspectionQuestionCategory(any(InspectionQuestionCategoryCdo.class)))
+			.thenThrow(new InspectionQuestionCategoryDuplicatedException());
+
+		mockMvc.perform(post("/inspection-question-categories")
+				.contentType(MediaType.APPLICATION_JSON)
+				.accept(MediaType.APPLICATION_PROBLEM_JSON)
+				.content("""
+					{ "name": "채광·환기", "sortOrder": 1 }
+					"""))
+			.andExpect(status().isConflict())
+			.andExpect(content().contentType(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$.code").value("INSPECTION_QUESTION_CATEGORY_DUPLICATED"));
+	}
+
+	@Test
+	void registerInspectionQuestionCategory_withPlainTextBody_shouldReturnUnsupportedMediaType() throws Exception {
+		mockMvc.perform(post("/inspection-question-categories")
+				.contentType(MediaType.TEXT_PLAIN)
+				.content("채광"))
+			.andExpect(status().isUnsupportedMediaType())
+			.andExpect(content().contentType(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$.code").value("UNSUPPORTED_MEDIA_TYPE"));
+	}
+
 	@Test
 	void renameInspectionQuestionCategory_withUnknownCategory_shouldReturnBadRequest() throws Exception {
 		when(inspectionQuestionCategoryLogic.renameInspectionQuestionCategory(eq("missing"),

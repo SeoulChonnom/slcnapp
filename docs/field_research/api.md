@@ -708,7 +708,9 @@ GET /api/inspection-questions/{questionId}/versions
 
 ## 11. 에러 코드
 
-모든 에러는 같은 형태다. 비즈니스 예외, 입력 검증, 401/403, 405가 모두 이 본문으로 나간다.
+모든 에러는 같은 형태다. 비즈니스 예외, 입력 검증, 401/403/404/405/415가 모두 이 본문으로 나간다.
+`Content-Type`은 `Accept`와 상관없이 항상 `application/json`이다. 모양은 Spring `ProblemDetail`과
+비슷하지만 RFC 9457 문서가 아니므로 `application/problem+json`으로 내려가지 않는다.
 
 ```json
 {
@@ -741,6 +743,7 @@ GET /api/inspection-questions/{questionId}/versions
 | `BAD_REQUEST` | 400 | 그 밖의 잘못된 입력 |
 | `UNAUTHORIZED` | 401 | 토큰 없음·만료·위조 |
 | `ACCESS_ROLE_DENIED` | 403 | 권한 부족. `ADMIN` 전용 API를 `USER`가 호출 |
+| `NOT_FOUND` | 404 | 없는 경로 |
 | `METHOD_NOT_ALLOWED` | 405 | 지원하지 않는 HTTP 메서드 |
 | `PAYLOAD_TOO_LARGE` | 413 | 업로드 요청이 60 MB 초과 |
 | `UNSUPPORTED_MEDIA_TYPE` | 415 | 지원하지 않는 파일·미디어 타입 |

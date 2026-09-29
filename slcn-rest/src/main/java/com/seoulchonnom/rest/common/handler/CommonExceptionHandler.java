@@ -2,15 +2,18 @@ package com.seoulchonnom.rest.common.handler;
 
 import java.util.List;
 
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.BindingResult;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.seoulchonnom.spec.common.exception.BusinessException;
 import com.seoulchonnom.spec.common.exception.ErrorCode;
@@ -22,6 +25,10 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * 모든 예외를 ErrorResponse(title, status, code, errors) 한 가지 형태로 바꾼다.
  * code는 항상 ErrorCode 이름이라 FE가 이것만으로 분기할 수 있다.
+ *
+ * Content-Type은 Accept와 상관없이 application/json으로 고정한다. 본문 모양이 ProblemDetail과
+ * 비슷해 Jackson이 Accept: application/problem+json 요청에 그 타입을 골라 줄 수 있는데,
+ * 우리 형식은 RFC 9457 문서가 아니므로 타입이 요청마다 달라지지 않게 한다.
  */
 @RestControllerAdvice
 @Slf4j
@@ -57,6 +64,19 @@ public class CommonExceptionHandler {
 			List.of(new Violation(e.getParameterName(), "REQUIRED", message))));
 	}
 
+	/**
+	 * 없는 경로. 잡지 않으면 아래 Exception 핸들러가 500으로 바꾼다.
+	 */
+	@ExceptionHandler(NoResourceFoundException.class)
+	public ResponseEntity<ErrorResponse> noResourceFoundException(NoResourceFoundException e) {
+		return respond(ErrorResponse.of(ErrorCode.NOT_FOUND));
+	}
+
+	@ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+	public ResponseEntity<ErrorResponse> httpMediaTypeNotSupportedException(HttpMediaTypeNotSupportedException e) {
+		return respond(ErrorResponse.of(ErrorCode.UNSUPPORTED_MEDIA_TYPE));
+	}
+
 	@ExceptionHandler(HttpRequestMethodNotSupportedException.class)
 	public ResponseEntity<ErrorResponse> httpRequestMethodNotSupportedException(
 		HttpRequestMethodNotSupportedException e) {
@@ -87,7 +107,7 @@ public class CommonExceptionHandler {
 	}
 
 	private ResponseEntity<ErrorResponse> respond(ErrorResponse body) {
-		return ResponseEntity.status(body.getStatus()).body(body);
+		return ResponseEntity.status(body.getStatus()).contentType(MediaType.APPLICATION_JSON).body(body);
 	}
 
 	private List<Violation> violationsOf(BindingResult bindingResult) {
