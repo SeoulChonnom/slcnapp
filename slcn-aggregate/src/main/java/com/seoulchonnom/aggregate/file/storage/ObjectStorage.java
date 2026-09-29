@@ -20,8 +20,6 @@ public interface ObjectStorage {
 	 */
 	byte[] getBytes(String key) throws IOException;
 
-	boolean exists(String key);
-
 	/**
 	 * 서명된 조회 URL. 서명을 지원하지 않는 구현은 비어 있는 값을 돌려주고,
 	 * 호출자는 지금까지처럼 바이트를 직접 읽어 응답한다.

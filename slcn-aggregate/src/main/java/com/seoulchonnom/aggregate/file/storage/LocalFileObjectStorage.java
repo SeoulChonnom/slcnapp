@@ -30,11 +30,6 @@ public class LocalFileObjectStorage implements ObjectStorage {
 	}
 
 	@Override
-	public boolean exists(String key) {
-		return Files.exists(resolve(key));
-	}
-
-	@Override
 	public Optional<String> presignedGetUrl(String key, Duration ttl, String contentDisposition) {
 		return Optional.empty();
 	}

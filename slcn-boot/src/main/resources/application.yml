@@ -61,7 +61,7 @@ slcn:
   domain: "${SLCN_DOMAIN_LIST:http://localhost:9090}"
   public-base-url: "${SLCN_PUBLIC_BASE_URL:}"
   upload:
-    # local 프로바이더의 기준 디렉터리이자, R2 백필의 원본 위치다.
+    # local 프로바이더의 기준 디렉터리다.
     path: "${SLCN_UPLOAD_PATH}"
     # 파생본 생성(동시 2건) 차례를 기다리는 최대 초. 넘기면 파생본 없이 업로드를 끝내고 조회는 원본으로 폴백한다.
     variant-wait-seconds: "${SLCN_UPLOAD_VARIANT_WAIT_SECONDS:60}"
@@ -83,10 +83,6 @@ slcn:
       session-ttl-seconds: "${SLCN_STORAGE_RAW_SESSION_TTL_SECONDS:1800}"
       # 24시간 넘게 끝나지 않은 RAW 업로드 정리. 매일 새벽 4시 30분(Asia/Seoul). "-"면 끈다.
       cleanup-cron: "${SLCN_STORAGE_RAW_CLEANUP_CRON:0 30 4 * * *}"
-    migration:
-      # 기존 로컬 파일을 오브젝트 스토리지로 옮긴다. 배포 1회만 켜고 다시 내린다.
-      enabled: "${SLCN_STORAGE_MIGRATION_ENABLED:false}"
-      batch-size: "${SLCN_STORAGE_MIGRATION_BATCH_SIZE:100}"
   inspection:
     category-backfill:
       # 기존 매물 문답 스냅샷에 질문 대분류를 채운다(계획 §5). 배포 1회만 켜고 다시 내린다.
