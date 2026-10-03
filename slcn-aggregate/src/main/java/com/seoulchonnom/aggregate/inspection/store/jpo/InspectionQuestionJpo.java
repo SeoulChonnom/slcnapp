@@ -22,7 +22,8 @@ import lombok.Setter;
 
 @Entity
 @Table(name = "inspection_question", schema = "slcn", indexes = {
-	@Index(name = "idx_inspection_question_enabled_sort", columnList = "enabled,sort_order")
+	@Index(name = "idx_inspection_question_enabled_sort", columnList = "enabled,sort_order"),
+	@Index(name = "idx_inspection_question_category_enabled", columnList = "category_id,enabled")
 })
 @Getter
 @Setter
@@ -38,4 +39,10 @@ public class InspectionQuestionJpo extends DomainEntityJpo {
 	@Column(columnDefinition = "TEXT")
 	private List<QuestionVersion> versions = new ArrayList<>();
 	private int currentVersionNo;
+	/**
+	 * ddl-auto=update는 이미 있는 컬럼의 NULL 허용 여부를 바꾸지 않는다. 기존 DB에는
+	 * docs/field_research/api.md의 이관 SQL로 NOT NULL을 직접 건다.
+	 */
+	@Column(nullable = false)
+	private String categoryId;
 }

@@ -12,7 +12,7 @@ import com.seoulchonnom.spec.inspection.entity.vo.QuestionVersion;
 
 class InspectionQuestionTest {
 	private static InspectionQuestion question() {
-		return new InspectionQuestion("INSPECTION_QUESTION-0001", QuestionAnswerType.SINGLE_SELECT, true, 1);
+		return new InspectionQuestion("INSPECTION_QUESTION-0001", "CATEGORY-1", QuestionAnswerType.SINGLE_SELECT, true, 1);
 	}
 
 	@Test
@@ -75,5 +75,18 @@ class InspectionQuestionTest {
 
 		assertThat(question.getVersions()).hasSize(1);
 		assertThat(question.getCurrentVersionNo()).isEqualTo(1);
+	}
+
+	@Test
+	void moveCategory_shouldSetCategoryIdAndSortOrderWithoutBumpingVersion() {
+		InspectionQuestion question = question();
+		question.addVersion("v1", null, null, null);
+
+		question.moveCategory("INSPECTION_QUESTION_CATEGORY-0001", 3);
+
+		assertThat(question.getCategoryId()).isEqualTo("INSPECTION_QUESTION_CATEGORY-0001");
+		assertThat(question.getSortOrder()).isEqualTo(3);
+		assertThat(question.getCurrentVersionNo()).isEqualTo(1);
+		assertThat(question.getVersions()).hasSize(1);
 	}
 }

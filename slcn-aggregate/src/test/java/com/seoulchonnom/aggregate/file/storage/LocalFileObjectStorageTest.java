@@ -59,15 +59,6 @@ class LocalFileObjectStorageTest {
 	}
 
 	@Test
-	void exists_shouldReflectObjectPresence() throws Exception {
-		Path source = Files.write(tempDir.resolve("source.bin"), new byte[] {1});
-		storage.put("originals/travel/a.png", source, "image/png");
-
-		assertThat(storage.exists("originals/travel/a.png")).isTrue();
-		assertThat(storage.exists("originals/travel/b.png")).isFalse();
-	}
-
-	@Test
 	void presignedGetUrl_shouldBeEmptySoCallersServeBytesThemselves() {
 		assertThat(storage.presignedGetUrl("originals/travel/a.png", Duration.ofMinutes(5), null))
 			.isEmpty();

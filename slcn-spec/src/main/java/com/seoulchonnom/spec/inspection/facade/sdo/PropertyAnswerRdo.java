@@ -43,4 +43,11 @@ public class PropertyAnswerRdo {
 
 	private Boolean isCurrentVersion;
 	private Boolean questionEnabled;
+
+	/**
+	 * 매물 생성 시점의 분류 스냅샷이다. 이후 분류 이름·순서가 바뀌어도 그대로다.
+	 */
+	private String categoryId;
+	private String categoryName;
+	private int categorySortOrder;
 }

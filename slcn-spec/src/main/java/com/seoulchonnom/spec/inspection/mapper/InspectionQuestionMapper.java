@@ -3,6 +3,7 @@ package com.seoulchonnom.spec.inspection.mapper;
 import org.springframework.stereotype.Component;
 
 import com.seoulchonnom.spec.inspection.entity.InspectionQuestion;
+import com.seoulchonnom.spec.inspection.entity.InspectionQuestionCategory;
 import com.seoulchonnom.spec.inspection.entity.vo.QuestionVersion;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionQuestionCdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionQuestionContentUdo;
@@ -13,10 +14,11 @@ import com.seoulchonnom.spec.inspection.facade.sdo.InspectionQuestionVersionRdo;
 public class InspectionQuestionMapper {
 	/**
 	 * 등록과 동시에 v1을 붙인다. answerType은 이 경로에서만 정할 수 있다.
+	 * categoryId는 cdo 값을 그대로 싣는다 - 필수 검증과 활성 분류 확인은 Logic의 책임이다.
 	 */
 	public InspectionQuestion toInspectionQuestion(String id, InspectionQuestionCdo cdo) {
-		InspectionQuestion question = new InspectionQuestion(id, cdo.getAnswerType(), cdo.isRequired(),
-			cdo.getSortOrder());
+		InspectionQuestion question = new InspectionQuestion(id, cdo.getCategoryId(), cdo.getAnswerType(),
+			cdo.isRequired(), cdo.getSortOrder());
 		question.addVersion(cdo.getContent(), cdo.getDescription(),
 			PropertyAnswerMapper.toQuestionChoices(cdo.getChoices()), cdo.getUnit());
 		return question;
@@ -32,9 +34,11 @@ public class InspectionQuestionMapper {
 	}
 
 	/**
-	 * @param answerCount withAnswerCount 요청일 때만 채우고, 아니면 null
+	 * @param category     질문이 속한 분류
+	 * @param answerCount  withAnswerCount 요청일 때만 채우고, 아니면 null
 	 */
-	public InspectionQuestionRdo toInspectionQuestionRdo(InspectionQuestion question, Integer answerCount) {
+	public InspectionQuestionRdo toInspectionQuestionRdo(InspectionQuestion question,
+		InspectionQuestionCategory category, Integer answerCount) {
 		InspectionQuestionRdo rdo = new InspectionQuestionRdo();
 		rdo.setQuestionId(question.getId());
 		rdo.setAnswerType(question.getAnswerType());
@@ -49,6 +53,9 @@ public class InspectionQuestionMapper {
 			rdo.setUnit(version.getUnit());
 		});
 		rdo.setAnswerCount(answerCount);
+		rdo.setCategoryId(question.getCategoryId());
+		rdo.setCategoryName(category.getName());
+		rdo.setCategorySortOrder(category.getSortOrder());
 		return rdo;
 	}
 

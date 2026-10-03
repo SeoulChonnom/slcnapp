@@ -33,9 +33,15 @@ public class InspectionQuestion extends DomainEntity {
 	@Builder.Default
 	private List<QuestionVersion> versions = new ArrayList<>();
 	private int currentVersionNo;
+	/**
+	 * 모든 질문은 분류에 속한다. 분류를 바꾸는 경로는 moveCategory 하나뿐이다.
+	 */
+	private String categoryId;
 
-	public InspectionQuestion(String id, QuestionAnswerType answerType, boolean required, int sortOrder) {
+	public InspectionQuestion(String id, String categoryId, QuestionAnswerType answerType, boolean required,
+		int sortOrder) {
 		super(id);
+		this.categoryId = categoryId;
 		this.answerType = answerType;
 		this.required = required;
 		this.sortOrder = sortOrder;
@@ -87,6 +93,17 @@ public class InspectionQuestion extends DomainEntity {
 
 	public void changeEnabled(boolean enabled) {
 		this.enabled = enabled;
+		this.modifiedTime = System.currentTimeMillis();
+	}
+
+	/**
+	 * 분류 이동은 버전을 올리지 않는다(계획 §1) — required, sortOrder와 같은 수집 정책 성격이다.
+	 * 이동하면 항상 대상 분류의 맨 뒤에 배치한다. sortOrder는 호출자(Logic)가 대상 분류 안의
+	 * max(sortOrder)+1로 채번해 넘긴다.
+	 */
+	public void moveCategory(String categoryId, int sortOrder) {
+		this.categoryId = categoryId;
+		this.sortOrder = sortOrder;
 		this.modifiedTime = System.currentTimeMillis();
 	}
 }

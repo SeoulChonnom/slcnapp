@@ -17,6 +17,15 @@ public final class InspectionConstant {
 	public static final String INVALID_INSPECTION_QUESTION_ERROR_MESSAGE = "허용되지 않은 질문 수정입니다.";
 	public static final String INSPECTION_QUESTION_CONFLICT_ERROR_MESSAGE = "질문이 이미 수정되었습니다. 새로고침 후 다시 시도하세요.";
 
+	public static final String INSPECTION_QUESTION_CATEGORY_NOT_FOUND_ERROR_MESSAGE = "질문 분류를 찾을 수 없습니다.";
+	public static final String INVALID_INSPECTION_QUESTION_CATEGORY_ERROR_MESSAGE = "허용되지 않은 분류 입력입니다.";
+	public static final String INSPECTION_QUESTION_CATEGORY_DUPLICATED_ERROR_MESSAGE = "같은 이름의 질문 분류가 이미 있습니다.";
+	public static final String INSPECTION_QUESTION_CATEGORY_IN_USE_ERROR_MESSAGE = "활성 질문이 있는 분류는 비활성화할 수 없습니다.";
+	public static final String INSPECTION_QUESTION_CATEGORY_CONFLICT_ERROR_MESSAGE = "분류가 이미 수정되었습니다. 새로고침 후 다시 시도하세요.";
+	public static final String INSPECTION_QUESTION_CATEGORY_REQUIRED_ERROR_MESSAGE = "질문 분류는 필수입니다.";
+	public static final String INSPECTION_QUESTION_CATEGORY_DISABLED_ERROR_MESSAGE = "비활성화된 분류에는 질문을 등록하거나 옮길 수 없습니다.";
+	public static final String INSPECTION_QUESTION_REACTIVATION_BLOCKED_ERROR_MESSAGE = "비활성화된 분류의 질문은 다시 활성화할 수 없습니다.";
+
 	public static final String INSPECTION_ANSWER_REQUIRED_ERROR_MESSAGE = "필수 문답이 완료되지 않았습니다.";
 	public static final String INVALID_PROPERTY_ANSWER_ERROR_MESSAGE = "문답 값이 질문 타입과 맞지 않습니다.";
 

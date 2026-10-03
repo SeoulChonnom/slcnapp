@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 
+import com.seoulchonnom.spec.inspection.facade.sdo.InspectionQuestionCategoryMoveUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionQuestionCdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionQuestionContentUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionQuestionOrderUdo;
@@ -11,6 +12,8 @@ import com.seoulchonnom.spec.inspection.facade.sdo.InspectionQuestionPolicyUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionQuestionRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionQuestionStatusUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionQuestionVersionRdo;
+
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 
 /**
  * 쓰기만 ADMIN이고 조회는 USER로 남긴다. 조회까지 막으면 일반 사용자가
@@ -40,5 +43,12 @@ public interface InspectionQuestionFacade {
 	ResponseEntity<InspectionQuestionRdo> changeInspectionQuestionStatus(String questionId,
 		InspectionQuestionStatusUdo inspectionQuestionStatusUdo);
 
+	@ApiResponse(responseCode = "204", description = "성공. 본문 없음")
 	ResponseEntity<Void> modifyInspectionQuestionOrder(List<InspectionQuestionOrderUdo> orders);
+
+	/**
+	 * 질문을 다른 분류로 옮긴다. 대상 분류의 맨 뒤에 배치되고, 버전은 올리지 않는다(계획 §1).
+	 */
+	ResponseEntity<InspectionQuestionRdo> moveInspectionQuestionCategory(String questionId,
+		InspectionQuestionCategoryMoveUdo inspectionQuestionCategoryMoveUdo);
 }

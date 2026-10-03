@@ -6,12 +6,10 @@ import java.time.Duration;
 import java.util.Optional;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
-import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
@@ -20,7 +18,6 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
  * S3 호환 오브젝트 스토리지 어댑터. Cloudflare R2를 대상으로 하지만 endpoint만 바꾸면 S3에서도 동작한다.
  * SDK 예외는 전부 IOException으로 감싸 호출자가 저장소 종류를 몰라도 되게 한다.
  */
-@Slf4j
 @RequiredArgsConstructor
 public class R2ObjectStorage implements ObjectStorage {
 	private final S3Client s3Client;
@@ -49,20 +46,6 @@ public class R2ObjectStorage implements ObjectStorage {
 				.build()).asByteArray();
 		} catch (SdkException e) {
 			throw new IOException("Failed to get object: " + key, e);
-		}
-	}
-
-	/**
-	 * HeadObject 실패는 백필의 중복 업로드로만 이어지고 업로드 자체는 멱등하므로, 없는 것으로 취급한다.
-	 */
-	@Override
-	public boolean exists(String key) {
-		try {
-			s3Client.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build());
-			return true;
-		} catch (SdkException e) {
-			log.debug("HeadObject reported the object as unavailable. key={}", key, e);
-			return false;
 		}
 	}
 

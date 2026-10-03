@@ -7,6 +7,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import com.seoulchonnom.spec.inspection.entity.InspectionQuestion;
+import com.seoulchonnom.spec.inspection.entity.InspectionQuestionCategory;
 import com.seoulchonnom.spec.inspection.entity.vo.QuestionAnswerType;
 import com.seoulchonnom.spec.inspection.entity.vo.QuestionVersion;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionQuestionCdo;
@@ -27,6 +28,7 @@ class InspectionQuestionMapperTest {
 		cdo.setUnit("방위");
 		cdo.setRequired(true);
 		cdo.setSortOrder(2);
+		cdo.setCategoryId("INSPECTION_QUESTION_CATEGORY-0001");
 		return cdo;
 	}
 
@@ -40,6 +42,13 @@ class InspectionQuestionMapperTest {
 		assertThat(question.getVersions()).hasSize(1);
 		assertThat(question.getCurrentVersionNo()).isEqualTo(1);
 		assertThat(question.currentVersion().orElseThrow().getChoices()).hasSize(1);
+	}
+
+	@Test
+	void toInspectionQuestion_shouldCopyCategoryIdFromCdo() {
+		InspectionQuestion question = inspectionQuestionMapper.toInspectionQuestion("INSPECTION_QUESTION-0001", cdo());
+
+		assertThat(question.getCategoryId()).isEqualTo("INSPECTION_QUESTION_CATEGORY-0001");
 	}
 
 	@Test
@@ -64,7 +73,7 @@ class InspectionQuestionMapperTest {
 		udo.setContent("채광은 어떤가?");
 		inspectionQuestionMapper.addVersion(question, udo);
 
-		InspectionQuestionRdo rdo = inspectionQuestionMapper.toInspectionQuestionRdo(question, null);
+		InspectionQuestionRdo rdo = inspectionQuestionMapper.toInspectionQuestionRdo(question, category(), null);
 
 		assertThat(rdo.getContent()).isEqualTo("채광은 어떤가?");
 		assertThat(rdo.getCurrentVersionNo()).isEqualTo(2);
@@ -73,13 +82,26 @@ class InspectionQuestionMapperTest {
 
 	@Test
 	void toInspectionQuestionRdo_shouldTolerateQuestionWithoutVersion() {
-		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0002", QuestionAnswerType.TEXT,
-			false, 1);
+		InspectionQuestion question = new InspectionQuestion("INSPECTION_QUESTION-0002", "CATEGORY-1",
+			QuestionAnswerType.TEXT, false, 1);
 
-		InspectionQuestionRdo rdo = inspectionQuestionMapper.toInspectionQuestionRdo(question, null);
+		InspectionQuestionRdo rdo = inspectionQuestionMapper.toInspectionQuestionRdo(question, category(), null);
 
 		assertThat(rdo.getContent()).isNull();
 		assertThat(rdo.getChoices()).isEmpty();
+	}
+
+	@Test
+	void toInspectionQuestionRdo_shouldFillCategoryNameAndSortOrderWhenCategoryGiven() {
+		InspectionQuestion question = inspectionQuestionMapper.toInspectionQuestion("INSPECTION_QUESTION-0001", cdo());
+		InspectionQuestionCategory category = new InspectionQuestionCategory("INSPECTION_QUESTION_CATEGORY-0001",
+			"채광·환기", 3);
+
+		InspectionQuestionRdo rdo = inspectionQuestionMapper.toInspectionQuestionRdo(question, category, null);
+
+		assertThat(rdo.getCategoryId()).isEqualTo("INSPECTION_QUESTION_CATEGORY-0001");
+		assertThat(rdo.getCategoryName()).isEqualTo("채광·환기");
+		assertThat(rdo.getCategorySortOrder()).isEqualTo(3);
 	}
 
 	@Test
@@ -98,5 +120,9 @@ class InspectionQuestionMapperTest {
 		assertThat(v1.getAnswerCount()).isEqualTo(7);
 		assertThat(v1.getUnit()).isEqualTo("방위");
 		assertThat(v2.isCurrent()).isTrue();
+	}
+
+	private InspectionQuestionCategory category() {
+		return new InspectionQuestionCategory("INSPECTION_QUESTION_CATEGORY-0001", "채광·환기", 1);
 	}
 }

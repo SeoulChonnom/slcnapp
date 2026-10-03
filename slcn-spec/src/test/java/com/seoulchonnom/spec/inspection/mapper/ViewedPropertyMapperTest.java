@@ -11,6 +11,8 @@ import com.seoulchonnom.spec.filebox.entity.vo.FileBoxItemRole;
 import com.seoulchonnom.spec.filebox.entity.vo.FileBoxTargetType;
 import com.seoulchonnom.spec.filebox.facade.sdo.FileBoxItemRdo;
 import com.seoulchonnom.spec.inspection.entity.ViewedProperty;
+import com.seoulchonnom.spec.inspection.entity.vo.PropertyAnswer;
+import com.seoulchonnom.spec.inspection.facade.sdo.PropertyAnswerRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyBriefRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyRdo;
 
@@ -44,7 +46,7 @@ class ViewedPropertyMapperTest {
 	}
 
 	@Test
-	void toViewedPropertyDetailRdo_shouldKeepAnswerOrderAsGiven() {
+	void toViewedPropertyDetailRdo_shouldReturnEmptyAnswersForFreshProperty() {
 		ViewedProperty property = new ViewedProperty("INSPECTION_VISIT-0001", "트리마제", "101동", 1);
 
 		var detailRdo = viewedPropertyMapper.toViewedPropertyDetailRdo(property, null, null, Map.of(), null,
@@ -54,6 +56,34 @@ class ViewedPropertyMapperTest {
 		assertThat(detailRdo.getTags()).isEmpty();
 		assertThat(detailRdo.getPhotos()).isEmpty();
 		assertThat(detailRdo.getComplexName()).isEqualTo("트리마제");
+	}
+
+	private static PropertyAnswer answer(String questionId, int categorySortOrder, int sortOrder) {
+		PropertyAnswer answer = new PropertyAnswer();
+		answer.setQuestionId(questionId);
+		answer.setCategorySortOrder(categorySortOrder);
+		answer.setSortOrder(sortOrder);
+		return answer;
+	}
+
+	/**
+	 * 계획 §2: 저장 순서에 기대지 않고 읽을 때 정렬한다. 배열 순서가 섞여 있어도
+	 * 응답은 항상 분류 순서 -> 분류 안 순서로 나가야 한다.
+	 */
+	@Test
+	void toViewedPropertyDetailRdo_shouldSortAnswersAtReadTimeEvenWhenStoredOrderIsScrambled() {
+		ViewedProperty property = new ViewedProperty("INSPECTION_VISIT-0001", "트리마제", "101동", 1);
+		// 저장 순서는 뒤섞여 있다: 분류 순서(2) -> 분류 순서(1, 안에서 2번째) -> 분류 순서(1, 안에서 1번째)
+		property.setAnswers(List.of(
+			answer("q-late", 2, 1),
+			answer("q-early-second", 1, 2),
+			answer("q-early-first", 1, 1)));
+
+		var detailRdo = viewedPropertyMapper.toViewedPropertyDetailRdo(property, null, null, Map.of(), null,
+			null, null, null, null, null);
+
+		assertThat(detailRdo.getAnswers()).extracting(PropertyAnswerRdo::getQuestionId)
+			.containsExactly("q-early-first", "q-early-second", "q-late");
 	}
 
 	@Test

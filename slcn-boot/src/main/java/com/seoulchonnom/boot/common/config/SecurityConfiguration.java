@@ -89,6 +89,17 @@ public class SecurityConfiguration {
 						.hasAuthority(ADMIN_AUTHORITY)
 					.requestMatchers(HttpMethod.PATCH, "/inspection-questions", "/inspection-questions/**")
 						.hasAuthority(ADMIN_AUTHORITY)
+					// 질문 대분류도 쓰기만 ADMIN이다. 조회까지 막으면 매물 문답 화면이 분류별
+					// 섹션을 그리지 못한다. 위와 같은 이유로 두 패턴이 모두 필요하다.
+					.requestMatchers(HttpMethod.POST, "/inspection-question-categories",
+						"/inspection-question-categories/**")
+						.hasAuthority(ADMIN_AUTHORITY)
+					.requestMatchers(HttpMethod.PUT, "/inspection-question-categories",
+						"/inspection-question-categories/**")
+						.hasAuthority(ADMIN_AUTHORITY)
+					.requestMatchers(HttpMethod.PATCH, "/inspection-question-categories",
+						"/inspection-question-categories/**")
+						.hasAuthority(ADMIN_AUTHORITY)
 					.requestMatchers(HttpMethod.GET, "/schedule/feeds/*/calendar.ics").permitAll()
 					.requestMatchers("/schedule/feeds", "/schedule/feeds/*").hasAuthority(ADMIN_AUTHORITY)
 						.anyRequest().hasAuthority(USER_AUTHORITY))

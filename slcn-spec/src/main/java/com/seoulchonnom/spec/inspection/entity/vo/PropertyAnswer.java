@@ -45,6 +45,12 @@ public class PropertyAnswer implements JsonSerializable {
 	 * 단위 변경은 새 버전을 만드는 변경이라 마스터를 되짚어 복원할 수도 없다.
 	 */
 	private String unit;
+	/**
+	 * 매물 생성 시점의 분류 스냅샷(계획 §1). 이후 분류 이름/순서가 바뀌어도 이 매물은 그대로다.
+	 */
+	private String categoryId;
+	private String categoryName;
+	private int categorySortOrder;
 	@Builder.Default
 	private List<QuestionChoice> choiceOptions = new ArrayList<>();
 

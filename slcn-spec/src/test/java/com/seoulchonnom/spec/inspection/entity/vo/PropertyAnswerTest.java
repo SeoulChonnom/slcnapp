@@ -75,4 +75,28 @@ class PropertyAnswerTest {
 		answer.refreshAnswered();
 		assertThat(answer.isAnswered()).isFalse();
 	}
+
+	/**
+	 * JSON 컬럼 더티 체크 방지의 핵심(json-column-value-objects-need-equals 학습) - 새로 추가한
+	 * 분류 스냅샷 필드도 equals 비교 대상에서 빠지면 안 된다.
+	 */
+	@Test
+	void equals_shouldIncludeCategorySnapshotFields() {
+		PropertyAnswer withCategory = answerWithCategory("CATEGORY-1", "채광·환기", 1);
+		PropertyAnswer sameCategory = answerWithCategory("CATEGORY-1", "채광·환기", 1);
+
+		assertThat(withCategory).isEqualTo(sameCategory);
+		assertThat(withCategory).isNotEqualTo(answerWithCategory("CATEGORY-2", "채광·환기", 1));
+		assertThat(withCategory).isNotEqualTo(answerWithCategory("CATEGORY-1", "구조", 1));
+		assertThat(withCategory).isNotEqualTo(answerWithCategory("CATEGORY-1", "채광·환기", 2));
+	}
+
+	private PropertyAnswer answerWithCategory(String categoryId, String categoryName, int categorySortOrder) {
+		PropertyAnswer answer = answerOf(QuestionAnswerType.TEXT);
+		answer.setQuestionId("q1");
+		answer.setCategoryId(categoryId);
+		answer.setCategoryName(categoryName);
+		answer.setCategorySortOrder(categorySortOrder);
+		return answer;
+	}
 }

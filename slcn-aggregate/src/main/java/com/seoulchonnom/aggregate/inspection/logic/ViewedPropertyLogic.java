@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.springframework.stereotype.Service;
@@ -18,6 +19,7 @@ import com.seoulchonnom.aggregate.inspection.exception.InvalidViewedPropertyExce
 import com.seoulchonnom.aggregate.inspection.store.ViewedPropertyStore;
 import com.seoulchonnom.aggregate.inspection.store.projection.ViewedPropertySummaryPdo;
 import com.seoulchonnom.spec.inspection.entity.InspectionQuestion;
+import com.seoulchonnom.spec.inspection.entity.InspectionQuestionCategory;
 import com.seoulchonnom.spec.inspection.entity.ViewedProperty;
 import com.seoulchonnom.spec.inspection.entity.vo.InspectionStatus;
 import com.seoulchonnom.spec.inspection.entity.vo.PropertyAnswer;
@@ -26,6 +28,7 @@ import com.seoulchonnom.spec.inspection.entity.vo.QuestionVersion;
 import com.seoulchonnom.spec.inspection.facade.sdo.PropertyAnswerUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyUdo;
 import com.seoulchonnom.spec.inspection.mapper.PropertyAnswerMapper;
+import com.seoulchonnom.spec.inspection.util.InspectionQuestionOrdering;
 
 import lombok.RequiredArgsConstructor;
 
@@ -105,16 +108,26 @@ public class ViewedPropertyLogic {
 	 * 이후 추가된 질문은 이 매물에 항목이 없으므로 화면에도 검증에도 등장하지 않는다.
 	 *
 	 * 활성 질문이 0개여도 매물 생성은 허용한다. 필수 문답 검증이 자동으로 통과할 뿐이다.
+	 *
+	 * 저장 순서도 분류 순서로 맞춰 둔다(계획 §2). 읽을 때 다시 정렬하므로 필수는 아니지만,
+	 * DB에 쌓이는 원본 데이터가 분류별로 정리돼 있으면 디버깅 때 굳이 정렬해 보지 않아도 된다.
+	 *
+	 * @param categoriesById enabledQuestions의 categoryId를 모두 포함해야 한다
 	 */
-	public void materializeAnswers(ViewedProperty property, List<InspectionQuestion> enabledQuestions) {
+	public void materializeAnswers(ViewedProperty property, List<InspectionQuestion> enabledQuestions,
+		Map<String, InspectionQuestionCategory> categoriesById) {
 		List<PropertyAnswer> answers = new ArrayList<>();
-		for (InspectionQuestion question : enabledQuestions) {
+		List<InspectionQuestion> sortedQuestions = enabledQuestions.stream()
+			.sorted(InspectionQuestionOrdering.questionComparator(categoriesById))
+			.toList();
+		for (InspectionQuestion question : sortedQuestions) {
 			QuestionVersion version = question.currentVersion().orElse(null);
 			if (version == null) {
 				// 버전 없는 질문은 물어볼 문구가 없다. 스냅샷에서 제외한다
 				continue;
 			}
-			answers.add(propertyAnswerMapper.toPropertyAnswer(question, version));
+			answers.add(propertyAnswerMapper.toPropertyAnswer(question, version,
+				categoriesById.get(question.getCategoryId())));
 		}
 		property.setAnswers(answers);
 		property.refreshAnswerCounts();

@@ -28,6 +28,7 @@ context path는 `/api`다. 아래 경로는 그 뒤에 붙는다. 인증은 `X-A
 | 임장 상세 | `GET /inspection-visits/{visitId}` |
 | 매물 상세 | `GET /inspection-properties/{propertyId}` (또는 `GET /inspection-visits/{visitId}/properties/{propertyId}`) |
 | 회차 간 매물 연결 | `GET /inspection-areas/{areaId}/properties` |
+| 질문 대분류 관리(관리자) | `GET/POST/PUT/PATCH /inspection-question-categories` |
 | 질문 관리(관리자) | `GET/POST/PUT/PATCH /inspection-questions` |
 
 지역 상세 하나로 회차 탭 전환까지 처리된다. 회차를 바꿀 때 `?visitId=`만 갈아끼우면 되고,
@@ -278,13 +279,17 @@ POST /api/inspection-visits/INSPECTION_VISIT-0001/properties
       "answered": false,
       "isCurrentVersion": true,
       "questionEnabled": true,
-      "textValue": null
+      "textValue": null,
+      "categoryId": "INSPECTION_QUESTION_CATEGORY-0001",
+      "categoryName": "채광·환기",
+      "categorySortOrder": 1
     }
   ],
   "incompleteSummary": {
     "unansweredRequiredCount": 1,
     "unansweredRequiredQuestions": [
-      { "questionId": "INSPECTION_QUESTION-0001", "question": "거실 및 방의 채광은 어떤가?", "sortOrder": 1 }
+      { "questionId": "INSPECTION_QUESTION-0001", "question": "거실 및 방의 채광은 어떤가?", "sortOrder": 1,
+        "categoryName": "채광·환기" }
     ],
     "missingFields": ["interestLevel"]
   }
@@ -294,6 +299,18 @@ POST /api/inspection-visits/INSPECTION_VISIT-0001/properties
 **문답은 매물을 만든 시점에 고정된다.** 이후 관리자가 질문을 추가하거나 문구를 고쳐도
 이 매물의 문답 구성과 문구는 그대로다. 그래서 응답의 `question`·`answerType`·`choiceOptions`를
 그대로 렌더링하면 되고, 질문 목록 API를 따로 부를 필요가 없다.
+
+**분류도 같은 원칙으로 스냅샷된다.** `answers[].categoryId`/`categoryName`/`categorySortOrder`는
+매물을 만든 시점의 질문 분류 값을 그대로 복사한 것이다. 이후 관리자가 분류 이름을 바꾸거나
+질문을 다른 분류로 옮겨도 **이미 만들어진 매물의 표시는 바뀌지 않는다.** `unansweredRequiredQuestions[].categoryName`도
+같은 스냅샷에서 온다.
+
+세 필드는 **항상 채워져 있다(`null` 아님).** 모든 질문이 분류에 속하고, 배포 전에 만들어진 매물도
+DB 이관 때 분류를 채웠다(§12).
+
+**정렬**: `answers`는 **분류.`categorySortOrder` → 답변.`sortOrder` → `questionId`**
+순으로 정렬돼 내려온다. 저장된 배열 순서가 아니라 **읽을 때마다 다시 정렬한 값**이다. 응답은
+**평면 배열**이고, FE가 `categoryId`로 묶어 분류별 섹션을 그린다.
 
 ### 매물 상세 응답
 
@@ -377,10 +394,11 @@ DRAFT ──(조건 충족)──> COMPLETED ──(언제든)──> DRAFT
 **임장 완료 조건**: `visitedAt`, `revisitIntent`, 그리고 등록된 매물이 **전부** `COMPLETED`.
 매물이 0건인 임장도 완료할 수 있다.
 
-실패하면 `400`과 함께 메시지에 원인이 담긴다.
+실패하면 `400`과 함께 `title`에 원인이 담긴다. 응답 형태는 §11을 따른다.
 
 ```json
-{ "success": false, "message": "필수 조건을 만족하지 않은 매물이 있습니다. propertyIds=[8a71c0e2-..., 9b02f1a3-...]" }
+{ "title": "필수 조건을 만족하지 않은 매물이 있습니다. propertyIds=[8a71c0e2-..., 9b02f1a3-...]",
+  "status": 400, "code": "INVALID_INSPECTION_VISIT", "errors": [] }
 ```
 
 ### FE가 알아야 할 자동 동작 두 가지
@@ -403,7 +421,7 @@ DRAFT ──(조건 충족)──> COMPLETED ──(언제든)──> DRAFT
 | 필드 | 레벨 | 의미 |
 | --- | --- | --- |
 | `unansweredRequiredCount` | 매물 | 답 안 한 필수 문답 수 |
-| `unansweredRequiredQuestions` | 매물 | 그 문항들의 `{ questionId, question, sortOrder }` |
+| `unansweredRequiredQuestions` | 매물 | 그 문항들의 `{ questionId, question, sortOrder, categoryName }` |
 | `missingFields` | 매물 | `complexName`/`name`/`interestLevel` 중 빈 것 |
 | `draftPropertyCount` | 임장 | 이 임장의 `DRAFT` 매물 수 |
 | `visitMissingFields` | 임장 | `visitedAt`/`revisitIntent` 중 빈 것 |
@@ -500,7 +518,67 @@ GET /api/inspection-tags?keyword=한&scope=VISIT|PROPERTY
 
 ---
 
-## 9. 질문 관리 (관리자)
+## 9. 질문 대분류 관리 (관리자)
+
+임장 질문을 묶는 상위 분류다. 아직 정식 명칭이 없어 코드와 문서에서는 "대분류"라 부른다.
+1단계에는 중분류가 없다 — 분류 밑에 바로 질문이 붙는다.
+
+| 메서드 | 경로 | 권한 | 설명 |
+| --- | --- | --- | --- |
+| GET | `/inspection-question-categories` | `USER` | 목록. `sortOrder` → `categoryId` 순서. 기본은 활성 분류만. `?includeDisabled=true` |
+| POST | `/inspection-question-categories` | **`ADMIN`** | 등록 |
+| PUT | `/inspection-question-categories/{categoryId}` | **`ADMIN`** | 이름 변경 |
+| PATCH | `/inspection-question-categories/{categoryId}/status` | **`ADMIN`** | `enabled` 토글 |
+| PUT | `/inspection-question-categories/order` | **`ADMIN`** | 순서 일괄 변경 |
+
+조회(`GET`)가 `USER`에게도 열려 있는 이유는 질문 관리와 같다 — 매물 문답 화면이 분류별 섹션을
+그리려면 일반 사용자도 분류 목록을 읽어야 한다.
+
+### 요청/응답 스키마
+
+```json
+POST /api/inspection-question-categories
+{ "name": "채광·환기", "sortOrder": 1 }
+→ 200
+{ "categoryId": "INSPECTION_QUESTION_CATEGORY-0001", "name": "채광·환기",
+  "sortOrder": 1, "enabled": true, "enabledQuestionCount": 0 }
+
+PUT   /api/inspection-question-categories/{categoryId}         { "name": "채광·환기·냄새" }
+PATCH /api/inspection-question-categories/{categoryId}/status  { "enabled": false }
+PUT   /api/inspection-question-categories/order                [ { "categoryId": "...", "sortOrder": 1 } ]
+```
+
+`POST`/`PUT`/`PATCH`와 `GET`이 모두 같은 `InspectionQuestionCategoryRdo` 형태를 돌려준다.
+`PUT .../order`만 `204 No Content`다.
+
+```json
+GET /api/inspection-question-categories?includeDisabled=false
+→ [
+  { "categoryId": "INSPECTION_QUESTION_CATEGORY-0001", "name": "채광·환기",
+    "sortOrder": 1, "enabled": true, "enabledQuestionCount": 4 }
+]
+```
+
+`enabledQuestionCount`는 이 분류에 속한 **활성** 질문 수다. 목록 조회가 항상 집계해서 함께
+내려준다 — 관리 화면이 "비활성화 가능한가"를 이 값으로 미리 판단한다.
+
+### 규칙
+
+- `name`은 필수다. 앞뒤 공백을 제거하고 최대 50자다. **비활성 분류까지 포함해 전체에서**
+  중복을 금지한다(자기 자신과의 충돌은 예외 — 변경 없는 저장은 통과한다).
+- 중복이면 `409 INSPECTION_QUESTION_CATEGORY_DUPLICATED`다. 응답에 기존 분류의 id는 싣지 않는다.
+  "비활성인 같은 이름 분류를 다시 켤까요?" 같은 흐름은 `GET ?includeDisabled=true` 목록에서 같은
+  이름(앞뒤 공백 제거)을 찾아 만든다. 분류는 몇 개뿐이라 목록 조회로 충분하다.
+- 등록 시 `sortOrder`가 0 이하면 맨 뒤(`max+1`)로 자동 채번한다.
+- 비활성화(`{ "enabled": false }`)는 그 분류에 **활성 질문이 0개일 때만** 허용한다. 하나라도
+  있으면 `409`다.
+- 물리 삭제는 없다. 잘못 만든 분류도 `enabled=false`로만 내린다.
+- `PUT .../order`도 질문 정렬과 같은 규칙이다 — 요청에 빠진 분류는 기존 순서를 유지하고,
+  존재하지 않는 분류가 섞이면 요청 전체가 `400`으로 막힌다.
+
+---
+
+## 10. 질문 관리 (관리자)
 
 | 메서드 | 경로 | 권한 | 설명 |
 | --- | --- | --- | --- |
@@ -508,8 +586,9 @@ GET /api/inspection-tags?keyword=한&scope=VISIT|PROPERTY
 | GET | `/inspection-questions/{questionId}/versions` | `USER` | 버전 이력. 버전별 `answerCount` 포함 |
 | POST | `/inspection-questions` | **`ADMIN`** | 등록 |
 | PUT | `/inspection-questions/{questionId}` | **`ADMIN`** | 문구·설명·선택지·단위 수정 → **새 버전** |
-| PATCH | `/inspection-questions/{questionId}/policy` | **`ADMIN`** | `required`, `sortOrder` |
+| PATCH | `/inspection-questions/{questionId}/policy` | **`ADMIN`** | `required`, `sortOrder`(분류 안에서의 순서) |
 | PATCH | `/inspection-questions/{questionId}/status` | **`ADMIN`** | `enabled` 토글 |
+| PATCH | `/inspection-questions/{questionId}/category` | **`ADMIN`** | 분류 이동 |
 | PUT | `/inspection-questions/order` | **`ADMIN`** | 순서 일괄 변경 |
 
 ### 요청 스키마
@@ -517,17 +596,50 @@ GET /api/inspection-tags?keyword=한&scope=VISIT|PROPERTY
 ```json
 POST /api/inspection-questions
 { "content": "거실 채광은 어떤가?", "description": "오후 기준", "answerType": "LONG_TEXT",
-  "required": true, "sortOrder": 1, "choices": [], "unit": null }
+  "required": true, "sortOrder": 1, "choices": [], "unit": null,
+  "categoryId": "INSPECTION_QUESTION_CATEGORY-0001" }
 
 PUT /api/inspection-questions/{questionId}            // 문구·설명·선택지·단위. 새 버전이 생긴다
 { "content": "...", "description": "...", "choices": [{ "code": "SOUTH", "label": "남향", "sortOrder": 1 }], "unit": null }
 
-PATCH /api/inspection-questions/{questionId}/policy   { "required": true, "sortOrder": 3 }
-PATCH /api/inspection-questions/{questionId}/status   { "enabled": false }
-PUT   /api/inspection-questions/order                 [ { "questionId": "...", "sortOrder": 1 } ]
+PATCH /api/inspection-questions/{questionId}/policy    { "required": true, "sortOrder": 3 }
+PATCH /api/inspection-questions/{questionId}/status    { "enabled": false }
+PATCH /api/inspection-questions/{questionId}/category  { "categoryId": "INSPECTION_QUESTION_CATEGORY-0002" }
+PUT   /api/inspection-questions/order                  [ { "questionId": "...", "sortOrder": 1 } ]
 ```
 
 `answerType`은 `PUT`에 **없다.** 등록할 때만 정할 수 있다.
+
+**모든 질문은 분류에 속한다.** 등록할 때 `categoryId`가 필수이고, 분류를 바꾸는 것은
+`PATCH .../category` 전용 API로만 한다 — `PUT`(문구 수정)과 `PATCH .../policy`는 `categoryId`를
+받지 않는다.
+
+등록(`POST`)과 이동(`PATCH .../category`)의 분류 검증은 같다. FE는 `code`로 원인을 가른다.
+
+| 경우 | 응답 |
+| --- | --- |
+| `categoryId` 누락·빈 문자열 | `400 INSPECTION_QUESTION_CATEGORY_REQUIRED` |
+| 없는 분류 | `400 INSPECTION_QUESTION_CATEGORY_NOT_FOUND` |
+| 비활성 분류 | `400 INSPECTION_QUESTION_CATEGORY_DISABLED` |
+
+- `PATCH .../category`는 지정한 분류의 **맨 뒤**(`max(sortOrder)+1`)로 옮긴다. 이미 그 분류에
+  있으면 아무것도 바꾸지 않고 현재 상태를 반환한다. **비활성 질문도 옮길 수 있다**(대상 분류만
+  활성이면 된다). **버전을 올리지 않는다** — `required`, `sortOrder`처럼 수집 정책 성격이라서다.
+- `sortOrder`는 **분류 안에서의 순서**다. `POST`에서 0 이하로 보내면 그 분류의 맨 뒤로 채번된다.
+  `PATCH .../policy`는 자동 채번하지 않고 **보낸 값을 그대로 저장한다.**
+- 비활성 분류에 속한 질문은 `PATCH .../status`로 다시 활성화할 수 없다
+  (`400 INSPECTION_QUESTION_REACTIVATION_BLOCKED`) — 이 검증이 없으면 "활성 질문이 있는 분류는
+  비활성화 불가" 규칙을 질문 쪽에서 우회할 수 있다.
+
+**`PUT .../order`는 분류를 검증하지 않는다.** 여러 분류의 질문을 섞어 보내도 허용되고, 받은
+`sortOrder`를 그대로 저장한다. `sortOrder`는 같은 분류 안에서만 비교되므로 섞어 보내도 결과가
+깨지지는 않지만, **한 요청에는 한 분류의 질문만** 보내길 권한다. 이 API로 분류를 바꿀 수는 없다.
+
+**분류를 넘나드는 드래그는 지원하지 않는다.** 다른 분류의 원하는 위치로 옮기려면
+`PATCH .../category`(맨 뒤로 이동) 다음 `PUT .../order`를 불러야 하는데, 두 호출은 한 트랜잭션이
+아니어서 두 번째가 실패하면 질문이 새 분류의 맨 뒤에 남는다. 데이터가 깨지지는 않고 다시 끌어
+놓으면 되지만, UI는 **분류 이동은 별도 선택, 순서 변경은 분류 안에서만**으로 나눠 이 상황을
+만들지 않는다.
 
 ### 응답 스키마
 
@@ -545,11 +657,19 @@ PUT   /api/inspection-questions/order                 [ { "questionId": "...", "
   "description": "오후 시간대 기준으로 기록",
   "choices": [],
   "unit": null,
-  "answerCount": null
+  "answerCount": null,
+  "categoryId": "INSPECTION_QUESTION_CATEGORY-0001",
+  "categoryName": "채광·환기",
+  "categorySortOrder": 1
 }
 ```
 
+`categoryId`/`categoryName`/`categorySortOrder`는 항상 채워져 있다(`null` 아님).
+
 `PUT /inspection-questions/order`만 `204 No Content`다.
+
+`GET /inspection-questions` 목록은 **분류.`sortOrder` → 질문.`sortOrder` → `questionId`** 순으로
+정렬된다.
 
 ```json
 GET /api/inspection-questions/{questionId}/versions
@@ -586,40 +706,108 @@ GET /api/inspection-questions/{questionId}/versions
 
 ---
 
-## 10. 에러 코드
+## 11. 에러 코드
+
+모든 에러는 같은 형태다. 비즈니스 예외, 입력 검증, 401/403/404/405/415가 모두 이 본문으로 나간다.
+`Content-Type`은 `Accept`와 상관없이 항상 `application/json`이다. 모양은 Spring `ProblemDetail`과
+비슷하지만 RFC 9457 문서가 아니므로 `application/problem+json`으로 내려가지 않는다.
+
+```json
+{
+  "title": "질문 분류는 필수입니다.",
+  "status": 400,
+  "code": "INSPECTION_QUESTION_CATEGORY_REQUIRED",
+  "errors": []
+}
+```
+
+| 필드 | 의미 |
+| --- | --- |
+| `title` | 사람이 읽는 문장. 그대로 보여 줘도 된다. **파싱하지 않는다** — 문구는 바뀔 수 있다 |
+| `status` | HTTP 상태와 같은 값 |
+| `code` | 원인 식별자. **FE는 이 값으로 분기한다.** 아래 표의 코드 이름이 그대로 들어간다 |
+| `errors` | 필드 단위 검증 실패 목록. 그 밖의 에러는 **빈 배열**이다(`null`이 아니다) |
+
+`errors`의 각 항목은 `{ "field": "quiz.title", "code": "NOT_BLANK", "message": "..." }`이다.
+`code`는 위반 종류를 대문자 스네이크 케이스로 적은 것이다(`NOT_BLANK`, `SIZE`, `TYPE_MISMATCH`,
+`REQUIRED` 등). `title`에는 첫 번째 항목의 `message`가 들어간다.
+
+**공통 코드**
+
+| 코드 | HTTP | 언제 |
+| --- | --- | --- |
+| `VALIDATION_FAILED` | 400 | 본문·파라미터 바인딩 검증 실패. `errors`에 필드 목록 |
+| `INVALID_REQUEST_BODY` | 400 | 본문을 읽을 수 없음(JSON 문법 오류, 없는 enum 값 등) |
+| `MISSING_PARAMETER` | 400 | 필수 쿼리 파라미터 누락. `errors`에 파라미터 이름 |
+| `INVALID_PARAMETER` | 400 | 쿼리 파라미터 타입 불일치. `errors`에 파라미터 이름 |
+| `BAD_REQUEST` | 400 | 그 밖의 잘못된 입력 |
+| `UNAUTHORIZED` | 401 | 토큰 없음·만료·위조 |
+| `ACCESS_ROLE_DENIED` | 403 | 권한 부족. `ADMIN` 전용 API를 `USER`가 호출 |
+| `NOT_FOUND` | 404 | 없는 경로 |
+| `METHOD_NOT_ALLOWED` | 405 | 지원하지 않는 HTTP 메서드 |
+| `PAYLOAD_TOO_LARGE` | 413 | 업로드 요청이 60 MB 초과 |
+| `UNSUPPORTED_MEDIA_TYPE` | 415 | 지원하지 않는 파일·미디어 타입 |
+| `INTERNAL_SERVER_ERROR` | 500 | 처리하지 못한 서버 오류 |
+
+**임장 코드**
 
 | 코드 | HTTP | 언제 |
 | --- | --- | --- |
 | `INSPECTION_AREA_NOT_FOUND` | 400 | 지역 없음 |
 | `INSPECTION_AREA_IN_USE` | 409 | 임장 기록이 있는 지역 삭제 |
-| `INSPECTION_AREA_DUPLICATED` | 409 | 동일 지역명 존재. 메시지에 기존 `areaId` |
+| `INSPECTION_AREA_DUPLICATED` | 409 | 동일 지역명 존재. `title`에 기존 `areaId` |
 | `INSPECTION_VISIT_NOT_FOUND` | 400 | 임장 없음 |
 | `INVALID_INSPECTION_VISIT` | 400 | 임장 입력/완료 조건 위반. 완료된 임장의 필수 항목을 비우는 수정 포함 |
 | `VIEWED_PROPERTY_NOT_FOUND` | 400 | 매물 없음, 또는 다른 임장의 매물 |
 | `INVALID_VIEWED_PROPERTY` | 400 | 매물 입력/완료 조건 위반 |
 | `INSPECTION_QUESTION_NOT_FOUND` | 400 | 질문 없음, 또는 이 매물의 문답에 없는 `questionId` |
-| `INVALID_INSPECTION_QUESTION` | 400 | 금지된 질문 수정 |
+| `INVALID_INSPECTION_QUESTION` | 400 | 질문 입력 위반(문구·설명·선택지·단위, 정렬 요청의 없는 질문) |
+| `INSPECTION_QUESTION_CATEGORY_REQUIRED` | 400 | 질문 등록·이동에 `categoryId` 누락 |
+| `INSPECTION_QUESTION_CATEGORY_DISABLED` | 400 | 비활성 분류로 질문 등록·이동 |
+| `INSPECTION_QUESTION_REACTIVATION_BLOCKED` | 400 | 비활성 분류에 속한 질문을 다시 활성화 |
 | `INSPECTION_QUESTION_CONFLICT` | 409 | 질문 동시 수정 |
-| `INSPECTION_ANSWER_REQUIRED` | 400 | 필수 문답 미완료. 메시지에 `questionIds` |
+| `INSPECTION_QUESTION_CATEGORY_NOT_FOUND` | 400 | 분류 없음 |
+| `INVALID_INSPECTION_QUESTION_CATEGORY` | 400 | 분류 이름 누락/50자 초과, 정렬 요청에 존재하지 않는 분류 포함 |
+| `INSPECTION_QUESTION_CATEGORY_DUPLICATED` | 409 | 동일 분류명 존재(비활성 분류 포함). 기존 id는 싣지 않는다(§9) |
+| `INSPECTION_QUESTION_CATEGORY_IN_USE` | 409 | 활성 질문이 있는 분류를 비활성화 |
+| `INSPECTION_QUESTION_CATEGORY_CONFLICT` | 409 | 분류 동시 수정 |
+| `INSPECTION_ANSWER_REQUIRED` | 400 | 필수 문답 미완료. `title`에 `questionIds` |
 | `INVALID_PROPERTY_ANSWER` | 400 | 문답 값이 타입과 안 맞음 |
 | `INVALID_INSPECTION_FILE` | 400 | 사진 연결 정보 오류 |
 | `INVALID_INSPECTION_ORDER` | 400 | 정렬 대상이 이 임장 소속이 아님 |
 | `INSPECTION_VISIT_CONFLICT` | 409 | 임장 동시 저장 |
 | `VIEWED_PROPERTY_CONFLICT` | 409 | 매물 동시 저장 |
-| `PAYLOAD_TOO_LARGE` | 413 | 업로드 요청이 60 MB 초과 |
-| `UNAUTHORIZED` | 401 | 토큰 없음·만료·위조 |
-| `ACCESS_ROLE_DENIED` | 403 | 권한 부족. `ADMIN` 전용 API를 `USER`가 호출 |
 
-401/403은 기존 도메인과 같은 처리다. 응답 형태도 같다.
+**`ADMIN` 전용은 질문 관리·질문 대분류 관리의 쓰기(`POST`/`PUT`/`PATCH`)뿐이다.**
+`GET /inspection-questions`, `GET /inspection-question-categories`, 버전 이력은 `USER`도 부를 수
+있다 — 매물을 만들 때 활성 질문과 분류를 읽어야 하기 때문이다. 그래서 두 관리 화면 모두
+`USER`에게 열리고 **저장할 때만 403**이 난다. 화면 진입을 막으려면 FE가 `POST /users/token`
+응답의 `roleList`로 라우트를 가드해야 한다.
 
-```json
-{ "success": false, "message": "..." }
-```
-
-**`ADMIN` 전용은 질문 관리의 쓰기(`POST`/`PUT`/`PATCH`)뿐이다.** `GET /inspection-questions`와
-버전 이력은 `USER`도 부를 수 있다 — 매물을 만들 때 활성 질문을 읽어야 하기 때문이다.
-그래서 질문 관리 화면 자체는 `USER`에게도 열리고 **저장할 때만 403**이 난다.
-화면 진입을 막으려면 FE가 `POST /users/token` 응답의 `roleList`로 라우트를 가드해야 한다.
+분류도 질문과 같은 낙관적 잠금을 쓴다 — 두 관리자가 같은 분류를 정확히 동시에 고치면 나중
+요청이 `INSPECTION_QUESTION_CATEGORY_CONFLICT`(409)로 거절된다. 위 §10의 `409`에 대한 주석
+("드물게 나는 재시도 안내" 수준, 실제 겹침만 감지)이 그대로 적용된다.
 
 입력 길이 상한(초과 시 `400`): 지역명 100자, 지역 설명 300자, 단지명·매물명 각 200자,
-한줄평 300자, 메모·장단점 5,000자, 태그 이름 50자, 질문 문구 300자, 질문 설명 500자, 단위 20자.
+한줄평 300자, 메모·장단점 5,000자, 태그 이름 50자, 질문 문구 300자, 질문 설명 500자, 단위 20자,
+**질문 분류명 50자**.
+
+---
+
+## 12. 운영: 대분류 도입 DB 이관
+
+FE가 알 필요는 없다. 배포 담당자가 참고한다.
+
+새 버전은 **모든 질문과 모든 답변 스냅샷에 분류가 있다**고 가정한다(§4, §10). 그래서 대분류가 없던
+DB에 그대로 배포하면 안 되고, 먼저 `docs/field_research/question_category_migration.sql`을 실행한다.
+
+1. 앱을 내린다. 이관 도중 질문·매물이 새로 생기면 분류 없는 행이 다시 섞인다.
+2. 스크립트 머리의 사전 조회로 기존 질문을 확인하고, 분류 목록과 질문→분류 대응표를 채운다.
+   비활성 질문도 빠짐없이 지정한다.
+3. 스크립트를 실행한다. 한 트랜잭션이라, 분류를 지정하지 않은 질문이나 분류를 채우지 못한
+   답변이 남으면 예외로 멈추고 **아무것도 바뀌지 않는다.**
+4. 새 버전을 배포한다.
+
+스크립트가 하는 일: 분류 테이블 생성 → 분류 등록과 `id_sequence` 맞춤 → 질문에 `category_id` 지정 →
+`NOT NULL`과 분류 FK 적용 → 기존 매물 `answers` JSON의 각 답변에 `categoryId`/`categoryName`/
+`categorySortOrder` 추가. 이미 분류가 있는 답변은 건드리지 않고, 배열 순서도 바꾸지 않는다.

@@ -19,6 +19,7 @@ import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyBriefRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyCdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyDetailRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyRdo;
+import com.seoulchonnom.spec.inspection.util.InspectionQuestionOrdering;
 
 import lombok.RequiredArgsConstructor;
 
@@ -105,12 +106,17 @@ public class ViewedPropertyMapper {
 			property.getInterestLevel());
 	}
 
+	/**
+	 * 저장 순서에 기대지 않고 읽을 때 분류 순서로 정렬한다(계획 §2) - 스냅샷 배열이 어떤 순서로
+	 * 저장돼 있든 응답 순서가 같다.
+	 */
 	private List<PropertyAnswerRdo> toPropertyAnswerRdos(List<PropertyAnswer> answers,
 		Map<String, InspectionQuestion> questions) {
 		if (answers == null) {
 			return new ArrayList<>();
 		}
 		return answers.stream()
+			.sorted(InspectionQuestionOrdering.answerComparator())
 			.map(answer -> propertyAnswerMapper.toPropertyAnswerRdo(answer, questions.get(answer.getQuestionId())))
 			.collect(Collectors.toCollection(ArrayList::new));
 	}

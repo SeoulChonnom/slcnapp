@@ -28,4 +28,7 @@ public class InspectionQuestionRdo {
 	private List<QuestionChoiceSdo> choices = new ArrayList<>();
 	private String unit;
 	private Integer answerCount;
+	private String categoryId;
+	private String categoryName;
+	private int categorySortOrder;
 }

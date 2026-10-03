@@ -32,6 +32,6 @@ public class CommonAccessDeniedHandler implements AccessDeniedHandler {
 		response.setCharacterEncoding("UTF-8");
 		response.setStatus(ErrorCode.ACCESS_ROLE_DENIED.getHttpStatus().value());
 		response.getWriter().write(objectMapper.writeValueAsString(
-			ErrorResponse.from(false, ErrorCode.ACCESS_ROLE_DENIED.getMessage())));
+			ErrorResponse.of(ErrorCode.ACCESS_ROLE_DENIED)));
 	}
 }

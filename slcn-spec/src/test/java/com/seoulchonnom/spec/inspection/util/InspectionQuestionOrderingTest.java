@@ -1,0 +1,130 @@
+package com.seoulchonnom.spec.inspection.util;
+
+import static org.assertj.core.api.Assertions.*;
+
+import java.util.List;
+import java.util.Map;
+
+import org.junit.jupiter.api.Test;
+
+import com.seoulchonnom.spec.inspection.entity.InspectionQuestion;
+import com.seoulchonnom.spec.inspection.entity.InspectionQuestionCategory;
+import com.seoulchonnom.spec.inspection.entity.vo.PropertyAnswer;
+import com.seoulchonnom.spec.inspection.entity.vo.QuestionAnswerType;
+
+class InspectionQuestionOrderingTest {
+	private static InspectionQuestion question(String id, String categoryId, int sortOrder) {
+		return new InspectionQuestion(id, categoryId, QuestionAnswerType.TEXT, false, sortOrder);
+	}
+
+	private static PropertyAnswer answer(String questionId, int categorySortOrder, int sortOrder) {
+		PropertyAnswer answer = new PropertyAnswer();
+		answer.setQuestionId(questionId);
+		answer.setCategorySortOrder(categorySortOrder);
+		answer.setSortOrder(sortOrder);
+		return answer;
+	}
+
+	@Test
+	void questionComparator_shouldOrderByCategorySortOrderFirst() {
+		InspectionQuestionCategory categoryA = new InspectionQuestionCategory("CATEGORY-A", "채광", 2);
+		InspectionQuestionCategory categoryB = new InspectionQuestionCategory("CATEGORY-B", "구조", 1);
+		Map<String, InspectionQuestionCategory> categoriesById = Map.of(
+			"CATEGORY-A", categoryA, "CATEGORY-B", categoryB);
+
+		// 분류 안에서의 sortOrder만 보면 q1이 먼저지만, 분류 자체의 순서(B=1 < A=2)가 우선이다.
+		InspectionQuestion q1 = question("Q-1", "CATEGORY-A", 1);
+		InspectionQuestion q2 = question("Q-2", "CATEGORY-B", 5);
+
+		List<InspectionQuestion> sorted = List.of(q1, q2).stream()
+			.sorted(InspectionQuestionOrdering.questionComparator(categoriesById))
+			.toList();
+
+		assertThat(sorted).containsExactly(q2, q1);
+	}
+
+	@Test
+	void questionComparator_shouldFallBackToQuestionSortOrderWithinSameCategory() {
+		InspectionQuestionCategory category = new InspectionQuestionCategory("CATEGORY-A", "채광", 1);
+		Map<String, InspectionQuestionCategory> categoriesById = Map.of("CATEGORY-A", category);
+
+		InspectionQuestion q1 = question("Q-1", "CATEGORY-A", 3);
+		InspectionQuestion q2 = question("Q-2", "CATEGORY-A", 1);
+
+		List<InspectionQuestion> sorted = List.of(q1, q2).stream()
+			.sorted(InspectionQuestionOrdering.questionComparator(categoriesById))
+			.toList();
+
+		assertThat(sorted).containsExactly(q2, q1);
+	}
+
+	@Test
+	void questionComparator_shouldFallBackToIdOnFullTie() {
+		InspectionQuestionCategory category = new InspectionQuestionCategory("CATEGORY-A", "채광", 1);
+		Map<String, InspectionQuestionCategory> categoriesById = Map.of("CATEGORY-A", category);
+
+		InspectionQuestion q2 = question("Q-2", "CATEGORY-A", 1);
+		InspectionQuestion q1 = question("Q-1", "CATEGORY-A", 1);
+
+		List<InspectionQuestion> sorted = List.of(q2, q1).stream()
+			.sorted(InspectionQuestionOrdering.questionComparator(categoriesById))
+			.toList();
+
+		assertThat(sorted).containsExactly(q1, q2);
+	}
+
+	/**
+	 * 맵에 없는 분류는 호출자가 분류를 덜 읽은 것이다. 임의의 자리에 끼워 넣지 않고 드러낸다.
+	 */
+	@Test
+	void questionComparator_shouldFailWhenCategoryIsMissingFromMap() {
+		InspectionQuestionCategory category = new InspectionQuestionCategory("CATEGORY-A", "채광", 1);
+		Map<String, InspectionQuestionCategory> categoriesById = Map.of("CATEGORY-A", category);
+
+		InspectionQuestion unknown = question("Q-1", "CATEGORY-MISSING", 1);
+		InspectionQuestion known = question("Q-2", "CATEGORY-A", 1);
+
+		assertThatThrownBy(() -> List.of(unknown, known).stream()
+			.sorted(InspectionQuestionOrdering.questionComparator(categoriesById))
+			.toList())
+			.isInstanceOf(IllegalStateException.class)
+			.hasMessageContaining("CATEGORY-MISSING");
+	}
+
+	@Test
+	void answerComparator_shouldOrderByCategorySortOrderFirst() {
+		// 분류 안에서의 sortOrder만 보면 a1이 먼저지만, 분류 자체의 순서(categorySortOrder 1 < 2)가 우선이다.
+		PropertyAnswer a1 = answer("Q-1", 2, 1);
+		PropertyAnswer a2 = answer("Q-2", 1, 5);
+
+		List<PropertyAnswer> sorted = List.of(a1, a2).stream()
+			.sorted(InspectionQuestionOrdering.answerComparator())
+			.toList();
+
+		assertThat(sorted).containsExactly(a2, a1);
+	}
+
+	@Test
+	void answerComparator_shouldFallBackToSortOrderWithinSameCategory() {
+		PropertyAnswer a1 = answer("Q-1", 1, 3);
+		PropertyAnswer a2 = answer("Q-2", 1, 1);
+
+		List<PropertyAnswer> sorted = List.of(a1, a2).stream()
+			.sorted(InspectionQuestionOrdering.answerComparator())
+			.toList();
+
+		assertThat(sorted).containsExactly(a2, a1);
+	}
+
+	@Test
+	void answerComparator_shouldFallBackToQuestionIdOnFullTie() {
+		PropertyAnswer a2 = answer("Q-2", 1, 1);
+		PropertyAnswer a1 = answer("Q-1", 1, 1);
+
+		List<PropertyAnswer> sorted = List.of(a2, a1).stream()
+			.sorted(InspectionQuestionOrdering.answerComparator())
+			.toList();
+
+		assertThat(sorted).containsExactly(a1, a2);
+	}
+}

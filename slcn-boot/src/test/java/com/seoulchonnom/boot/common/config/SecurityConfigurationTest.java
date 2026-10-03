@@ -362,6 +362,19 @@ class SecurityConfigurationTest {
 	}
 
 	/**
+	 * 분류 이동도 하위 경로라 "/inspection-questions/**" 패턴이 잡는다 - 별도 matcher 없이도
+	 * ADMIN 전용이어야 한다.
+	 */
+	@Test
+	void questionCategoryMove_withUserAuthority_shouldReturnForbidden() throws Exception {
+		givenAuthority("USER");
+
+		mockMvc.perform(patch("/inspection-questions/q1/category")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, "access-token"))
+			.andExpect(status().isForbidden());
+	}
+
+	/**
 	 * 권한 문자열은 서로 포함 관계가 없다. 관리자 계정은 USER와 ADMIN을 함께 가져야
 	 * 질문 관리와 나머지 API를 모두 쓸 수 있다.
 	 */
@@ -384,6 +397,71 @@ class SecurityConfigurationTest {
 		mockMvc.perform(get("/travels")
 				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, "access-token"))
 			.andExpect(status().isForbidden());
+	}
+
+	/**
+	 * 질문 대분류도 조회까지 ADMIN으로 막으면 매물 문답 화면이 분류별 섹션을 그리지 못한다.
+	 * 읽기는 USER로 열려 있어야 한다.
+	 */
+	@Test
+	void categoryLookup_withUserAuthority_shouldReturnOk() throws Exception {
+		givenAuthority("USER");
+
+		mockMvc.perform(get("/inspection-question-categories")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, "access-token"))
+			.andExpect(status().isOk());
+	}
+
+	@Test
+	void categoryRegister_withUserAuthority_shouldReturnForbidden() throws Exception {
+		givenAuthority("USER");
+
+		mockMvc.perform(post("/inspection-question-categories")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, "access-token"))
+			.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void categoryRename_withUserAuthority_shouldReturnForbidden() throws Exception {
+		givenAuthority("USER");
+
+		mockMvc.perform(put("/inspection-question-categories/c1")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, "access-token"))
+			.andExpect(status().isForbidden());
+	}
+
+	/**
+	 * PUT /inspection-question-categories/order는 하위 경로라 "/inspection-question-categories/**"
+	 * 패턴이 잡는다.
+	 */
+	@Test
+	void categoryReorder_withUserAuthority_shouldReturnForbidden() throws Exception {
+		givenAuthority("USER");
+
+		mockMvc.perform(put("/inspection-question-categories/order")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, "access-token"))
+			.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void categoryStatusToggle_withUserAuthority_shouldReturnForbidden() throws Exception {
+		givenAuthority("USER");
+
+		mockMvc.perform(patch("/inspection-question-categories/c1/status")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, "access-token"))
+			.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void categoryWrite_withAdminAndUserAuthority_shouldReturnOk() throws Exception {
+		givenAuthority("USER", "ADMIN");
+
+		mockMvc.perform(post("/inspection-question-categories")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, "access-token"))
+			.andExpect(status().isOk());
+		mockMvc.perform(patch("/inspection-question-categories/c1/status")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, "access-token"))
+			.andExpect(status().isOk());
 	}
 
 	private void givenAuthority(String... authorities) {
@@ -493,6 +571,36 @@ class SecurityConfigurationTest {
 		@PatchMapping("/inspection-questions/{questionId}/status")
 		ResponseEntity<String> toggleQuestion(@PathVariable("questionId") String questionId) {
 			return ResponseEntity.ok(questionId);
+		}
+
+		@PatchMapping("/inspection-questions/{questionId}/category")
+		ResponseEntity<String> moveQuestionCategory(@PathVariable("questionId") String questionId) {
+			return ResponseEntity.ok(questionId);
+		}
+
+		@GetMapping("/inspection-question-categories")
+		ResponseEntity<String> categories() {
+			return ResponseEntity.ok("categories");
+		}
+
+		@PostMapping("/inspection-question-categories")
+		ResponseEntity<String> registerCategory() {
+			return ResponseEntity.ok("registered");
+		}
+
+		@PutMapping("/inspection-question-categories/{categoryId}")
+		ResponseEntity<String> renameCategory(@PathVariable("categoryId") String categoryId) {
+			return ResponseEntity.ok(categoryId);
+		}
+
+		@PutMapping("/inspection-question-categories/order")
+		ResponseEntity<String> reorderCategories() {
+			return ResponseEntity.ok("reordered");
+		}
+
+		@PatchMapping("/inspection-question-categories/{categoryId}/status")
+		ResponseEntity<String> toggleCategory(@PathVariable("categoryId") String categoryId) {
+			return ResponseEntity.ok(categoryId);
 		}
 	}
 

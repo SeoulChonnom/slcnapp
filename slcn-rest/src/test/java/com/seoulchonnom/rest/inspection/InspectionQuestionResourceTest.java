@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 
 import com.seoulchonnom.aggregate.flow.inspection.InspectionQuestionQueryFlow;
 import com.seoulchonnom.aggregate.inspection.logic.InspectionQuestionLogic;
+import com.seoulchonnom.spec.inspection.facade.sdo.InspectionQuestionCategoryMoveUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionQuestionCdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionQuestionContentUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionQuestionOrderUdo;
@@ -87,5 +88,18 @@ class InspectionQuestionResourceTest {
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
 		verify(inspectionQuestionLogic).modifyInspectionQuestionOrder(orders);
+	}
+
+	@Test
+	void moveInspectionQuestionCategory_shouldDelegateToLogic() {
+		InspectionQuestionCategoryMoveUdo udo = new InspectionQuestionCategoryMoveUdo("c1");
+		InspectionQuestionRdo rdo = new InspectionQuestionRdo();
+		when(inspectionQuestionLogic.moveInspectionQuestionCategory("q1", udo)).thenReturn(rdo);
+
+		var response = inspectionQuestionResource.moveInspectionQuestionCategory("q1", udo);
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+		assertThat(response.getBody()).isSameAs(rdo);
+		verify(inspectionQuestionLogic).moveInspectionQuestionCategory("q1", udo);
 	}
 }

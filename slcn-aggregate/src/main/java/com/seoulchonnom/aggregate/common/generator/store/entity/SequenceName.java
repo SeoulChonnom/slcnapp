@@ -36,5 +36,10 @@ public enum SequenceName {
 		public String toString() {
 			return "INSPECTION_QUESTION";
 		}
+	}, INSPECTION_QUESTION_CATEGORY {
+		@Override
+		public String toString() {
+			return "INSPECTION_QUESTION_CATEGORY";
+		}
 	}
 }
