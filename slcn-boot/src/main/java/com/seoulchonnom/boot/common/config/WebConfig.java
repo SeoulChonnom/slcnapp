@@ -20,7 +20,7 @@ public class WebConfig implements WebMvcConfigurer {
 				"http://localhost:8080",
 				domain
 			)
-			.allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+			.allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
 			.allowCredentials(true)
 			.maxAge(6000);
 	}
