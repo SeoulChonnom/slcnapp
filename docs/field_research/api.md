@@ -28,6 +28,9 @@ context path는 `/api`다. 아래 경로는 그 뒤에 붙는다. 인증은 `X-A
 | 임장 상세 | `GET /inspection-visits/{visitId}` |
 | 매물 상세 | `GET /inspection-properties/{propertyId}` (또는 `GET /inspection-visits/{visitId}/properties/{propertyId}`) |
 | 회차 간 매물 연결 | `GET /inspection-areas/{areaId}/properties` |
+| 주소 검색(매물 위치 · 현재 위치 입력) | `GET /geo/addresses?keyword=` (§8-2) |
+| 지도 도보 경로 | `POST /inspection-visits/{visitId}/walking-route` (§8-3) |
+| 추천 순서 정렬의 현재 위치 | `POST /geo/current-location` (§8-4) |
 | AI 후기 제안(임장/매물 폼) | `POST /inspection-visits/{visitId}/review-suggestion`, `POST /inspection-visits/{visitId}/properties/{propertyId}/review-suggestion` |
 | 질문 대분류 관리(관리자) | `GET/POST/PUT/PATCH /inspection-question-categories` |
 | 질문 관리(관리자) | `GET/POST/PUT/PATCH /inspection-questions` |
@@ -91,6 +94,7 @@ DELETE /api/inspection-areas/{areaId} → 204
       "latestVisit": {
         "visitId": "INSPECTION_VISIT-0003",
         "visitedAt": "2026-09-17T14:00",
+        "completedAt": "2026-09-17T18:30",
         "oneLineReview": "직주근접은 좋지만 가격이 부담",
         "revisitIntent": "YES",
         "status": "DRAFT",
@@ -103,7 +107,8 @@ DELETE /api/inspection-areas/{areaId} → 204
         "interestLevel": 5
       },
       "matchedProperty": null,
-      "incompleteSummary": { "draftVisitCount": 1, "draftPropertyCount": 2, "unansweredRequiredCount": 5 },
+      "plannedVisit": { "inspectionVisitId": "INSPECTION_VISIT-0007", "visitedAt": "2026-10-12T14:00" },
+      "incompleteSummary": { "draftVisitCount": 1, "plannedVisitCount": 1, "draftPropertyCount": 2, "unansweredRequiredCount": 5 },
       "thumbnails": [{ "id": "...", "fileAssetId": "...", "file": { "...": "FileAssetRdo" } }],
       "totalImageCount": 24
     }
@@ -121,6 +126,16 @@ DELETE /api/inspection-areas/{areaId} → 204
   (`{ propertyId, visitId, complexName, name, interestLevel }`). 여러 건이 걸리면
   관심도 내림차순 → 최신 회차 → `sortOrder` 순으로 1건. 지역명·설명·태그로만 걸렸으면 `null`이고
   기존 `topProperty`를 그대로 쓴다
+- **계획 임장.** `completedAt`이 없는 임장(한 번도 완료하지 않은 임장)은 "계획"이다.
+  방문 횟수(`visitCount`), `firstVisitedAt`/`lastVisitedAt`, `latestVisit`, `topProperty`, 매물 수,
+  `sort`, `revisitIntent` 필터, `revisitIntentCounts`, `totals`는 **완료된 적 있는 임장만** 센다.
+  `keyword` 검색만 계획 임장의 매물과 태그도 훑는다. 계획만 있는 지역은 `visitCount: 0`,
+  `latestVisit: null`이지만 목록에는 나온다
+- `plannedVisit`은 계획 임장 중 `visitedAt`이 **가장 이른 1건**이다(동점이면 `visitId` 오름차순). 없으면 `null`.
+  지난 날짜일 수 있으므로 FE가 `visitedAt`을 오늘과 비교해 오늘 이후면 "예정", 지났으면 "미완료"로 표시한다.
+  여러 건이 있다는 사실은 `incompleteSummary.plannedVisitCount`로 안다
+- `completedAt`은 **최초 완료 시각**이다. `visitedAt`과 같은 형식의 문자열이고 한 번도 완료하지 않았으면 `null`이다.
+  완료한 뒤 `DRAFT`로 되돌려도, 다시 완료해도 바뀌지 않는다. 임장 목록·상세·지역 상세의 `visits[]`·`latestVisit`에 모두 실린다
 - `latestVisit`에는 `propertyCount`/`cover`/`incompleteSummary`가 비어 있다. 회차별 값이 필요하면 지역 상세를 부른다
 - 집계 필드는 전부 서버가 조회 시 계산한다. 임장을 등록/삭제하면 다음 조회에 즉시 반영된다
 
@@ -140,6 +155,7 @@ DRAFT라 아직 의사를 안 적은 지역이 그 차이를 만든다. **`전�
     {
       "visitId": "INSPECTION_VISIT-0003",
       "visitedAt": "2026-09-17T14:00",
+      "completedAt": "2026-09-17T18:30",
       "oneLineReview": "...",
       "revisitIntent": "YES",
       "status": "DRAFT",
@@ -181,6 +197,7 @@ DRAFT라 아직 의사를 안 적은 지역이 그 차이를 만든다. **`전�
 | PATCH | `/inspection-visits/{visitId}/status` | `COMPLETED` / `DRAFT` 전이 |
 | PUT | `/inspection-visits/{visitId}/properties/order` | 매물 순서 일괄 변경 |
 | PUT | `/inspection-visits/{visitId}/images/order` | 사진 순서 일괄 변경 |
+| POST | `/inspection-visits/{visitId}/walking-route` | 저장된 매물 위치로 도보 경로 조회(§8-3). 본문 없음, 저장 안 함 |
 | DELETE | `/inspection-visits/{visitId}` | 하위 매물·문답·태그·사진 함께 삭제 |
 
 목록 필터(전부 선택): `areaId`, `status`, `revisitIntent`, `tag`(복수 지정 가능, **AND**),
@@ -252,8 +269,15 @@ PUT   .../properties/{propertyId}
 | PATCH | `/inspection-visits/{visitId}/properties/{propertyId}/status` | 상태 전이 |
 | DELETE | `/inspection-visits/{visitId}/properties/{propertyId}` | 삭제 |
 
-`complexName`과 `name`은 **둘 다 필수**다. 단지명은 자유 입력이므로 표기가 흔들리면
-단지별 그룹핑이 깨진다. 매물 등록 화면에서 `complex-names`를 자동완성 후보로 쓴다.
+`complexName`은 필수다. 단지명은 자유 입력이므로 표기가 흔들리면 단지별 그룹핑이 깨진다.
+매물 등록 화면에서 `complex-names`를 자동완성 후보로 쓴다.
+
+**`name`(동·호수)은 계획 단계에서는 생략할 수 있다.** 비워서 등록·수정하면 `null`로 저장되고 응답도 `null`이다
+(FE는 "미정" 등으로 표시한다). 다만 **매물을 `COMPLETED`로 만들 때는 필수**라, 비어 있으면 완료가 `400`으로 거절되고
+`incompleteSummary.missingFields`에 `name`이 담긴다.
+
+**`location`(위치)은 선택이다.** 등록·수정 요청에 `location`을 실을 수 있고, 규칙과 예시는 §8-2에 있다.
+PUT은 전체 교체라 **생략하면 위치가 지워진다.** 수정 화면은 상세 응답의 `location`을 그대로 돌려보낸다.
 
 ### 등록 응답 (문답 스냅샷 포함)
 
@@ -327,6 +351,7 @@ DB 이관 때 분류를 채웠다(§12).
   "visitedAt": "2026-09-17T14:00",
   "complexName": "트리마제",
   "name": "101동 1203호 / 84A",
+  "location": { "bdMgtSn": "1120011500106850001000001", "roadAddress": "서울특별시 성동구 용답토방길 135", "latitude": 37.5431, "longitude": 127.0553 },
   "memo": "...", "oneLineReview": "...", "pros": "...", "cons": "...",
   "interestLevel": 5, "status": "DRAFT", "sortOrder": 2,
   "tags": ["남향", "고층"],
@@ -339,6 +364,7 @@ DB 이관 때 분류를 채웠다(§12).
 }
 ```
 
+- `name`은 계획 단계에서 `null`일 수 있다. `location`은 위치가 없으면 `null`이다(§8-2). 임장 상세의 `properties[]`에도 같은 형태로 실린다
 - `areaId`/`areaName`/`visitedAt`은 breadcrumb용이다
 - `prevProperty`/`nextProperty`는 **같은 임장 안에서** 매물 정렬 순서의 앞/뒤 1건이다. 없으면 `null`
 
@@ -426,7 +452,11 @@ DRAFT ──(조건 충족)──> COMPLETED ──(언제든)──> DRAFT
 | `missingFields` | 매물 | `complexName`/`name`/`interestLevel` 중 빈 것 |
 | `draftPropertyCount` | 임장 | 이 임장의 `DRAFT` 매물 수 |
 | `visitMissingFields` | 임장 | `visitedAt`/`revisitIntent` 중 빈 것 |
-| `draftVisitCount` | 지역 | 이 지역의 `DRAFT` 임장 수 |
+| `draftVisitCount` | 지역 | 이 지역에서 **수정 중**(한 번 완료했다가 `DRAFT`로 돌아온)인 임장 수. 계획 임장은 세지 않는다 |
+| `plannedVisitCount` | 지역 | 이 지역의 계획 임장(`completedAt` 없음) 수. 지역 요약에서만 채우고 다른 요약에서는 `0` |
+
+지역의 `draftPropertyCount`와 `unansweredRequiredCount`도 계획 임장의 매물은 제외한다.
+계획을 "덜 쓴 기록"으로 보이게 하지 않으려는 것이다.
 
 **목록 응답에는 개수 필드만 담긴다.** 문항 이름 목록은 임장 상세와 매물 상세에만 온다.
 
@@ -582,6 +612,152 @@ POST /api/inspection-visits/{visitId}/properties/{propertyId}/review-suggestion
 `SLCN_GEMINI_FALLBACK_MODEL`(기본 `gemini-3.1-flash-lite`. 주 모델이 429/5xx/타임아웃/응답 해석 불가로 실패할 때만 한 번 더 시도, 비우면 폴백 없음),
 `SLCN_GEMINI_TIMEOUT_SECONDS`(기본 `15`, 시도당 제한 시간이라 폴백까지 쓰면 최악 약 2배),
 `SLCN_GEMINI_THINKING_LEVEL`(기본 `LOW`. `MINIMAL`/`LOW`/`MEDIUM`/`HIGH`, 비우면 보내지 않음. 잘못된 값은 기동 실패).
+
+---
+
+## 8-2. 주소 검색과 매물 위치
+
+지도에 매물을 찍으려면 매물에 위치(`location`)를 붙인다. 좌표는 **FE가 보내지 않는다.** FE는 주소 검색 결과를
+고르기만 하고, 서버가 행안부 좌표제공 API로 좌표를 구해 WGS84(위도·경도)로 저장한다.
+저장되는 좌표의 출처가 항상 행안부라는 뜻이다. 단말 GPS는 쓰지 않는다.
+
+### 주소 검색
+
+```text
+GET /api/geo/addresses?keyword=성수 트리마제&page=1&size=10
+```
+
+- `keyword`는 필수(공백 제외 1자 이상). `page`는 1부터(기본 1), `size`는 1~20(기본 10). 어기면 `400` `VALIDATION_FAILED`
+- 행안부 도로명주소 검색을 그대로 프록시한다. 아무것도 저장하지 않는다
+
+```json
+{
+  "totalCount": 12,
+  "items": [
+    {
+      "roadAddress": "서울특별시 성동구 용답토방길 135",
+      "jibunAddress": "서울특별시 성동구 성수동1가 685-1",
+      "buildingName": "트리마제",
+      "bdMgtSn": "1120011500106850001000001",
+      "zipNo": "04773",
+      "coordKey": { "admCd": "1120011500", "rnMgtSn": "112003115001", "udrtYn": "0", "buldMnnm": "135", "buldSlno": "0" }
+    }
+  ]
+}
+```
+
+- `bdMgtSn`은 행안부 건물관리번호다. **같은 건물인지는 이 값으로 판단한다.**
+- `coordKey`는 좌표를 구하는 데 필요한 식별값이다. 후보를 골랐을 때 그대로 `location`에 실어 보낸다.
+- 검색어가 행안부에 거절되면(두 글자 미만, 특수문자·SQL 예약어 포함 등) `400` `INVALID_ADDRESS_KEYWORD`이고 `title`에 사유가 담긴다
+- 역 이름 같은 장소명으로 검색이 되는지는 보장하지 않는다. "가까운 건물이나 주소를 입력하세요"라고 안내한다
+
+### 매물에 위치 저장
+
+`POST /inspection-visits/{visitId}/properties`와 `PUT .../properties/{propertyId}`의 본문에 `location`을 실을 수 있다.
+
+```json
+"location": {
+  "bdMgtSn": "1120011500106850001000001",
+  "roadAddress": "서울특별시 성동구 용답토방길 135",
+  "coordKey": { "admCd": "1120011500", "rnMgtSn": "112003115001", "udrtYn": "0", "buldMnnm": "135", "buldSlno": "0" }
+}
+```
+
+서버 판정 규칙. **요청에 좌표를 받지 않는다.**
+
+| 요청 `location` | 서버 동작 | 응답 |
+| --- | --- | --- |
+| `null` 또는 생략 | 위치를 지운다(등록이면 위치 없이 등록) | `location: null` |
+| `bdMgtSn`이 저장된 값과 같다 | **저장된 좌표를 유지**한다. 행안부를 다시 부르지 않는다. `coordKey`는 필요 없다 | 기존 `location` |
+| `bdMgtSn`이 다르거나 저장된 값이 없다 | `coordKey`로 행안부 좌표를 조회해 WGS84로 변환해 저장한다 | 새 `location` |
+| 위 경우에 `bdMgtSn`이 비었거나, 새로 조회해야 하는데 `coordKey`가 없거나 필드가 비었다 | 아무것도 저장하지 않는다 | `400` `VALIDATION_FAILED` |
+| 행안부 설정이 없다(키 미설정·승인 안 됨) | 아무것도 저장하지 않는다 | `503` `ADDRESS_LOOKUP_UNAVAILABLE` |
+| 행안부 호출 실패(타임아웃·5xx·응답 해석 불가) | **매물 저장 전체를 실패**시킨다. 고른 위치가 조용히 사라지지 않게 한다 | `502` `ADDRESS_LOOKUP_FAILED` |
+
+- 위치는 **PUT 전체 교체**의 일부다. 수정 화면은 상세 응답의 `location`을 그대로 돌려보내야 위치가 유지된다.
+  (`bdMgtSn`이 같으면 외부 호출이 없으니 메모만 고치는 수정의 비용은 늘지 않는다.)
+- 상태 전이(`PATCH .../status`), 문답 저장(`PUT .../answers`), 순서 변경은 위치를 건드리지 않는다.
+- 응답의 `location`은 `{ bdMgtSn, roadAddress, latitude, longitude }`이다. 행안부 원본 좌표(UTM-K)는 내려가지 않는다.
+  `latitude`/`longitude`는 도 단위 WGS84다.
+
+---
+
+## 8-3. 도보 경로
+
+```text
+POST /api/inspection-visits/{visitId}/walking-route        // 본문 없음
+```
+
+저장된 매물 위치를 **임장 상세와 같은 순서**로 이어 카카오 도보 경로를 조회한다. 서버는 응답을 저장하거나 캐시하지 않는다.
+외부 유료 호출이라 브라우저나 프록시가 미리 불러오지 않도록 `GET`이 아니라 `POST`다.
+"도보 경로 보기"를 눌렀을 때 지연 조회한다.
+
+처리 규칙:
+- 순서는 임장 상세의 `properties[]`와 같다(`sortOrder`, 서버 2차 키). FE가 따로 정렬하지 않는다
+- 위치가 없는 매물은 건너뛴다
+- **바로 이어지는** 같은 좌표(같은 단지의 여러 매물)는 한 지점(`stop`)으로 합치고 `propertyIds`에 모두 담는다.
+  떨어져서 다시 나오는 좌표(A → B → A)는 합치지 않고 돌아오는 경로로 이어 준다
+- 지점이 2개 미만이면 외부 호출 없이 **빈 경로**(`0`, `0`, 빈 배열)를 돌려준다
+- 지점이 7개를 넘으면 앞 구간의 끝 지점을 다음 구간의 시작 지점으로 겹쳐 나눠 순서대로 호출하고 하나로 합쳐 돌려준다.
+  호출 수는 `ceil((지점 수 - 1) / 6)`이다. 하나라도 실패하면 **부분 결과 없이 전체가 실패**한다
+- 외부로는 좌표만 나간다. 임장 ID, 사용자 정보, 주소는 보내지 않는다
+- **현재 위치 → 첫 매물 구간은 이 API로 그릴 수 없다.** 저장된 좌표만 쓰기 때문이다. 그 구간은 FE가 직선과 추정 시간으로 표시한다
+
+```json
+{
+  "totalDistance": 1280,
+  "totalTime": 960,
+  "stops": [
+    { "index": 0, "propertyIds": ["8a71c0e2-...", "5b02d9f1-..."], "latitude": 37.5431, "longitude": 127.0553 },
+    { "index": 1, "propertyIds": ["c4417a10-..."], "latitude": 37.5472, "longitude": 127.0415 }
+  ],
+  "legs": [
+    {
+      "fromStopIndex": 0,
+      "toStopIndex": 1,
+      "distance": 1280,
+      "time": 960,
+      "path": [[127.0553, 37.5431], [127.0551, 37.5435], [127.0415, 37.5472]]
+    }
+  ]
+}
+```
+
+| 필드 | 의미 |
+| --- | --- |
+| `totalDistance` | 전체 거리(m). 구간 합 |
+| `totalTime` | 전체 도보 시간(초). 구간 합 |
+| `stops[]` | 경로가 지나는 지점. `index`는 0부터 |
+| `legs[]` | 인접한 두 지점 사이의 구간. `stops.length - 1`개 |
+| `legs[].path` | **`[경도, 위도]` 순서**(GeoJSON과 같다)의 점 목록. 위도·경도 순이 아니다. 카카오 지도 SDK에 넘길 때 `new LatLng(위도, 경도)`로 뒤집는다 |
+
+오류. FE는 어느 경우든 **직선 표시를 유지**하고 알림만 띄운다.
+
+| HTTP | `code` | 언제 |
+| --- | --- | --- |
+| `400` | `INSPECTION_VISIT_NOT_FOUND` | 임장 없음(이 서비스의 기존 규칙상 404가 아니라 400이다) |
+| `429` | `WALKING_ROUTE_QUOTA_EXCEEDED` | 카카오 일일 한도 초과. 과금되지 않고 차단될 뿐이며, 다음 날 다시 된다 |
+| `502` | `WALKING_ROUTE_FAILED` | 타임아웃, 카카오 5xx, 응답 해석 불가, 카카오가 경로를 못 찾음(같은 지점·너무 먼 거리 등) |
+| `503` | `WALKING_ROUTE_UNAVAILABLE` | 카카오 REST 키 미설정 또는 거절됨. 관리자가 고쳐야 한다 |
+
+---
+
+## 8-4. 현재 위치 좌표 변환
+
+"추천 순서로 정렬"에서 현재 위치를 **주소로 직접 입력**받기 위한 API다. GPS는 쓰지 않는다.
+사용자는 §8-2의 주소 검색 UI로 후보를 고르고, 그 `coordKey`를 보낸다.
+
+```json
+POST /api/geo/current-location
+{ "coordKey": { "admCd": "1120011500", "rnMgtSn": "112003115001", "udrtYn": "0", "buldMnnm": "135", "buldSlno": "0" } }
+
+// 200
+{ "latitude": 37.5431, "longitude": 127.0553 }
+```
+
+- **서버는 현재 위치를 저장하지 않고 로그에도 남기지 않는다.** 좌표만 구해 돌려주고 버린다. FE도 이 화면을 쓰는 동안 메모리에만 둔다
+- `coordKey`가 없거나 다섯 필드 중 하나라도 비어 있으면 `400` `VALIDATION_FAILED`. 본문이 없거나 JSON이 아니면 `400` `INVALID_REQUEST_BODY`
+- 행안부 설정이 없으면 `503` `ADDRESS_LOOKUP_UNAVAILABLE`, 조회 실패는 `502` `ADDRESS_LOOKUP_FAILED`
 
 ---
 
@@ -803,7 +979,7 @@ GET /api/inspection-questions/{questionId}/versions
 
 | 코드 | HTTP | 언제 |
 | --- | --- | --- |
-| `VALIDATION_FAILED` | 400 | 본문·파라미터 바인딩 검증 실패. `errors`에 필드 목록 |
+| `VALIDATION_FAILED` | 400 | 본문·파라미터 바인딩 검증 실패. `errors`에 필드 목록. 주소 검색 파라미터와 `location`/`coordKey` 위반은 `errors` 없이 `title`만 담긴다 |
 | `INVALID_REQUEST_BODY` | 400 | 본문을 읽을 수 없음(JSON 문법 오류, 없는 enum 값 등) |
 | `MISSING_PARAMETER` | 400 | 필수 쿼리 파라미터 누락. `errors`에 파라미터 이름 |
 | `INVALID_PARAMETER` | 400 | 쿼리 파라미터 타입 불일치. `errors`에 파라미터 이름 |
@@ -826,7 +1002,7 @@ GET /api/inspection-questions/{questionId}/versions
 | `INSPECTION_VISIT_NOT_FOUND` | 400 | 임장 없음 |
 | `INVALID_INSPECTION_VISIT` | 400 | 임장 입력/완료 조건 위반. 완료된 임장의 필수 항목을 비우는 수정 포함 |
 | `VIEWED_PROPERTY_NOT_FOUND` | 400 | 매물 없음, 또는 다른 임장의 매물 |
-| `INVALID_VIEWED_PROPERTY` | 400 | 매물 입력/완료 조건 위반 |
+| `INVALID_VIEWED_PROPERTY` | 400 | 매물 입력/완료 조건 위반. `name`이 비어 있는 매물의 완료 포함 |
 | `INSPECTION_QUESTION_NOT_FOUND` | 400 | 질문 없음, 또는 이 매물의 문답에 없는 `questionId` |
 | `INVALID_INSPECTION_QUESTION` | 400 | 질문 입력 위반(문구·설명·선택지·단위, 정렬 요청의 없는 질문) |
 | `INSPECTION_QUESTION_CATEGORY_REQUIRED` | 400 | 질문 등록·이동에 `categoryId` 누락 |
@@ -843,6 +1019,12 @@ GET /api/inspection-questions/{questionId}/versions
 | `INVALID_INSPECTION_FILE` | 400 | 사진 연결 정보 오류 |
 | `INVALID_INSPECTION_ORDER` | 400 | 정렬 대상이 이 임장 소속이 아님 |
 | `REVIEW_SUGGESTION_UNAVAILABLE` | 503 | AI 후기 제안 불가: API 키 미설정, 호출 실패·타임아웃, 응답 해석 실패(§8-1) |
+| `INVALID_ADDRESS_KEYWORD` | 400 | 행안부가 주소 검색어를 거절(두 글자 미만, 특수문자·SQL 예약어 등). `title`에 사유(§8-2) |
+| `ADDRESS_LOOKUP_UNAVAILABLE` | 503 | 주소 검색·좌표 조회 불가: 행안부 키 미설정·승인 안 됨·만료. 관리자가 고쳐야 한다(§8-2) |
+| `ADDRESS_LOOKUP_FAILED` | 502 | 행안부 호출 실패: 타임아웃, 5xx, 응답 해석 불가(§8-2) |
+| `WALKING_ROUTE_UNAVAILABLE` | 503 | 도보 경로 불가: 카카오 REST 키 미설정 또는 거절(§8-3) |
+| `WALKING_ROUTE_QUOTA_EXCEEDED` | 429 | 카카오 일일 한도 초과(§8-3) |
+| `WALKING_ROUTE_FAILED` | 502 | 도보 경로 호출 실패 또는 경로 없음(§8-3) |
 | `INSPECTION_VISIT_CONFLICT` | 409 | 임장 동시 저장 |
 | `VIEWED_PROPERTY_CONFLICT` | 409 | 매물 동시 저장 |
 
