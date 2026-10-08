@@ -7,7 +7,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -197,7 +196,7 @@ public class InspectionAreaQueryFlow {
 	/**
 	 * 회차 요약 목록과 선택 회차 상세를 한 번에 반환한다.
 	 *
-	 * @param visitId           null이면 최신 회차를 펼친다
+	 * @param visitId           null이면 최신 완료 회차를 펼친다(완료 회차가 없으면 계획 중 가장 이른 1건)
 	 * @param includeProperties false면 selectedVisit을 생략한다. 회차가 많은 지역의 지연 로딩용
 	 */
 	public InspectionAreaDetailRdo getInspectionArea(String areaId, String visitId, boolean includeProperties) {
@@ -298,40 +297,80 @@ public class InspectionAreaQueryFlow {
 				.orElseThrow(() -> new InspectionVisitNotFoundException(
 					"이 지역에 속한 임장이 아닙니다. visitId=" + visitId));
 		}
-		// visitedAt 내림차순이므로 첫 행이 최신 회차다
-		return visits.isEmpty() ? null : visits.get(0).getId();
+		// 기본 선택은 최신 완료 회차다. 완료 회차가 없으면 계획 중 가장 이른 1건(plannedVisit)으로 대신한다
+		InspectionVisit selected = latestCompleted(visits);
+		if (selected == null) {
+			selected = plannedVisitOf(visits);
+		}
+		return selected == null ? null : selected.getId();
+	}
+
+	/**
+	 * completedAt이 있으면 완료 임장이다. status가 아니라 completedAt이 기준이라 "수정 중"(DRAFT)도 완료로 센다.
+	 */
+	private static List<InspectionVisit> completedOf(List<InspectionVisit> visits) {
+		return visits.stream().filter(visit -> visit.getCompletedAt() != null).toList();
+	}
+
+	/**
+	 * 완료 임장 중 최신. visitedAt 동점이면 id 오름차순 앞쪽(DB 쿼리의 ORDER BY visited_at DESC, id ASC와 같다).
+	 */
+	private static InspectionVisit latestCompleted(List<InspectionVisit> visits) {
+		return visits.stream()
+			.filter(visit -> visit.getCompletedAt() != null)
+			.min(Comparator.comparing(InspectionVisit::getVisitedAt, Comparator.reverseOrder())
+				.thenComparing(InspectionVisit::getId))
+			.orElse(null);
+	}
+
+	/**
+	 * 미완료(completedAt 없음) 임장 중 visitedAt이 가장 이른 1건, 동점이면 id 오름차순. 오늘과는 비교하지 않는다.
+	 */
+	private static InspectionVisit plannedVisitOf(List<InspectionVisit> visits) {
+		return visits.stream()
+			.filter(visit -> visit.getCompletedAt() == null)
+			.min(Comparator.comparing(InspectionVisit::getVisitedAt).thenComparing(InspectionVisit::getId))
+			.orElse(null);
 	}
 
 	private InspectionAreaRdo toAreaRdo(InspectionArea area, List<InspectionVisit> visits,
 		Map<String, List<ViewedPropertySummaryPdo>> propertiesByVisit, Map<String, List<String>> tagNames,
 		Map<String, FileBox> fileBoxes, List<FileBoxItem> thumbnailItems, Map<String, FileAsset> assets) {
-		List<ViewedPropertySummaryPdo> allProperties = visits.stream()
-			.flatMap(visit -> propertiesByVisit.getOrDefault(visit.getId(), List.<ViewedPropertySummaryPdo>of())
-				.stream())
-			.toList();
+		// 계획(completedAt 없음)은 방문으로 세지 않는다. 방문 횟수·방문일 범위·최신 회차·매물 수·최고 관심 매물은
+		// 완료 임장만으로 계산한다. 미완료 요약(incompleteSummary)은 C3 전까지 기존처럼 전체 임장 기준이다
+		List<InspectionVisit> completedVisits = completedOf(visits);
+		List<ViewedPropertySummaryPdo> everyProperty = propertiesOf(visits, propertiesByVisit);
+		List<ViewedPropertySummaryPdo> allProperties = propertiesOf(completedVisits, propertiesByVisit);
 
-		InspectionVisit latest = visits.stream()
-			.max(Comparator.comparing(InspectionVisit::getVisitedAt))
-			.orElse(null);
+		InspectionVisit latest = latestCompleted(visits);
 		InspectionVisitSummaryRdo latestSummary = latest == null ? null
 			: inspectionVisitMapper.toInspectionVisitSummaryRdo(latest,
 				tagNames.getOrDefault(latest.getId(), List.of()), null, null, null);
 		// topProperty는 지역 전체에서 고르므로 동점이면 최신 회차가 이기게 visitedAt을 함께 넘긴다
-		Map<String, LocalDateTime> visitedAtByVisitId = visits.stream()
+		Map<String, LocalDateTime> visitedAtByVisitId = completedVisits.stream()
 			.collect(Collectors.toMap(InspectionVisit::getId, InspectionVisit::getVisitedAt));
 
-		return inspectionAreaMapper.toInspectionAreaRdo(area, visits.size(),
-			visits.stream().map(InspectionVisit::getVisitedAt).min(Comparator.naturalOrder()).orElse(null),
-			visits.stream().map(InspectionVisit::getVisitedAt).max(Comparator.naturalOrder()).orElse(null),
+		return inspectionAreaMapper.toInspectionAreaRdo(area, completedVisits.size(),
+			completedVisits.stream().map(InspectionVisit::getVisitedAt).min(Comparator.naturalOrder()).orElse(null),
+			completedVisits.stream().map(InspectionVisit::getVisitedAt).max(Comparator.naturalOrder()).orElse(null),
 			allProperties.size(),
 			latestSummary,
 			inspectionVisitQueryFlow.toBriefRdo(
 				inspectionVisitQueryFlow.topInterestProperty(allProperties, visitedAtByVisitId)),
-			inspectionSummarySupport.ofArea(visits, allProperties),
+			inspectionSummarySupport.ofArea(visits, everyProperty),
 			thumbnailItems.stream()
 				.map(item -> fileBoxMapper.toFileBoxItemRdo(item, rdoOf(assets, item.getFileAssetId())))
 				.toList(),
-			totalImageCount(visits, fileBoxes));
+			totalImageCount(visits, fileBoxes),
+			plannedVisitOf(visits));
+	}
+
+	private static List<ViewedPropertySummaryPdo> propertiesOf(List<InspectionVisit> visits,
+		Map<String, List<ViewedPropertySummaryPdo>> propertiesByVisit) {
+		return visits.stream()
+			.flatMap(visit -> propertiesByVisit.getOrDefault(visit.getId(), List.<ViewedPropertySummaryPdo>of())
+				.stream())
+			.toList();
 	}
 
 	/**
@@ -378,9 +417,8 @@ public class InspectionAreaQueryFlow {
 
 	private List<String> latestVisitIds(Map<String, List<InspectionVisit>> visitsByArea) {
 		return visitsByArea.values().stream()
-			.map(areaVisits -> areaVisits.stream().max(Comparator.comparing(InspectionVisit::getVisitedAt)))
-			.filter(Optional::isPresent)
-			.map(Optional::get)
+			.map(InspectionAreaQueryFlow::latestCompleted)
+			.filter(Objects::nonNull)
 			.map(InspectionVisit::getId)
 			.toList();
 	}

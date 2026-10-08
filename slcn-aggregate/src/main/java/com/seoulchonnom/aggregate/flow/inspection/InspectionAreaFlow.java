@@ -53,6 +53,6 @@ public class InspectionAreaFlow {
 	}
 
 	private InspectionAreaRdo toRdo(InspectionArea area) {
-		return inspectionAreaMapper.toInspectionAreaRdo(area, 0, null, null, 0, null, null, null, List.of(), 0);
+		return inspectionAreaMapper.toInspectionAreaRdo(area, 0, null, null, 0, null, null, null, List.of(), 0, null);
 	}
 }

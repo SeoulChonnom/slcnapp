@@ -36,6 +36,10 @@ public class InspectionAreaRdo {
 	private List<FileBoxItemRdo> thumbnails = new ArrayList<>();
 	private int totalImageCount;
 	/**
+	 * 완료되지 않은(completedAt 없음) 임장 중 visitedAt이 가장 이른 1건(동점이면 id 오름차순). 없으면 null.
+	 */
+	private PlannedVisitRdo plannedVisit;
+	/**
 	 * keyword가 단지명/매물명에 걸렸을 때만 채워진다. 지역명·설명·태그로만 걸렸으면 null이고
 	 * topProperty를 그대로 쓴다.
 	 */
