@@ -23,6 +23,7 @@ import com.seoulchonnom.aggregate.flow.inspection.InspectionReviewSuggestionFlow
 import com.seoulchonnom.aggregate.flow.inspection.InspectionVisitFlow;
 import com.seoulchonnom.aggregate.flow.inspection.InspectionVisitQueryFlow;
 import com.seoulchonnom.aggregate.flow.inspection.ViewedPropertyFlow;
+import com.seoulchonnom.aggregate.flow.inspection.WalkingRouteQueryFlow;
 import com.seoulchonnom.spec.common.response.PageRdo;
 import com.seoulchonnom.spec.inspection.entity.vo.InspectionStatus;
 import com.seoulchonnom.spec.inspection.entity.vo.RevisitIntent;
@@ -36,6 +37,7 @@ import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ReviewSuggestionRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ReviewSuggestionSdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyOrderUdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.WalkingRouteRdo;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -48,6 +50,7 @@ public class InspectionVisitResource implements InspectionVisitFacade {
 	private final InspectionVisitFlow inspectionVisitFlow;
 	private final ViewedPropertyFlow viewedPropertyFlow;
 	private final InspectionReviewSuggestionFlow inspectionReviewSuggestionFlow;
+	private final WalkingRouteQueryFlow walkingRouteQueryFlow;
 
 	@Override
 	@GetMapping
@@ -116,6 +119,12 @@ public class InspectionVisitResource implements InspectionVisitFacade {
 		@RequestBody @Valid ReviewSuggestionSdo reviewSuggestionSdo) {
 		return new ResponseEntity<>(inspectionReviewSuggestionFlow.suggestVisitReview(visitId, reviewSuggestionSdo),
 			HttpStatus.OK);
+	}
+
+	@Override
+	@PostMapping("/{visitId}/walking-route")
+	public ResponseEntity<WalkingRouteRdo> getWalkingRoute(@PathVariable("visitId") String visitId) {
+		return new ResponseEntity<>(walkingRouteQueryFlow.getWalkingRoute(visitId), HttpStatus.OK);
 	}
 
 	@Override

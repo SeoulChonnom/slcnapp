@@ -17,6 +17,7 @@ import com.seoulchonnom.aggregate.inspection.exception.ViewedPropertyNotFoundExc
 import com.seoulchonnom.aggregate.inspection.logic.InspectionQuestionLogic;
 import com.seoulchonnom.aggregate.inspection.logic.InspectionTagLogic;
 import com.seoulchonnom.aggregate.inspection.logic.InspectionVisitLogic;
+import com.seoulchonnom.aggregate.inspection.logic.PropertyLocationResolver;
 import com.seoulchonnom.aggregate.inspection.logic.ViewedPropertyLogic;
 import com.seoulchonnom.aggregate.inspection.store.InspectionQuestionCategoryStore;
 import com.seoulchonnom.aggregate.inspection.store.InspectionTagStore;
@@ -28,6 +29,7 @@ import com.seoulchonnom.spec.inspection.entity.InspectionVisit;
 import com.seoulchonnom.spec.inspection.entity.ViewedProperty;
 import com.seoulchonnom.spec.inspection.entity.vo.ComplexNameScope;
 import com.seoulchonnom.spec.inspection.entity.vo.InspectionStatus;
+import com.seoulchonnom.spec.inspection.entity.vo.PropertyLocation;
 import com.seoulchonnom.spec.inspection.facade.sdo.PropertyAnswerBulkUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyCdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyOrderUdo;
@@ -52,13 +54,17 @@ public class ViewedPropertyFlow {
 	private final InspectionTagLogic inspectionTagLogic;
 	private final InspectionTagStore inspectionTagStore;
 	private final InspectionPhotoSupport inspectionPhotoSupport;
+	private final PropertyLocationResolver propertyLocationResolver;
 
 	@Transactional
 	public ViewedProperty registerViewedProperty(String visitId, ViewedPropertyCdo viewedPropertyCdo) {
 		InspectionVisit visit = inspectionVisitLogic.getInspectionVisit(visitId);
+		// 외부 조회가 실패(502/503)해도 아무것도 만들어지지 않도록 가장 먼저 한다
+		PropertyLocation location = propertyLocationResolver.resolve(null, viewedPropertyCdo.getLocation());
 
 		ViewedProperty property = new ViewedProperty(visitId, null, null, nextSortOrder(visitId));
 		viewedPropertyLogic.applyUpdate(property, toUdo(viewedPropertyCdo));
+		property.changeLocation(location);
 		List<InspectionQuestion> enabledQuestions = inspectionQuestionLogic.getEnabledQuestions();
 		viewedPropertyLogic.materializeAnswers(property, enabledQuestions, categoryMapFor(enabledQuestions));
 
@@ -74,7 +80,11 @@ public class ViewedPropertyFlow {
 	public ViewedProperty modifyViewedProperty(String visitId, String propertyId,
 		ViewedPropertyUdo viewedPropertyUdo) {
 		ViewedProperty property = findOwnedProperty(visitId, propertyId);
+		// 외부 조회를 변경보다 먼저 끝낸다. 실패(502/503)하면 엔티티를 건드리지 않은 채 끝난다
+		PropertyLocation location = propertyLocationResolver.resolve(property.getLocation(),
+			viewedPropertyUdo.getLocation());
 		viewedPropertyLogic.applyUpdate(property, viewedPropertyUdo);
+		property.changeLocation(location);
 		// COMPLETED 매물이면 저장 전에 조건을 다시 본다. 위반하면 아무것도 저장하지 않는다
 		viewedPropertyLogic.revalidateIfCompleted(property);
 
@@ -235,6 +245,7 @@ public class ViewedPropertyFlow {
 		udo.setPros(viewedPropertyCdo.getPros());
 		udo.setCons(viewedPropertyCdo.getCons());
 		udo.setInterestLevel(viewedPropertyCdo.getInterestLevel());
+		udo.setLocation(viewedPropertyCdo.getLocation());
 		return udo;
 	}
 }

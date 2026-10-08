@@ -45,4 +45,6 @@ public class InspectionVisitJpo extends DomainEntityJpo {
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false)
 	private InspectionStatus status;
+	@Column
+	private LocalDateTime completedAt;
 }

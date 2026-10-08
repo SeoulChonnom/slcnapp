@@ -15,6 +15,7 @@ import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitStatusUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ReviewSuggestionRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ReviewSuggestionSdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.WalkingRouteRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyOrderUdo;
 
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -64,4 +65,13 @@ public interface InspectionVisitFacade {
 	 */
 	ResponseEntity<ReviewSuggestionRdo> suggestInspectionVisitReview(String visitId,
 		ReviewSuggestionSdo reviewSuggestionSdo);
+
+	/**
+	 * 저장된 매물 위치를 화면 순서대로 이어 카카오 도보 경로를 조회한다. 본문이 없고 아무것도 저장하지 않는다.
+	 * 위치 없는 매물은 건너뛰고 연속한 같은 좌표는 한 지점으로 합친다. 지점이 2개 미만이면 외부 호출 없이 빈 경로다.
+	 * 지점이 7개를 넘으면 앞 구간의 끝점을 다음 구간의 시작점으로 겹쳐 나눠 호출하며, 하나라도 실패하면 전체가 실패한다.
+	 * 설정이 없거나 키가 거절되면 503(WALKING_ROUTE_UNAVAILABLE), 한도 초과는 429(WALKING_ROUTE_QUOTA_EXCEEDED),
+	 * 그 밖의 실패는 502(WALKING_ROUTE_FAILED)이다.
+	 */
+	ResponseEntity<WalkingRouteRdo> getWalkingRoute(String visitId);
 }

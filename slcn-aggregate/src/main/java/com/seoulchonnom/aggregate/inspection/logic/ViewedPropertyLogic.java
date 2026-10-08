@@ -151,7 +151,7 @@ public class ViewedPropertyLogic {
 
 	public void applyUpdate(ViewedProperty property, ViewedPropertyUdo viewedPropertyUdo) {
 		String complexName = requireText(viewedPropertyUdo.getComplexName(), "단지/건물명은 필수입니다.", "단지/건물명이 너무 깁니다.");
-		String name = requireText(viewedPropertyUdo.getName(), "매물명은 필수입니다.", "매물명이 너무 깁니다.");
+		String name = optionalText(viewedPropertyUdo.getName(), "매물명이 너무 깁니다.");
 		validateInterestLevel(viewedPropertyUdo.getInterestLevel());
 		validateTexts(viewedPropertyUdo.getOneLineReview(), viewedPropertyUdo.getMemo(), viewedPropertyUdo.getPros(),
 			viewedPropertyUdo.getCons());
@@ -346,6 +346,16 @@ public class ViewedPropertyLogic {
 				throw new InvalidViewedPropertyException("입력이 너무 깁니다.");
 			}
 		}
+	}
+
+	/**
+	 * 비어 있으면 null로 저장한다. 값이 있으면 requireText와 같은 정규화·길이 검사를 한다.
+	 */
+	private String optionalText(String value, String tooLongMessage) {
+		if (!StringUtils.hasText(value)) {
+			return null;
+		}
+		return requireText(value, null, tooLongMessage);
 	}
 
 	private String requireText(String value, String blankMessage, String tooLongMessage) {

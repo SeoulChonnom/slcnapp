@@ -22,6 +22,8 @@ import lombok.Setter;
 public class InspectionVisitSummaryRdo {
 	private String visitId;
 	private String visitedAt;
+	/** 최초 완료 시각. 한 번도 완료되지 않았으면 null. visitedAt과 같은 형식. */
+	private String completedAt;
 	private String oneLineReview;
 	private RevisitIntent revisitIntent;
 	private InspectionStatus status;
