@@ -3,12 +3,14 @@ package com.seoulchonnom.rest.inspection;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -20,6 +22,8 @@ import com.seoulchonnom.aggregate.inspection.geo.AddressMapper;
 import com.seoulchonnom.aggregate.inspection.geo.AddressCandidate;
 import com.seoulchonnom.aggregate.inspection.geo.AddressSearchResult;
 import com.seoulchonnom.aggregate.inspection.geo.CoordKey;
+import com.seoulchonnom.aggregate.inspection.geo.UtmkPoint;
+import com.seoulchonnom.aggregate.inspection.geo.UtmkToWgs84Converter;
 import com.seoulchonnom.rest.common.handler.CommonExceptionHandler;
 
 /**
@@ -32,7 +36,7 @@ class GeoResourceTest {
 	@BeforeEach
 	void setUp() {
 		gateway = mock(AddressGateway.class);
-		GeoResource resource = new GeoResource(new GeoQueryFlow(gateway, new AddressMapper()));
+		GeoResource resource = new GeoResource(new GeoQueryFlow(gateway, new AddressMapper(), new UtmkToWgs84Converter()));
 		mockMvc = MockMvcBuilders.standaloneSetup(resource).setControllerAdvice(new CommonExceptionHandler()).build();
 	}
 
@@ -101,6 +105,45 @@ class GeoResourceTest {
 
 		doThrow(AddressLookupUnavailableException.notConfigured()).when(gateway).search(any(), anyInt(), anyInt());
 		mockMvc.perform(get("/geo/addresses").param("keyword", "성수동"))
+			.andExpect(status().isServiceUnavailable())
+			.andExpect(jsonPath("$.code").value("ADDRESS_LOOKUP_UNAVAILABLE"));
+	}
+
+	private static final String COORD_KEY_BODY = """
+		{"coordKey":{"admCd":"1171010200","rnMgtSn":"117103123001","udrtYn":"0","buldMnnm":"1","buldSlno":"0"}}""";
+
+	@Test
+	void currentLocation_shouldReturnWgs84Coordinates() throws Exception {
+		when(gateway.findEntrance(new CoordKey("1171010200", "117103123001", "0", "1", "0")))
+			.thenReturn(new UtmkPoint(960000.0, 1950000.0));
+
+		mockMvc.perform(post("/geo/current-location").contentType(MediaType.APPLICATION_JSON).content(COORD_KEY_BODY))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.latitude").isNumber())
+			.andExpect(jsonPath("$.longitude").isNumber());
+	}
+
+	@Test
+	void currentLocation_shouldReturnValidationFailedForMissingFields() throws Exception {
+		for (String body : List.of("{}", "{\"coordKey\":null}",
+			"{\"coordKey\":{\"admCd\":\"1\",\"rnMgtSn\":\"2\",\"udrtYn\":\"0\",\"buldMnnm\":\"1\"}}",
+			"{\"coordKey\":{\"admCd\":\" \",\"rnMgtSn\":\"2\",\"udrtYn\":\"0\",\"buldMnnm\":\"1\",\"buldSlno\":\"0\"}}")) {
+			mockMvc.perform(post("/geo/current-location").contentType(MediaType.APPLICATION_JSON).content(body))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+		}
+		verifyNoInteractions(gateway);
+	}
+
+	@Test
+	void currentLocation_shouldMapGatewayErrors() throws Exception {
+		doThrow(AddressLookupUnavailableException.upstreamFailed()).when(gateway).findEntrance(any());
+		mockMvc.perform(post("/geo/current-location").contentType(MediaType.APPLICATION_JSON).content(COORD_KEY_BODY))
+			.andExpect(status().isBadGateway())
+			.andExpect(jsonPath("$.code").value("ADDRESS_LOOKUP_FAILED"));
+
+		doThrow(AddressLookupUnavailableException.notConfigured()).when(gateway).findEntrance(any());
+		mockMvc.perform(post("/geo/current-location").contentType(MediaType.APPLICATION_JSON).content(COORD_KEY_BODY))
 			.andExpect(status().isServiceUnavailable())
 			.andExpect(jsonPath("$.code").value("ADDRESS_LOOKUP_UNAVAILABLE"));
 	}
