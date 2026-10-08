@@ -72,8 +72,8 @@ location: {
 type AddressSearch = {
   totalCount: number
   items: Array<{
-    roadAddress: string; jibunAddress: string; buildingName: string
-    bdMgtSn: string; zipNo: string
+    roadAddress: string | null; jibunAddress: string | null; buildingName: string | null
+    bdMgtSn: string; zipNo: string | null
     coordKey: CoordKey
   }>
 }
@@ -119,7 +119,8 @@ type GeoPoint = { latitude: number; longitude: number }
   - `visitedAt`이 오늘 이후면 **"예정 MM.DD"**, 지났으면 **"미완료 MM.DD"**로 표시한다.
   - 오늘은 FE가 판정한다(BE는 비교하지 않는다).
 - 여러 건이면 `incompleteSummary.plannedVisitCount`로 개수를 보여 줄 수 있다.
-- 지역 상세에서 `visitId` 없이 열면 **최신 완료 임장**이 선택된다. 완료 임장이 없으면 `plannedVisit`이 선택된다. 계획은 회차 목록에 그대로 있다.
+- 지역 상세에서 `visitId` 없이 열면 `selectedVisit`에 **가장 최근에 완료한 임장**(`completedAt`이 있는 것 중 `visitedAt` 내림차순, 같으면 `id` 오름차순 첫 건)이 펼쳐진다. 완료 임장이 없으면 `plannedVisit`(가장 이른 계획)이 펼쳐진다. 계획은 회차 목록에 그대로 있다.
+- 회차 목록(`visits[]`)은 `visitedAt` 내림차순이라 미래 계획이 첫 행인데 다른 회차가 펼쳐져 있을 수 있다. **첫 행이 아니라 `selectedVisit.inspectionVisitId`로 선택 행을 강조**한다.
 
 ### 4.3 매물 위치 (FC4)
 
@@ -135,6 +136,8 @@ type GeoPoint = { latitude: number; longitude: number }
 - 검색어 오류는 `400 INVALID_ADDRESS_KEYWORD`이고, `title`에 사유가 담겨 오므로 그대로 보여 준다.
   - 예: "주소를 상세히 입력해 주시기 바랍니다", "검색어는 두글자 이상 입력되어야 합니다"
 - `keyword`가 공백이거나 `size`가 20을 넘으면 `400 VALIDATION_FAILED`다.
+- 주소는 검색되지만 좌표 정보가 없으면 `400 ADDRESS_COORDINATE_NOT_FOUND`다. `title`의 안내를 보여 주고, 사용자가 **위치 없이 저장**할 수 있게 한다(`location: null`).
+- 길이 제한: `bdMgtSn` 26자, `roadAddress` 300자(trim 후). 넘으면 `400 VALIDATION_FAILED`다. 검색 결과를 그대로 보내면 넘지 않는다.
 - 행안부 장애로 `502`가 나면 매물 저장 전체가 실패한다. 입력값은 폼에 남겨 둔다.
 - 지도 하단에 출처를 표기한다: "주소·좌표: 행정안전부". 카카오 로고는 가리지 않는다.
 
@@ -143,6 +146,8 @@ type GeoPoint = { latitude: number; longitude: number }
 - 기본 화면은 번호 마커 + 직선 연결선 + 추정 시간이다. 추정 시간은 `직선 × 1.3 ÷ 4.5km/h`다.
 - "도보 경로 보기"를 누를 때만 `POST .../walking-route`를 호출한다. 경로는 화면 세션 동안 메모리에만 캐시한다.
 - 응답의 `stops`는 서버가 이미 정리한 결과다. 위치 없는 매물은 빠지고, 바로 이어지는 같은 좌표는 하나로 합쳐진다. FE는 `stops[].propertyIds`로 마커에 "2·3" 같은 번호를 붙인다.
+- 구간(`legs`)은 보통 인접한 두 지점 사이지만, 제공자가 경로를 나눠 주지 않으면 한 구간이 여러 지점에 걸친다(`toStopIndex - fromStopIndex > 1`). `path`를 그대로 그리고 `stops.length - 1`개라고 가정하지 않는다.
+- `legs[].path`가 비어 있으면 그 구간만 두 지점을 잇는 직선으로 그린다.
 - `legs[].path`는 **[경도, 위도]** 다. 카카오 SDK에는 `new kakao.maps.LatLng(p[1], p[0])`로 넘긴다.
 - 오류(`429`, `502`, `503`)가 나면 직선 표시를 유지하고 토스트만 띄운다. 빈 경로(`stops: []`)는 오류가 아니다.
 - 지난 임장의 경로는 "화면 순서대로 걸었을 때의 현재 기준 추천 경로"라고 짧게 안내한다.
@@ -159,6 +164,7 @@ type GeoPoint = { latitude: number; longitude: number }
 | HTTP | `code` | FE 처리 |
 |---|---|---|
 | 400 | `INVALID_ADDRESS_KEYWORD` | `title`을 검색창 아래에 표시 |
+| 400 | `ADDRESS_COORDINATE_NOT_FOUND` | `title` 안내를 보여 주고 위치 없이 저장하게 한다 |
 | 400 | `VALIDATION_FAILED` | 입력 확인 안내 (`location`/`coordKey` 위반은 `errors` 없이 `title`만) |
 | 400 | `INVALID_VIEWED_PROPERTY` | 매물 완료 조건 미충족(`name` 포함) |
 | 400 | `INSPECTION_VISIT_NOT_FOUND` | 임장 없음 (이 서비스는 404가 아니라 400) |

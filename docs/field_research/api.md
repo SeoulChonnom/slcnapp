@@ -181,7 +181,10 @@ DRAFT라 아직 의사를 안 적은 지역이 그 차이를 만든다. **`전�
   임장 목록의 `size` 기본값(20)과 `visitPageSize`(현재 50)가 다르므로 `size`를 생략하면
   자른 지점과 어긋난다. 두 조회의 정렬 키가 **같아서**(`visitedAt` 내림차순 → `visitId` 오름차순)
   `visitedAt`이 동률이어도 경계에서 중복이나 누락은 생기지 않는다
-- `visitId`를 안 주면 최신 회차가 `selectedVisit`에 펼쳐진다.
+- `visitId`를 안 주면 **가장 최근에 완료한 회차**(`completedAt`이 있는 것 중 `visitedAt` 내림차순 → `id` 오름차순 첫 건)가
+  `selectedVisit`에 펼쳐진다. 완료한 회차가 하나도 없으면 `plannedVisit`(가장 이른 계획)이 펼쳐진다.
+- `visits[]`는 `visitedAt` 내림차순이라 미래의 계획 임장이 첫 행인데 다른 회차가 펼쳐질 수 있다.
+  FE는 행 위치가 아니라 **`selectedVisit.inspectionVisitId`로 선택 행을 강조**해야 한다.
 - `selectedVisit`은 임장 상세와 **같은 타입**이다. 지연 로딩으로 전환해도 FE가 다루는 모양이 하나다.
 
 ---
@@ -671,6 +674,8 @@ GET /api/geo/addresses?keyword=성수 트리마제&page=1&size=10
 | `bdMgtSn`이 저장된 값과 같다 | **저장된 좌표를 유지**한다. 행안부를 다시 부르지 않는다. `coordKey`는 필요 없다 | 기존 `location` |
 | `bdMgtSn`이 다르거나 저장된 값이 없다 | `coordKey`로 행안부 좌표를 조회해 WGS84로 변환해 저장한다 | 새 `location` |
 | 위 경우에 `bdMgtSn`이 비었거나, 새로 조회해야 하는데 `coordKey`가 없거나 필드가 비었다 | 아무것도 저장하지 않는다 | `400` `VALIDATION_FAILED` |
+| `bdMgtSn`이 26자를 넘거나 `roadAddress`가 300자를 넘는다(trim 후 기준) | 행안부를 부르기 전에 거절하고 아무것도 저장하지 않는다 | `400` `VALIDATION_FAILED` |
+| 주소는 검색되지만 행안부가 좌표 정보를 주지 않는다 | 아무것도 저장하지 않는다. FE는 "위치 없이 저장" 안내를 보여 준다 | `400` `ADDRESS_COORDINATE_NOT_FOUND` |
 | 행안부 설정이 없다(키 미설정·승인 안 됨) | 아무것도 저장하지 않는다 | `503` `ADDRESS_LOOKUP_UNAVAILABLE` |
 | 행안부 호출 실패(타임아웃·5xx·응답 해석 불가) | **매물 저장 전체를 실패**시킨다. 고른 위치가 조용히 사라지지 않게 한다 | `502` `ADDRESS_LOOKUP_FAILED` |
 
@@ -728,8 +733,8 @@ POST /api/inspection-visits/{visitId}/walking-route        // 본문 없음
 | `totalDistance` | 전체 거리(m). 구간 합 |
 | `totalTime` | 전체 도보 시간(초). 구간 합 |
 | `stops[]` | 경로가 지나는 지점. `index`는 0부터 |
-| `legs[]` | 인접한 두 지점 사이의 구간. `stops.length - 1`개 |
-| `legs[].path` | **`[경도, 위도]` 순서**(GeoJSON과 같다)의 점 목록. 위도·경도 순이 아니다. 카카오 지도 SDK에 넘길 때 `new LatLng(위도, 경도)`로 뒤집는다 |
+| `legs[]` | 보통 인접한 두 지점 사이의 구간(`stops.length - 1`개). 제공자가 경로를 나눠 주지 않으면 한 구간이 여러 지점에 걸친다(`toStopIndex - fromStopIndex > 1`). FE는 `path`를 그대로 그린다 |
+| `legs[].path` | 비어 있을 수 있다. 비어 있으면 그 구간은 FE가 두 지점을 잇는 직선으로 그린다. **`[경도, 위도]` 순서**(GeoJSON과 같다)의 점 목록. 위도·경도 순이 아니다. 카카오 지도 SDK에 넘길 때 `new LatLng(위도, 경도)`로 뒤집는다 |
 
 오류. FE는 어느 경우든 **직선 표시를 유지**하고 알림만 띄운다.
 
@@ -758,6 +763,7 @@ POST /api/geo/current-location
 - **서버는 현재 위치를 저장하지 않고 로그에도 남기지 않는다.** 좌표만 구해 돌려주고 버린다. FE도 이 화면을 쓰는 동안 메모리에만 둔다
 - `coordKey`가 없거나 다섯 필드 중 하나라도 비어 있으면 `400` `VALIDATION_FAILED`. 본문이 없거나 JSON이 아니면 `400` `INVALID_REQUEST_BODY`
 - 행안부 설정이 없으면 `503` `ADDRESS_LOOKUP_UNAVAILABLE`, 조회 실패는 `502` `ADDRESS_LOOKUP_FAILED`
+- 주소는 검색되지만 좌표 정보가 없으면 `400` `ADDRESS_COORDINATE_NOT_FOUND`(§8-2)
 
 ---
 
@@ -1020,6 +1026,7 @@ GET /api/inspection-questions/{questionId}/versions
 | `INVALID_INSPECTION_ORDER` | 400 | 정렬 대상이 이 임장 소속이 아님 |
 | `REVIEW_SUGGESTION_UNAVAILABLE` | 503 | AI 후기 제안 불가: API 키 미설정, 호출 실패·타임아웃, 응답 해석 실패(§8-1) |
 | `INVALID_ADDRESS_KEYWORD` | 400 | 행안부가 주소 검색어를 거절(두 글자 미만, 특수문자·SQL 예약어 등). `title`에 사유(§8-2) |
+| `ADDRESS_COORDINATE_NOT_FOUND` | 400 | 주소는 검색되지만 행안부에 좌표 정보가 없음. 위치 없이 저장하도록 안내(§8-2, §8-4) |
 | `ADDRESS_LOOKUP_UNAVAILABLE` | 503 | 주소 검색·좌표 조회 불가: 행안부 키 미설정·승인 안 됨·만료. 관리자가 고쳐야 한다(§8-2) |
 | `ADDRESS_LOOKUP_FAILED` | 502 | 행안부 호출 실패: 타임아웃, 5xx, 응답 해석 불가(§8-2) |
 | `WALKING_ROUTE_UNAVAILABLE` | 503 | 도보 경로 불가: 카카오 REST 키 미설정 또는 거절(§8-3) |

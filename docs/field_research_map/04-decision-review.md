@@ -45,8 +45,9 @@
 | API | 엔드포인트 | 키 | 용도 |
 |---|---|---|---|
 | 도로명주소 검색 API | `business.juso.go.kr/addrlink/addrLinkApi.do` | 검색 API 승인키 | 키워드 → 주소 후보 (`roadAddr`, `jibunAddr`, `bdNm`, `bdMgtSn`, `admCd`, `rnMgtSn`, `udrtYn`, `buldMnnm`, `buldSlno` …) |
-| 좌표제공 API | `www.juso.go.kr/addrlink/addrCoordApi.do` | **좌표 API 승인키 (별도 발급, 승인 필요)** | 위 5개 식별값(`admCd`, `rnMgtSn`, `udrtYn`, `buldMnnm`, `buldSlno`) → `entX`, `entY` |
+| 좌표제공 API | `business.juso.go.kr/addrlink/addrCoordApi.do` | **좌표 API 승인키 (별도 발급, 승인 필요)** | 위 5개 식별값(`admCd`, `rnMgtSn`, `udrtYn`, `buldMnnm`, `buldSlno`) → `entX`, `entY` |
 
+- 검색 API와 좌표제공 API는 **같은 호스트(`business.juso.go.kr`)**에서 제공한다. 2026-10-08에 키 없이 실제 호출해 두 엔드포인트 모두 행안부 오류 JSON으로 응답함을 확인했다. 그래서 BE는 `base-url` 하나를 쓴다.
 - 두 키는 **따로 발급**받는다. 좌표제공 API는 **승인 대기**가 있다(다른 팀 사례에서 2주 이상 대기 기록). → **0단계에 바로 신청해야 하는 일정 리스크.**
 - 운영 키는 서비스 용도를 "운영"으로 하고 **본인인증**을 거쳐 받는다. 개발 키로 먼저 연동해 볼 수 있다.
 - **팝업 API는 쓰지 않는다.** 팝업 API(`addrCoordUrl.do`)는 `window.open`과 `returnUrl` 콜백 방식이어서 SPA와 모바일 화면에 맞지 않는다. **BE에서 검색 API와 좌표 API를 서버 간 호출**하고, FE는 자체 검색 UI를 그린다.
@@ -190,7 +191,7 @@ BE 확인 결과 지역 집계 쿼리(`InspectionAreaRepository`)는 **상태와
 | 4 | `InspectionAreaRepository.countAllProperties` (`totals.propertyCount`) | 모든 매물 | 완료 임장의 매물만 (D11) |
 | 5 | `InspectionAreaQueryFlow.toAreaRdo` — `visits.size()`, 최초·최근 방문일(`min`/`max` `visitedAt`), `latest` 회차 | Java에서 전체 임장으로 계산 | 완료 임장만 걸러서 계산. `allProperties`(지역 매물 수, `topProperty`)도 완료 임장 기준 (D11) |
 | 6 | `InspectionAreaQueryFlow.latestVisitIds` (최신 회차 태그) | 전체 임장 중 최신 | 완료 임장 중 최신 |
-| 7 | `InspectionAreaQueryFlow` 지역 상세의 최신 회차 선택(`visitedAt` 내림차순 첫 행) | 계획이 미래 날짜면 계획이 "최신 회차"가 된다 | 기본 선택은 완료 임장 중 최신. 계획은 목록에 남기되 배지로 구분 |
+| 7 | `InspectionAreaQueryFlow` 지역 상세의 최신 회차 선택(`visitedAt` 내림차순 첫 행) | 계획이 미래 날짜면 계획이 "최신 회차"가 된다 | 기본 선택은 완료 임장 중 최신. 완료 임장이 하나도 없으면 `plannedVisit`(가장 이른 계획)을 선택한다. 계획은 목록에 남기되 배지로 구분 |
 | 8 | `InspectionSummarySupport.ofArea` — `draftVisitCount`, `draftPropertyCount` | `DRAFT`면 모두 "미완료" | "수정 중"(`completedAt` 있음 + `DRAFT`)만 미완료로 센다. 계획 임장과 그 매물은 `draftPropertyCount` · `unansweredRequiredCount`에서도 빼고, 계획 수는 `plannedVisitCount`로 따로 센다 (D11) |
 
 - 임장 단건의 미완료 요약(`ofVisitWithProperties`)은 그대로 둔다. 계획 임장에서도 "완료하려면 무엇이 남았나"는 같은 의미다.
@@ -205,7 +206,7 @@ BE 확인 결과 지역 집계 쿼리(`InspectionAreaRepository`)는 **상태와
 | 기존 상태 | 이관 | 결과 |
 |---|---|---|
 | `COMPLETED` | `completedAt = modifiedTime` (근사값) | 지금처럼 방문으로 집계된다 |
-| `DRAFT` (기능 도입 전, 실제로는 **다녀온 뒤 덜 쓴** 기록) | 그대로 두면 **"계획"으로 보이고 집계에서 빠진다** | 배포 전에 건수를 확인한다. 몇 건이면 완료 처리하고, 많으면 일회성 이관 플래그를 검토한다 |
+| `DRAFT` (기능 도입 전, 실제로는 **다녀온 뒤 덜 쓴** 기록) | 그대로 두면 **"계획"으로 보이고 집계에서 빠진다** | 새 BE를 띄우기 전에 건수를 확인하고, 실제로 다녀온 건은 id를 지정한 UPDATE로 `completed_at`을 채운다(데이터가 적다) |
 
 2인 서비스이므로(AGENTS.md Service Scale) 백업 테이블이나 범용 백필 스크립트 없이 **영향받는 행을 직접 조회한 뒤** 처리한다.
 
@@ -233,8 +234,10 @@ SET completed_at = date_trunc('second', CASE
 	END)
 WHERE status = 'COMPLETED' AND completed_at IS NULL;
 
--- 3) 기존 DRAFT는 1)의 결과를 보고 한 건씩 판단한다
---    (실제로 다녀온 기록이면 completed_at을 채운다. status는 그대로 DRAFT → "수정 중"으로 보인다)
+-- 3) 기존 DRAFT는 1)의 결과를 보고 한 건씩 판단한다. 새 BE를 띄우기 전에 이 단계까지 끝낸다.
+--    (실제로 다녀온 기록이면 id를 지정해 completed_at을 채운다. status는 그대로 DRAFT → "수정 중"으로 보인다)
+--    UPDATE slcn.inspection_visit SET completed_at = visited_at WHERE id IN ('...', '...') AND status = 'DRAFT';
+--    계획으로 남길 건은 건드리지 않는다.
 ```
 
 - 앱 JVM과 DB 세션의 타임존 설정은 실행 전에 확인한다. `visited_at`이 어떤 벽시계로 저장되어 있는지와 맞아야 한다.
@@ -363,7 +366,7 @@ WHERE status = 'COMPLETED' AND completed_at IS NULL;
 | 메서드 | 경로 | 설명 | 신규 여부 |
 |---|---|---|---|
 | PUT | `/inspection-visits/{visitId}/properties/order` | 화면 순서 = 경로 순서 변경 | **기존** |
-| GET | `/inspection-visits/{visitId}` | 매물에 `roadAddress`, `latitude`, `longitude` 추가. 임장에 `completedAt` 추가 | 응답 확장 |
+| GET | `/inspection-visits/{visitId}` | 매물에 중첩 객체 `location: { bdMgtSn, roadAddress, latitude, longitude } \| null` 추가(평평한 필드가 아니다). 임장에 `completedAt` 추가 | 응답 확장 |
 | GET | `/geo/addresses?keyword=` | 행안부 검색 프록시 (후보에 좌표 조회용 식별값 포함) | 신규 |
 | POST/PUT | `/inspection-visits/{visitId}/properties[/{id}]` | 요청에 선택한 주소의 식별값(`admCd`, `rnMgtSn`, `udrtYn`, `buldMnnm`, `buldSlno`, `bdMgtSn`)을 담는다. **BE가 좌표 API 호출과 WGS84 변환을 한 뒤 저장한다** | 요청 확장 |
 | POST | `/inspection-visits/{visitId}/walking-route` | BE가 저장된 좌표를 **응답 순서대로** 읽어 카카오 도보 API를 호출(7점 단위 분할)하고 폴리라인을 반환한다. 저장하지 않는다 | 신규 |
@@ -377,7 +380,8 @@ WHERE status = 'COMPLETED' AND completed_at IS NULL;
   - 좌표 없는 매물은 건너뛰고, 연속한 같은 좌표는 하나로 합친다(§6.2).
   - 지점이 2개 미만이면 외부 호출 없이 빈 경로를 돌려준다.
   - 7점 단위로 나눌 때 **앞 구간의 끝점을 다음 구간의 시작점으로 겹친다.** 호출 수는 `ceil((k-1)/6)`이다.
-  - 카카오 `429`는 그대로 `429`로, 그 밖의 실패는 `502`로 돌려준다. FE는 두 경우 모두 직선으로 대체한다.
+  - 카카오 `429`는 `429` `WALKING_ROUTE_QUOTA_EXCEEDED`, 키 미설정·거절은 `503` `WALKING_ROUTE_UNAVAILABLE`, 그 밖의 실패는 `502` `WALKING_ROUTE_FAILED`로 돌려준다. FE는 모든 경우 직선으로 대체한다.
+  - 행안부 주소 조회(`/geo/*`, 매물 `location` 저장)는 키 미설정·거절이면 `503` `ADDRESS_LOOKUP_UNAVAILABLE`, 호출 실패는 `502` `ADDRESS_LOOKUP_FAILED`다(api.md §8-2).
   - 외부로는 **좌표만** 보낸다. 임장 ID, 사용자 정보, 주소 문자열은 보내지 않는다(§4).
 - **경로 API는 본문이 없으므로 `GET`도 가능하다.** 다만 외부 유료 호출을 일으키므로 브라우저·프록시가 미리 불러오지 않도록 `POST`로 둔다.
 
@@ -416,8 +420,10 @@ BE 판정 규칙:
 | 요청 `location` | BE 동작 |
 |---|---|
 | `null` | 위치를 지운다 |
-| `bdMgtSn`이 저장된 값과 같다 | **저장된 좌표를 유지한다.** 행안부를 다시 호출하지 않는다 |
+| `bdMgtSn`이 저장된 값과 같다 | **저장된 좌표와 `roadAddress`를 유지한다**(요청의 `roadAddress`는 무시). 행안부를 다시 호출하지 않는다. 저장된 위치 전체의 출처가 행안부로 일관된다 |
 | `bdMgtSn`이 다르다 (주소를 새로 고름) | `coordKey`로 행안부 좌표 API를 호출하고 WGS84로 변환해 저장한다. `coordKey`가 없으면 `400` |
+| `bdMgtSn`이 26자 초과 또는 `roadAddress`가 300자 초과 (trim 후) | 외부 호출 전에 `400` `VALIDATION_FAILED` (저장 단계 500 방지) |
+| 행안부가 좌표 정보를 주지 않는다 (주소는 검색됨) | `400` `ADDRESS_COORDINATE_NOT_FOUND`. FE는 위치 없이 저장하도록 안내한다 |
 
 - 요청에 좌표를 넣지 않으므로 **저장되는 좌표의 출처가 항상 행안부**로 보장된다(D1). FE 버그나 조작으로 다른 출처의 좌표가 섞이지 않는다.
 - 저장 값과 같으면 외부 호출이 없으므로 일반 수정(메모 등)의 비용과 지연이 늘지 않는다.
@@ -618,10 +624,10 @@ FE와 BE 중 어느 쪽이 먼저 떠도 깨지지 않는다. 새 FE가 보내�
 
 1. 새 BE를 띄우기 **전에** SQL을 실행한다.
    - `completed_at` 컬럼 생성과 채우기(§5.4 0~2)
+   - 기존 `DRAFT` 임장을 §5.4 3)대로 한 건씩 판단해, 실제로 다녀온 건은 id를 지정한 UPDATE로 `completed_at`을 채운다(데이터가 적다). 계획으로 남길 건은 그대로 둔다
    - `viewed_property.name DROP NOT NULL`(§5.5)
 2. 새 BE를 띄운다. 이후 C8에서 생기는 위치 컬럼은 모두 nullable이므로 `ddl-auto`가 만들어도 된다.
 3. 새 FE를 배포한다.
-4. 기존 `DRAFT` 임장을 §5.4 3)대로 한 건씩 판단한다. 계획으로 남길 것과 다녀온 기록을 가른다.
 
 ## 출처
 
