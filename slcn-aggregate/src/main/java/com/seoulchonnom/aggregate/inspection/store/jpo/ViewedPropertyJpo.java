@@ -60,4 +60,15 @@ public class ViewedPropertyJpo extends DomainEntityJpo {
 	private List<PropertyAnswer> answers = new ArrayList<>();
 	private int requiredAnswerCount;
 	private int unansweredRequiredCount;
+	// 위치는 JSON 값 객체가 아니라 일반 컬럼이다. 모두 NULL이면 위치 없음. 좌표 출처는 항상 행안부다
+	@Column(length = 26)
+	private String bdMgtSn;
+	@Column(length = 300)
+	private String roadAddress;
+	private Double latitude;
+	private Double longitude;
+	@Column(name = "ent_x")
+	private Double entX;
+	@Column(name = "ent_y")
+	private Double entY;
 }

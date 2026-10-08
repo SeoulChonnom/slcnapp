@@ -25,6 +25,7 @@ public class ViewedPropertyRdo {
 	private Integer interestLevel;
 	private InspectionStatus status;
 	private int sortOrder;
+	private PropertyLocationRdo location;
 	private List<String> tags = new ArrayList<>();
 	private FileBoxItemRdo cover;
 	private List<FileBoxItemRdo> photos = new ArrayList<>();

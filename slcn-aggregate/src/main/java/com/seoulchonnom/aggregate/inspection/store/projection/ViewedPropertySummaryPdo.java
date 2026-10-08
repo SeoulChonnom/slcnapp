@@ -26,4 +26,12 @@ public interface ViewedPropertySummaryPdo {
 	int getUnansweredRequiredCount();
 
 	Long getRegisteredTime();
+
+	String getBdMgtSn();
+
+	String getRoadAddress();
+
+	Double getLatitude();
+
+	Double getLongitude();
 }

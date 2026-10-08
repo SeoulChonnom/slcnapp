@@ -13,8 +13,10 @@ import com.seoulchonnom.spec.filebox.facade.sdo.FileBoxItemRdo;
 import com.seoulchonnom.spec.inspection.entity.InspectionQuestion;
 import com.seoulchonnom.spec.inspection.entity.ViewedProperty;
 import com.seoulchonnom.spec.inspection.entity.vo.PropertyAnswer;
+import com.seoulchonnom.spec.inspection.entity.vo.PropertyLocation;
 import com.seoulchonnom.spec.inspection.facade.sdo.IncompleteSummaryRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.PropertyAnswerRdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.PropertyLocationRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyBriefRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyCdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyDetailRdo;
@@ -53,6 +55,7 @@ public class ViewedPropertyMapper {
 		rdo.setInterestLevel(property.getInterestLevel());
 		rdo.setStatus(property.getStatus());
 		rdo.setSortOrder(property.getSortOrder());
+		rdo.setLocation(toPropertyLocationRdo(property.getLocation()));
 		rdo.setTags(tags == null ? new ArrayList<>() : new ArrayList<>(tags));
 		rdo.setCover(coverOf(fileItems, FileBoxTargetType.VIEWED_PROPERTY, property.getId()));
 		rdo.setPhotos(photosOf(fileItems, FileBoxTargetType.VIEWED_PROPERTY, property.getId()));
@@ -88,6 +91,7 @@ public class ViewedPropertyMapper {
 		detailRdo.setInterestLevel(base.getInterestLevel());
 		detailRdo.setStatus(base.getStatus());
 		detailRdo.setSortOrder(base.getSortOrder());
+		detailRdo.setLocation(base.getLocation());
 		detailRdo.setTags(base.getTags());
 		detailRdo.setCover(base.getCover());
 		detailRdo.setPhotos(base.getPhotos());
@@ -96,6 +100,17 @@ public class ViewedPropertyMapper {
 		detailRdo.setPrevProperty(prevProperty);
 		detailRdo.setNextProperty(nextProperty);
 		return detailRdo;
+	}
+
+	/**
+	 * 행안부 원본 좌표(entX/entY)는 응답에 싣지 않는다.
+	 */
+	public PropertyLocationRdo toPropertyLocationRdo(PropertyLocation location) {
+		if (location == null) {
+			return null;
+		}
+		return new PropertyLocationRdo(location.getBdMgtSn(), location.getRoadAddress(), location.getLatitude(),
+			location.getLongitude());
 	}
 
 	public ViewedPropertyBriefRdo toViewedPropertyBriefRdo(ViewedProperty property) {

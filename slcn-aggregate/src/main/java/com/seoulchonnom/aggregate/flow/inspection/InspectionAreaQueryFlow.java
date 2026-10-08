@@ -43,6 +43,7 @@ import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaTotalsRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitSummaryRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.MatchedPropertyRdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.PropertyLocationRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.RevisitIntentCountsRdo;
 import com.seoulchonnom.spec.inspection.mapper.InspectionAreaMapper;
 import com.seoulchonnom.spec.inspection.mapper.InspectionVisitMapper;
@@ -285,7 +286,15 @@ public class InspectionAreaQueryFlow {
 	private AreaViewedPropertyRdo toAreaViewedPropertyRdo(ViewedPropertySummaryPdo property, InspectionVisit visit) {
 		String visitedAt = visit.getVisitedAt() == null ? null : visit.getVisitedAt().toString();
 		return new AreaViewedPropertyRdo(property.getId(), visit.getId(), visitedAt, property.getComplexName(),
-			property.getName(), property.getInterestLevel(), property.getStatus());
+			property.getName(), property.getInterestLevel(), property.getStatus(), toLocationRdo(property));
+	}
+
+	private static PropertyLocationRdo toLocationRdo(ViewedPropertySummaryPdo property) {
+		if (property.getBdMgtSn() == null || property.getLatitude() == null || property.getLongitude() == null) {
+			return null;
+		}
+		return new PropertyLocationRdo(property.getBdMgtSn(), property.getRoadAddress(), property.getLatitude(),
+			property.getLongitude());
 	}
 
 	private String resolveSelectedVisitId(String visitId, List<InspectionVisit> visits) {
