@@ -19,6 +19,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.seoulchonnom.aggregate.inspection.exception.InspectionQuestionCategoryDisabledException;
+import com.seoulchonnom.aggregate.inspection.exception.ReviewSuggestionUnavailableException;
 import com.seoulchonnom.aggregate.user.exception.InvalidUserException;
 import com.seoulchonnom.spec.common.exception.ErrorCode;
 import com.seoulchonnom.spec.common.response.ErrorResponse;
@@ -49,6 +50,29 @@ class CommonExceptionHandlerTest {
 
 		assertThat(response.getBody().getCode()).isEqualTo("INSPECTION_QUESTION_CATEGORY_DISABLED");
 		assertThat(response.getBody().getStatus()).isEqualTo(400);
+	}
+
+	@Test
+	void businessException_shouldRenderReviewSuggestionUnavailableAs503() {
+		ResponseEntity<ErrorResponse> response = handler.businessException(
+			ReviewSuggestionUnavailableException.transientFailure(new RuntimeException("sdk")));
+
+		assertThat(response.getStatusCode().value()).isEqualTo(503);
+		assertThat(response.getBody().getStatus()).isEqualTo(503);
+		assertThat(response.getBody().getCode()).isEqualTo("REVIEW_SUGGESTION_UNAVAILABLE");
+		assertThat(response.getBody().getTitle()).isEqualTo(ErrorCode.REVIEW_SUGGESTION_UNAVAILABLE.getMessage());
+	}
+
+	@Test
+	void businessException_shouldRenderMisconfiguredReviewSuggestionWithSameCodeAndOwnTitle() {
+		ResponseEntity<ErrorResponse> response = handler.businessException(
+			ReviewSuggestionUnavailableException.misconfigured(new RuntimeException("Thinking level MINIMAL")));
+
+		assertThat(response.getStatusCode().value()).isEqualTo(503);
+		assertThat(response.getBody().getCode()).isEqualTo("REVIEW_SUGGESTION_UNAVAILABLE");
+		assertThat(response.getBody().getTitle())
+			.isEqualTo("AI 후기 제안 설정에 문제가 있어 사용할 수 없습니다. 관리자에게 문의하세요.")
+			.doesNotContain("Thinking");
 	}
 
 	@Test

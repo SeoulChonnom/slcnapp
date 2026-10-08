@@ -6,6 +6,8 @@ import org.springframework.http.ResponseEntity;
 
 import com.seoulchonnom.spec.inspection.entity.vo.ComplexNameScope;
 import com.seoulchonnom.spec.inspection.facade.sdo.PropertyAnswerBulkUdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.ReviewSuggestionRdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.ReviewSuggestionSdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyCdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyDetailRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyStatusUdo;
@@ -47,4 +49,12 @@ public interface ViewedPropertyFacade {
 
 	@ApiResponse(responseCode = "204", description = "성공. 본문 없음")
 	ResponseEntity<Void> deleteViewedProperty(String visitId, String propertyId);
+
+	/**
+	 * 폼에 입력 중인 메모/장점과 **저장된** 문답 답변으로 한줄평·단점·태그를 AI가 제안한다.
+	 * 제안만 하고 아무것도 저장하지 않는다. memo와 pros가 모두 비어 있으면 400,
+	 * AI 설정이 없거나 호출이 실패하면 503(REVIEW_SUGGESTION_UNAVAILABLE)이다.
+	 */
+	ResponseEntity<ReviewSuggestionRdo> suggestViewedPropertyReview(String visitId, String propertyId,
+		ReviewSuggestionSdo reviewSuggestionSdo);
 }

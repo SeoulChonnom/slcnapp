@@ -15,11 +15,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.seoulchonnom.aggregate.flow.inspection.InspectionReviewSuggestionFlow;
 import com.seoulchonnom.aggregate.flow.inspection.InspectionVisitQueryFlow;
 import com.seoulchonnom.aggregate.flow.inspection.ViewedPropertyFlow;
 import com.seoulchonnom.spec.inspection.entity.vo.ComplexNameScope;
 import com.seoulchonnom.spec.inspection.facade.ViewedPropertyFacade;
 import com.seoulchonnom.spec.inspection.facade.sdo.PropertyAnswerBulkUdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.ReviewSuggestionRdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.ReviewSuggestionSdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyCdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyDetailRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyStatusUdo;
@@ -33,6 +36,7 @@ import lombok.RequiredArgsConstructor;
 public class ViewedPropertyResource implements ViewedPropertyFacade {
 	private final ViewedPropertyFlow viewedPropertyFlow;
 	private final InspectionVisitQueryFlow inspectionVisitQueryFlow;
+	private final InspectionReviewSuggestionFlow inspectionReviewSuggestionFlow;
 
 	@Override
 	@PostMapping("/properties")
@@ -79,6 +83,15 @@ public class ViewedPropertyResource implements ViewedPropertyFacade {
 		@RequestBody ViewedPropertyStatusUdo viewedPropertyStatusUdo) {
 		viewedPropertyFlow.changeViewedPropertyStatus(visitId, propertyId, viewedPropertyStatusUdo.getStatus());
 		return new ResponseEntity<>(inspectionVisitQueryFlow.getViewedProperty(visitId, propertyId), HttpStatus.OK);
+	}
+
+	@Override
+	@PostMapping("/properties/{propertyId}/review-suggestion")
+	public ResponseEntity<ReviewSuggestionRdo> suggestViewedPropertyReview(@PathVariable("visitId") String visitId,
+		@PathVariable("propertyId") String propertyId, @RequestBody ReviewSuggestionSdo reviewSuggestionSdo) {
+		return new ResponseEntity<>(
+			inspectionReviewSuggestionFlow.suggestPropertyReview(visitId, propertyId, reviewSuggestionSdo),
+			HttpStatus.OK);
 	}
 
 	@Override

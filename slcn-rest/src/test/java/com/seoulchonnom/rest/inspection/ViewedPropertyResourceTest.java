@@ -8,12 +8,15 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 
+import com.seoulchonnom.aggregate.flow.inspection.InspectionReviewSuggestionFlow;
 import com.seoulchonnom.aggregate.flow.inspection.InspectionVisitQueryFlow;
 import com.seoulchonnom.aggregate.flow.inspection.ViewedPropertyFlow;
 import com.seoulchonnom.spec.inspection.entity.ViewedProperty;
 import com.seoulchonnom.spec.inspection.entity.vo.ComplexNameScope;
 import com.seoulchonnom.spec.inspection.entity.vo.InspectionStatus;
 import com.seoulchonnom.spec.inspection.facade.sdo.PropertyAnswerBulkUdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.ReviewSuggestionRdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.ReviewSuggestionSdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyCdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyDetailRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyStatusUdo;
@@ -25,8 +28,10 @@ class ViewedPropertyResourceTest {
 
 	private final ViewedPropertyFlow viewedPropertyFlow = mock(ViewedPropertyFlow.class);
 	private final InspectionVisitQueryFlow inspectionVisitQueryFlow = mock(InspectionVisitQueryFlow.class);
+	private final InspectionReviewSuggestionFlow inspectionReviewSuggestionFlow = mock(
+		InspectionReviewSuggestionFlow.class);
 	private final ViewedPropertyResource viewedPropertyResource = new ViewedPropertyResource(viewedPropertyFlow,
-		inspectionVisitQueryFlow);
+		inspectionVisitQueryFlow, inspectionReviewSuggestionFlow);
 
 	private ViewedProperty saved() {
 		ViewedProperty property = new ViewedProperty(VISIT_ID, "트리마제", "101동", 1);
@@ -112,5 +117,18 @@ class ViewedPropertyResourceTest {
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
 		verify(viewedPropertyFlow).deleteViewedProperty(VISIT_ID, PROPERTY_ID);
+	}
+
+	@Test
+	void suggestViewedPropertyReview_shouldDelegateToSuggestionFlow() {
+		ReviewSuggestionSdo request = new ReviewSuggestionSdo("채광이 좋음", "남향");
+		ReviewSuggestionRdo suggestion = new ReviewSuggestionRdo("채광 좋은 남향", "", List.of("남향"));
+		when(inspectionReviewSuggestionFlow.suggestPropertyReview(VISIT_ID, PROPERTY_ID, request))
+			.thenReturn(suggestion);
+
+		var response = viewedPropertyResource.suggestViewedPropertyReview(VISIT_ID, PROPERTY_ID, request);
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+		assertThat(response.getBody()).isSameAs(suggestion);
 	}
 }

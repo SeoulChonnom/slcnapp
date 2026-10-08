@@ -28,6 +28,7 @@ context path는 `/api`다. 아래 경로는 그 뒤에 붙는다. 인증은 `X-A
 | 임장 상세 | `GET /inspection-visits/{visitId}` |
 | 매물 상세 | `GET /inspection-properties/{propertyId}` (또는 `GET /inspection-visits/{visitId}/properties/{propertyId}`) |
 | 회차 간 매물 연결 | `GET /inspection-areas/{areaId}/properties` |
+| AI 후기 제안(임장/매물 폼) | `POST /inspection-visits/{visitId}/review-suggestion`, `POST /inspection-visits/{visitId}/properties/{propertyId}/review-suggestion` |
 | 질문 대분류 관리(관리자) | `GET/POST/PUT/PATCH /inspection-question-categories` |
 | 질문 관리(관리자) | `GET/POST/PUT/PATCH /inspection-questions` |
 
@@ -518,6 +519,54 @@ GET /api/inspection-tags?keyword=한&scope=VISIT|PROPERTY
 
 ---
 
+## 8-1. AI 후기 제안
+
+임장·매물 폼에서 메모를 쓴 뒤 한줄평·단점·태그를 AI가 제안하게 한다.
+
+```text
+POST /api/inspection-visits/{visitId}/review-suggestion
+POST /api/inspection-visits/{visitId}/properties/{propertyId}/review-suggestion
+```
+
+```json
+// 요청: 폼에 입력 중인 값(저장 전이어도 된다)
+{ "memo": "한강이 보이고 조용하다. 주차 자리가 부족해 보였다.", "pros": "한강뷰" }
+
+// 200 응답
+{
+  "oneLineReview": "한강이 보이는 조용한 동네지만 주차가 아쉽다.",
+  "cons": "- 주차 자리가 부족해 보임",
+  "tags": ["한강뷰", "조용함"]
+}
+```
+
+- **제안만 한다. 서버는 아무것도 저장하지 않는다.** FE가 응답으로 폼을 채우고, 사용자가 고친 뒤
+  기존 `PUT`으로 저장한다. 응답을 그대로 저장해도 길이 상한(한줄평 300자, 단점 5,000자, 태그
+  10개·50자)을 넘지 않게 서버가 다듬어 내린다.
+- 요청은 **저장된 값이 아니라 본문의 `memo`/`pros`** 를 쓴다. 둘 다 비었거나 공백이면 `400`
+  (`INVALID_INSPECTION_VISIT` / `INVALID_VIEWED_PROPERTY`), 각각 5,000자 초과도 `400`이다.
+- 매물 제안은 추가로 그 매물에 **저장된** 문답 중 답한 항목을 근거로 쓴다. 문답을 방금 고쳤다면
+  먼저 `PUT .../answers`로 저장한 뒤 호출한다. 다른 임장의 매물이면 `VIEWED_PROPERTY_NOT_FOUND`다.
+- `tags`는 기존 태그 풀(사용 빈도 상위 30개)에서 우선 고르고, 맞는 것이 없을 때만 새 이름을 만든다.
+  응답 태그가 아직 없는 이름이어도 저장 시 §8 규칙대로 만들어진다.
+- 근거가 없는 필드는 `null`이 아니라 `""`(문자열) 또는 `[]`(태그)다. 단점이 `""`이면 폼의 단점을
+  건드리지 않는 것이 자연스럽다.
+- **`503` `REVIEW_SUGGESTION_UNAVAILABLE`**: API 키가 설정되지 않았거나 AI 호출이 실패·지연
+  (시도당 기본 15초, 폴백 포함 최악 약 30초)된 경우다. 폼 입력은 그대로 두고 "지금은 제안을 받을 수 없습니다" 정도로 안내한 뒤
+  사용자가 직접 쓰게 한다. `code`는 항상 같고 `title`만 원인에 따라 둘로 갈린다 — 일시적 실패
+  (호출 한도·서버 오류·네트워크·지연·응답 해석 불가)는 "후기 제안을 지금은 사용할 수 없습니다. 잠시 후
+  다시 시도하세요.", 설정 문제(키 미설정, 잘못된 키·모델)는 "AI 후기 제안 설정에 문제가 있어 사용할 수
+  없습니다. 관리자에게 문의하세요."이다. FE는 분기하지 말고 `title`을 그대로 보여 주면 된다. 재시도는 사용자 동작으로만 한다. 호출 한 번이 수 초 걸릴 수 있으니
+  버튼에 로딩 상태를 둔다.
+
+서버 설정(배포 담당자용): `SLCN_GEMINI_API_KEY`(비어 있으면 기능 꺼짐, 항상 503),
+`SLCN_GEMINI_MODEL`(기본 `gemini-3.5-flash-lite`),
+`SLCN_GEMINI_FALLBACK_MODEL`(기본 `gemini-3.1-flash-lite`. 주 모델이 429/5xx/타임아웃/응답 해석 불가로 실패할 때만 한 번 더 시도, 비우면 폴백 없음),
+`SLCN_GEMINI_TIMEOUT_SECONDS`(기본 `15`, 시도당 제한 시간이라 폴백까지 쓰면 최악 약 2배),
+`SLCN_GEMINI_THINKING_LEVEL`(기본 `LOW`. `MINIMAL`/`LOW`/`MEDIUM`/`HIGH`, 비우면 보내지 않음. 잘못된 값은 기동 실패).
+
+---
+
 ## 9. 질문 대분류 관리 (관리자)
 
 임장 질문을 묶는 상위 분류다. 아직 정식 명칭이 없어 코드와 문서에서는 "대분류"라 부른다.
@@ -775,6 +824,7 @@ GET /api/inspection-questions/{questionId}/versions
 | `INVALID_PROPERTY_ANSWER` | 400 | 문답 값이 타입과 안 맞음 |
 | `INVALID_INSPECTION_FILE` | 400 | 사진 연결 정보 오류 |
 | `INVALID_INSPECTION_ORDER` | 400 | 정렬 대상이 이 임장 소속이 아님 |
+| `REVIEW_SUGGESTION_UNAVAILABLE` | 503 | AI 후기 제안 불가: API 키 미설정, 호출 실패·타임아웃, 응답 해석 실패(§8-1) |
 | `INSPECTION_VISIT_CONFLICT` | 409 | 임장 동시 저장 |
 | `VIEWED_PROPERTY_CONFLICT` | 409 | 매물 동시 저장 |
 

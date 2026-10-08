@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 
 import com.seoulchonnom.aggregate.common.exception.BadRequestException;
+import com.seoulchonnom.aggregate.flow.inspection.InspectionReviewSuggestionFlow;
 import com.seoulchonnom.aggregate.flow.inspection.InspectionVisitFlow;
 import com.seoulchonnom.aggregate.flow.inspection.InspectionVisitQueryFlow;
 import com.seoulchonnom.aggregate.flow.inspection.ViewedPropertyFlow;
@@ -23,6 +24,8 @@ import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitDetailRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitStatusUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitUdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.ReviewSuggestionRdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.ReviewSuggestionSdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyOrderUdo;
 
 class InspectionVisitResourceTest {
@@ -31,8 +34,10 @@ class InspectionVisitResourceTest {
 	private final InspectionVisitQueryFlow inspectionVisitQueryFlow = mock(InspectionVisitQueryFlow.class);
 	private final InspectionVisitFlow inspectionVisitFlow = mock(InspectionVisitFlow.class);
 	private final ViewedPropertyFlow viewedPropertyFlow = mock(ViewedPropertyFlow.class);
+	private final InspectionReviewSuggestionFlow inspectionReviewSuggestionFlow = mock(
+		InspectionReviewSuggestionFlow.class);
 	private final InspectionVisitResource inspectionVisitResource = new InspectionVisitResource(
-		inspectionVisitQueryFlow, inspectionVisitFlow, viewedPropertyFlow);
+		inspectionVisitQueryFlow, inspectionVisitFlow, viewedPropertyFlow, inspectionReviewSuggestionFlow);
 
 	private InspectionVisit savedVisit() {
 		InspectionVisit visit = new InspectionVisit(VISIT_ID, "INSPECTION_AREA-0001",
@@ -144,5 +149,17 @@ class InspectionVisitResourceTest {
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
 		verify(inspectionVisitFlow).deleteInspectionVisit(VISIT_ID);
+	}
+
+	@Test
+	void suggestInspectionVisitReview_shouldDelegateToSuggestionFlow() {
+		ReviewSuggestionSdo request = new ReviewSuggestionSdo("한강이 보임", null);
+		ReviewSuggestionRdo suggestion = new ReviewSuggestionRdo("조용한 동네", "", List.of("한강"));
+		when(inspectionReviewSuggestionFlow.suggestVisitReview(VISIT_ID, request)).thenReturn(suggestion);
+
+		var response = inspectionVisitResource.suggestInspectionVisitReview(VISIT_ID, request);
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+		assertThat(response.getBody()).isSameAs(suggestion);
 	}
 }

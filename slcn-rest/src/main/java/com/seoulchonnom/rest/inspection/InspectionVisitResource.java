@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.util.StringUtils;
 
 import com.seoulchonnom.aggregate.common.exception.BadRequestException;
+import com.seoulchonnom.aggregate.flow.inspection.InspectionReviewSuggestionFlow;
 import com.seoulchonnom.aggregate.flow.inspection.InspectionVisitFlow;
 import com.seoulchonnom.aggregate.flow.inspection.InspectionVisitQueryFlow;
 import com.seoulchonnom.aggregate.flow.inspection.ViewedPropertyFlow;
@@ -32,6 +33,8 @@ import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitDetailRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitStatusUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitUdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.ReviewSuggestionRdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.ReviewSuggestionSdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyOrderUdo;
 
 import lombok.RequiredArgsConstructor;
@@ -43,6 +46,7 @@ public class InspectionVisitResource implements InspectionVisitFacade {
 	private final InspectionVisitQueryFlow inspectionVisitQueryFlow;
 	private final InspectionVisitFlow inspectionVisitFlow;
 	private final ViewedPropertyFlow viewedPropertyFlow;
+	private final InspectionReviewSuggestionFlow inspectionReviewSuggestionFlow;
 
 	@Override
 	@GetMapping
@@ -103,6 +107,14 @@ public class InspectionVisitResource implements InspectionVisitFacade {
 		@RequestBody List<FileBoxItemOrderUdo> orders) {
 		inspectionVisitFlow.modifyInspectionImageOrder(visitId, orders);
 		return ResponseEntity.noContent().build();
+	}
+
+	@Override
+	@PostMapping("/{visitId}/review-suggestion")
+	public ResponseEntity<ReviewSuggestionRdo> suggestInspectionVisitReview(@PathVariable("visitId") String visitId,
+		@RequestBody ReviewSuggestionSdo reviewSuggestionSdo) {
+		return new ResponseEntity<>(inspectionReviewSuggestionFlow.suggestVisitReview(visitId, reviewSuggestionSdo),
+			HttpStatus.OK);
 	}
 
 	@Override

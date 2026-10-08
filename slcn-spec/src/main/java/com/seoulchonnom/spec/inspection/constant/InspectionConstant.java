@@ -32,6 +32,9 @@ public final class InspectionConstant {
 	public static final String INVALID_INSPECTION_FILE_ERROR_MESSAGE = "임장 사진 정보가 올바르지 않습니다.";
 	public static final String INVALID_INSPECTION_ORDER_ERROR_MESSAGE = "정렬 대상이 해당 임장에 속하지 않습니다.";
 
+	public static final String REVIEW_SUGGESTION_UNAVAILABLE_ERROR_MESSAGE = "후기 제안을 지금은 사용할 수 없습니다. 잠시 후 다시 시도하세요.";
+	public static final String REVIEW_SUGGESTION_MISCONFIGURED_ERROR_MESSAGE = "AI 후기 제안 설정에 문제가 있어 사용할 수 없습니다. 관리자에게 문의하세요.";
+
 	private InspectionConstant() {
 	}
 }

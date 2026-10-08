@@ -65,6 +65,18 @@ slcn:
     path: "${SLCN_UPLOAD_PATH}"
     # 파생본 생성(동시 2건) 차례를 기다리는 최대 초. 넘기면 파생본 없이 업로드를 끝내고 조회는 원본으로 폴백한다.
     variant-wait-seconds: "${SLCN_UPLOAD_VARIANT_WAIT_SECONDS:60}"
+  ai:
+    gemini:
+      # 비어 있으면 후기 제안 기능을 끄고 해당 API는 503(REVIEW_SUGGESTION_UNAVAILABLE)을 돌려준다.
+      api-key: "${SLCN_GEMINI_API_KEY:}"
+      model: "${SLCN_GEMINI_MODEL:gemini-3.5-flash-lite}"
+      # 주 모델이 429/5xx/타임아웃/해석 불가로 실패할 때만 이 모델로 한 번 더 시도한다. 비우면 폴백을 끈다.
+      fallback-model: "${SLCN_GEMINI_FALLBACK_MODEL:gemini-3.1-flash-lite}"
+      # 시도 하나당 제한 시간이다. 폴백까지 쓰면 최악의 경우 이 값의 약 두 배가 걸린 뒤 503으로 응답한다.
+      timeout-seconds: "${SLCN_GEMINI_TIMEOUT_SECONDS:15}"
+      # MINIMAL | LOW | MEDIUM | HIGH. 3.x 계열은 기본으로 오래 생각해 응답이 느려지므로 LOW로 줄인다.
+      # 비우면 보내지 않는다(2.5 등 thinkingLevel 미지원 모델). MINIMAL은 일부 모델이 400으로 거절한다.
+      thinking-level: "${SLCN_GEMINI_THINKING_LEVEL:LOW}"
   storage:
     # local | r2. r2가 아니면 로컬 디스크에 저장하고 바이트를 직접 서빙한다.
     provider: "${SLCN_STORAGE_PROVIDER:local}"
