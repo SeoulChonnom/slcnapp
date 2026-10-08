@@ -13,8 +13,6 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import com.seoulchonnom.aggregate.inspection.exception.InspectionVisitNotFoundException;
-import com.seoulchonnom.aggregate.inspection.exception.InvalidInspectionVisitException;
-import com.seoulchonnom.aggregate.inspection.exception.InvalidViewedPropertyException;
 import com.seoulchonnom.aggregate.inspection.exception.ReviewSuggestionUnavailableException;
 import com.seoulchonnom.aggregate.inspection.exception.ViewedPropertyNotFoundException;
 import com.seoulchonnom.aggregate.inspection.logic.InspectionAreaLogic;
@@ -68,11 +66,12 @@ class InspectionReviewSuggestionFlowTest {
 		List<String> rawTags = new ArrayList<>(List.of(" #한강 ", "한강", "  ", longTag, "조용함"));
 		rawTags.add(null);
 		when(generator.generate(any())).thenReturn(new ReviewSuggestion(
-			"  " + "가".repeat(400) + "  ", " - 주차 불편 \n", rawTags));
+			"  " + "가".repeat(400) + "  ", " - 한강뷰 \n", " - 주차 불편 \n", rawTags));
 
 		ReviewSuggestionRdo result = flow.suggestVisitReview(VISIT_ID, new ReviewSuggestionSdo("메모", null));
 
 		assertThat(result.getOneLineReview()).hasSize(300);
+		assertThat(result.getPros()).isEqualTo("- 한강뷰");
 		assertThat(result.getCons()).isEqualTo("- 주차 불편");
 		assertThat(result.getTags()).containsExactly("한강", "조용함");
 	}
@@ -81,39 +80,24 @@ class InspectionReviewSuggestionFlowTest {
 	void suggestVisitReview_shouldCapTagsAtTenAndTurnNullsIntoEmpty() {
 		givenVisit();
 		List<String> many = IntStream.range(0, 15).mapToObj(i -> "태그" + i).toList();
-		when(generator.generate(any())).thenReturn(new ReviewSuggestion(null, null, many));
+		when(generator.generate(any())).thenReturn(new ReviewSuggestion(null, null, null, many));
 
 		ReviewSuggestionRdo capped = flow.suggestVisitReview(VISIT_ID, new ReviewSuggestionSdo("메모", null));
 		assertThat(capped.getTags()).hasSize(10);
 		assertThat(capped.getOneLineReview()).isEmpty();
+		assertThat(capped.getPros()).isEmpty();
 		assertThat(capped.getCons()).isEmpty();
 
-		when(generator.generate(any())).thenReturn(new ReviewSuggestion(null, null, null));
-		assertThat(flow.suggestVisitReview(VISIT_ID, new ReviewSuggestionSdo(null, "장점")).getTags()).isEmpty();
+		when(generator.generate(any())).thenReturn(new ReviewSuggestion(null, null, null, null));
+		assertThat(flow.suggestVisitReview(VISIT_ID, new ReviewSuggestionSdo("메모", "장점")).getTags()).isEmpty();
 	}
 
 	@Test
-	void suggestVisitReview_shouldRejectBlankMemoAndProsWithoutCallingGenerator() {
+	void suggestVisitReview_shouldCutProsAtLimit() {
 		givenVisit();
+		when(generator.generate(any())).thenReturn(new ReviewSuggestion("", "  " + "가".repeat(6000), "", List.of()));
 
-		assertThatThrownBy(() -> flow.suggestVisitReview(VISIT_ID, new ReviewSuggestionSdo("  ", null)))
-			.isInstanceOf(InvalidInspectionVisitException.class);
-		assertThatThrownBy(() -> flow.suggestVisitReview(VISIT_ID, new ReviewSuggestionSdo()))
-			.isInstanceOf(InvalidInspectionVisitException.class);
-		assertThatThrownBy(() -> flow.suggestVisitReview(VISIT_ID, null))
-			.isInstanceOf(InvalidInspectionVisitException.class);
-		verifyNoInteractions(generator);
-	}
-
-	@Test
-	void suggestVisitReview_shouldRejectTooLongInput() {
-		givenVisit();
-
-		assertThatThrownBy(() -> flow.suggestVisitReview(VISIT_ID, new ReviewSuggestionSdo("가".repeat(5001), null)))
-			.isInstanceOf(InvalidInspectionVisitException.class);
-		assertThatThrownBy(() -> flow.suggestVisitReview(VISIT_ID, new ReviewSuggestionSdo("메모", "가".repeat(5001))))
-			.isInstanceOf(InvalidInspectionVisitException.class);
-		verifyNoInteractions(generator);
+		assertThat(flow.suggestVisitReview(VISIT_ID, new ReviewSuggestionSdo("메모", null)).getPros()).hasSize(5000);
 	}
 
 	@Test
@@ -132,7 +116,7 @@ class InspectionReviewSuggestionFlowTest {
 			.mapToObj(i -> new InspectionTagRdo("id" + i, "tag" + i, 50 - i))
 			.toList();
 		when(inspectionTagLogic.getInspectionTags(null, InspectionTagScope.VISIT)).thenReturn(tags);
-		when(generator.generate(any())).thenReturn(new ReviewSuggestion("", "", List.of()));
+		when(generator.generate(any())).thenReturn(new ReviewSuggestion("", "", "", List.of()));
 
 		flow.suggestVisitReview(VISIT_ID, new ReviewSuggestionSdo("메모", null));
 
@@ -152,27 +136,18 @@ class InspectionReviewSuggestionFlowTest {
 	}
 
 	@Test
-	void suggestPropertyReview_shouldRejectBlankMemoAndPros() {
-		givenVisit();
-		when(viewedPropertyLogic.getViewedProperty(PROPERTY_ID)).thenReturn(property(VISIT_ID));
-
-		assertThatThrownBy(() -> flow.suggestPropertyReview(VISIT_ID, PROPERTY_ID, new ReviewSuggestionSdo(" ", "")))
-			.isInstanceOf(InvalidViewedPropertyException.class);
-		verifyNoInteractions(generator);
-	}
-
-	@Test
 	void suggestPropertyReview_shouldUsePropertyScopeTagsAndReturnSuggestion() {
 		givenVisit();
 		when(viewedPropertyLogic.getViewedProperty(PROPERTY_ID)).thenReturn(property(VISIT_ID));
 		when(inspectionTagLogic.getInspectionTags(null, InspectionTagScope.PROPERTY))
 			.thenReturn(List.of(new InspectionTagRdo("t1", "남향", 3)));
-		when(generator.generate(any())).thenReturn(new ReviewSuggestion("채광 좋음", "", List.of("남향")));
+		when(generator.generate(any())).thenReturn(new ReviewSuggestion("채광 좋음", "- 남향", "", List.of("남향")));
 
 		ReviewSuggestionRdo result = flow.suggestPropertyReview(VISIT_ID, PROPERTY_ID,
-			new ReviewSuggestionSdo(null, "채광"));
+			new ReviewSuggestionSdo("메모", "채광"));
 
 		assertThat(result.getTags()).containsExactly("남향");
+		assertThat(result.getPros()).isEqualTo("- 남향");
 		ArgumentCaptor<ReviewSuggestionPrompt> captor = ArgumentCaptor.forClass(ReviewSuggestionPrompt.class);
 		verify(generator).generate(captor.capture());
 		assertThat(captor.getValue().content()).contains("태그 후보: 남향", "트리마제");

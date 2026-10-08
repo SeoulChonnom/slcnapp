@@ -28,6 +28,7 @@ import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyDetailRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyStatusUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyUdo;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -88,7 +89,7 @@ public class ViewedPropertyResource implements ViewedPropertyFacade {
 	@Override
 	@PostMapping("/properties/{propertyId}/review-suggestion")
 	public ResponseEntity<ReviewSuggestionRdo> suggestViewedPropertyReview(@PathVariable("visitId") String visitId,
-		@PathVariable("propertyId") String propertyId, @RequestBody ReviewSuggestionSdo reviewSuggestionSdo) {
+		@PathVariable("propertyId") String propertyId, @RequestBody @Valid ReviewSuggestionSdo reviewSuggestionSdo) {
 		return new ResponseEntity<>(
 			inspectionReviewSuggestionFlow.suggestPropertyReview(visitId, propertyId, reviewSuggestionSdo),
 			HttpStatus.OK);

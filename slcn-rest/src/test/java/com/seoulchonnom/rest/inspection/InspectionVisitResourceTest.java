@@ -154,7 +154,7 @@ class InspectionVisitResourceTest {
 	@Test
 	void suggestInspectionVisitReview_shouldDelegateToSuggestionFlow() {
 		ReviewSuggestionSdo request = new ReviewSuggestionSdo("한강이 보임", null);
-		ReviewSuggestionRdo suggestion = new ReviewSuggestionRdo("조용한 동네", "", List.of("한강"));
+		ReviewSuggestionRdo suggestion = new ReviewSuggestionRdo("조용한 동네", "- 한강뷰", "", List.of("한강"));
 		when(inspectionReviewSuggestionFlow.suggestVisitReview(VISIT_ID, request)).thenReturn(suggestion);
 
 		var response = inspectionVisitResource.suggestInspectionVisitReview(VISIT_ID, request);

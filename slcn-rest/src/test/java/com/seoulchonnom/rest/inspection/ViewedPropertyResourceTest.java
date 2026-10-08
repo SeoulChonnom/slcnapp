@@ -122,7 +122,7 @@ class ViewedPropertyResourceTest {
 	@Test
 	void suggestViewedPropertyReview_shouldDelegateToSuggestionFlow() {
 		ReviewSuggestionSdo request = new ReviewSuggestionSdo("채광이 좋음", "남향");
-		ReviewSuggestionRdo suggestion = new ReviewSuggestionRdo("채광 좋은 남향", "", List.of("남향"));
+		ReviewSuggestionRdo suggestion = new ReviewSuggestionRdo("채광 좋은 남향", "- 남향", "", List.of("남향"));
 		when(inspectionReviewSuggestionFlow.suggestPropertyReview(VISIT_ID, PROPERTY_ID, request))
 			.thenReturn(suggestion);
 

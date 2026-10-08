@@ -20,9 +20,10 @@ class GeminiReviewSuggestionGeneratorTest {
 	@Test
 	void parse_shouldReadAllFields() {
 		ReviewSuggestion suggestion = GeminiReviewSuggestionGenerator.parse(
-			"{\"oneLineReview\":\"조용한 동네\",\"cons\":\"- 주차 불편\",\"tags\":[\"조용함\",\"한강\"]}");
+			"{\"oneLineReview\":\"조용한 동네\",\"pros\":\"- 한강뷰\",\"cons\":\"- 주차 불편\",\"tags\":[\"조용함\",\"한강\"]}");
 
 		assertThat(suggestion.oneLineReview()).isEqualTo("조용한 동네");
+		assertThat(suggestion.pros()).isEqualTo("- 한강뷰");
 		assertThat(suggestion.cons()).isEqualTo("- 주차 불편");
 		assertThat(suggestion.tags()).containsExactly("조용함", "한강");
 	}
@@ -32,6 +33,7 @@ class GeminiReviewSuggestionGeneratorTest {
 		ReviewSuggestion suggestion = GeminiReviewSuggestionGenerator.parse("{\"tags\":[\"a\",1,null]}");
 
 		assertThat(suggestion.oneLineReview()).isNull();
+		assertThat(suggestion.pros()).isNull();
 		assertThat(suggestion.cons()).isNull();
 		assertThat(suggestion.tags()).containsExactly("a");
 	}
@@ -70,7 +72,7 @@ class GeminiReviewSuggestionGeneratorTest {
 		assertThatThrownBy(() -> configOf("TURBO")).isInstanceOf(IllegalArgumentException.class);
 	}
 
-	private static final String OK_JSON = "{\"oneLineReview\":\"좋음\",\"cons\":\"\",\"tags\":[]}";
+	private static final String OK_JSON = "{\"oneLineReview\":\"좋음\",\"pros\":\"\",\"cons\":\"\",\"tags\":[]}";
 	private static final ReviewSuggestionPrompt PROMPT = new ReviewSuggestionPrompt("지시", "기록");
 
 	/**

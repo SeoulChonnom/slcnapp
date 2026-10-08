@@ -6,8 +6,6 @@ import java.util.Set;
 
 import org.springframework.stereotype.Service;
 
-import com.seoulchonnom.aggregate.inspection.exception.InvalidInspectionVisitException;
-import com.seoulchonnom.aggregate.inspection.exception.InvalidViewedPropertyException;
 import com.seoulchonnom.aggregate.inspection.exception.ViewedPropertyNotFoundException;
 import com.seoulchonnom.aggregate.inspection.logic.InspectionAreaLogic;
 import com.seoulchonnom.aggregate.inspection.logic.InspectionTagLogic;
@@ -29,7 +27,7 @@ import com.seoulchonnom.spec.inspection.mapper.InspectionTagMapper;
 import lombok.RequiredArgsConstructor;
 
 /**
- * 후기(한줄평/단점/태그) 제안. 아무것도 저장하지 않는다.
+ * 후기(한줄평/장점/단점/태그) 제안. 아무것도 저장하지 않는다.
  *
  * 클래스와 메서드에 @Transactional을 두지 않는다. 모델 호출은 수 초 걸릴 수 있어
  * 트랜잭션(커넥션)을 잡은 채로 기다리지 않도록, 데이터는 각 Logic의 읽기 전용 트랜잭션으로 읽고
@@ -39,7 +37,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class InspectionReviewSuggestionFlow {
 	/**
-	 * 한줄평/단점/태그 상한은 저장 쪽 검증(InspectionVisitLogic, InspectionTagLogic)과 같다.
+	 * 한줄평/장점/단점/태그 상한은 저장 쪽 검증(InspectionVisitLogic, InspectionTagLogic)과 같다.
 	 * 제안을 그대로 저장해도 저장 API가 거절하지 않도록 맞춘다.
 	 */
 	static final int MAX_ONE_LINE_REVIEW_LENGTH = 300;
@@ -59,14 +57,11 @@ public class InspectionReviewSuggestionFlow {
 	private final ReviewSuggestionPromptBuilder promptBuilder;
 	private final ReviewSuggestionGenerator reviewSuggestionGenerator;
 
+	/**
+	 * request는 Resource의 @Valid가 검증한 값(memo 필수, 길이 상한)이라는 전제로 받는다.
+	 */
 	public ReviewSuggestionRdo suggestVisitReview(String visitId, ReviewSuggestionSdo request) {
 		InspectionVisit visit = inspectionVisitLogic.getInspectionVisit(visitId);
-		if (!hasContent(request)) {
-			throw new InvalidInspectionVisitException("메모 또는 장점을 입력해야 제안할 수 있습니다.");
-		}
-		if (exceedsLimit(request)) {
-			throw new InvalidInspectionVisitException("입력이 너무 깁니다.");
-		}
 		InspectionArea area = inspectionAreaLogic.getInspectionArea(visit.getAreaId());
 		ReviewSuggestionPrompt prompt = promptBuilder.forVisit(visit, area, request.getMemo(), request.getPros(),
 			tagPool(InspectionTagScope.VISIT));
@@ -79,32 +74,10 @@ public class InspectionReviewSuggestionFlow {
 		if (!visitId.equals(property.getInspectionVisitId())) {
 			throw new ViewedPropertyNotFoundException("이 임장에 속한 매물이 아닙니다. propertyId=" + propertyId);
 		}
-		if (!hasContent(request)) {
-			throw new InvalidViewedPropertyException("메모 또는 장점을 입력해야 제안할 수 있습니다.");
-		}
-		if (exceedsLimit(request)) {
-			throw new InvalidViewedPropertyException("입력이 너무 깁니다.");
-		}
 		InspectionArea area = inspectionAreaLogic.getInspectionArea(visit.getAreaId());
 		ReviewSuggestionPrompt prompt = promptBuilder.forProperty(property, area, visit.getVisitedAt(),
 			request.getMemo(), request.getPros(), tagPool(InspectionTagScope.PROPERTY));
 		return normalize(reviewSuggestionGenerator.generate(prompt));
-	}
-
-	private boolean hasContent(ReviewSuggestionSdo request) {
-		return request != null && (isFilled(request.getMemo()) || isFilled(request.getPros()));
-	}
-
-	private boolean exceedsLimit(ReviewSuggestionSdo request) {
-		return length(request.getMemo()) > MAX_TEXT_LENGTH || length(request.getPros()) > MAX_TEXT_LENGTH;
-	}
-
-	private boolean isFilled(String value) {
-		return value != null && !value.isBlank();
-	}
-
-	private int length(String value) {
-		return value == null ? 0 : value.length();
 	}
 
 	/**
@@ -123,8 +96,9 @@ public class InspectionReviewSuggestionFlow {
 	 */
 	private ReviewSuggestionRdo normalize(ReviewSuggestion suggestion) {
 		String oneLineReview = cut(trim(suggestion.oneLineReview()), MAX_ONE_LINE_REVIEW_LENGTH);
+		String pros = cut(trim(suggestion.pros()), MAX_TEXT_LENGTH);
 		String cons = cut(trim(suggestion.cons()), MAX_TEXT_LENGTH);
-		return new ReviewSuggestionRdo(oneLineReview, cons, normalizeTags(suggestion.tags()));
+		return new ReviewSuggestionRdo(oneLineReview, pros, cons, normalizeTags(suggestion.tags()));
 	}
 
 	private List<String> normalizeTags(List<String> rawTags) {

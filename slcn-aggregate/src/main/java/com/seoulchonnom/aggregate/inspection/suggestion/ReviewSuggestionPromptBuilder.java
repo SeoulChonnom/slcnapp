@@ -57,6 +57,7 @@ public class ReviewSuggestionPromptBuilder {
 
 			규칙:
 			- oneLineReview(한줄평): 한 문장, 60자 안팎. 기록에서 가장 중요한 인상을 담습니다.
+			- pros(장점): 메모나 답변에 근거가 있는 장점만 줄바꿈으로 나눠 적습니다. 항목마다 "- "로 시작합니다. 근거가 없으면 빈 문자열("")로 둡니다. 기록에 "사용자가 쓴 장점(참고)"이 있으면 그 내용을 빠뜨리지 말고 유지하되 표현은 다듬을 수 있고, 근거가 있는 다른 장점을 덧붙입니다.
 			- cons(단점): 메모나 답변에 근거가 있는 단점만 줄바꿈으로 나눠 적습니다. 항목마다 "- "로 시작합니다. 근거가 없으면 빈 문자열("")로 둡니다.
 			- tags(태그): 0~5개, 각각 짧은 명사구입니다. "태그 후보" 중에 맞는 것이 있으면 그것을 그대로 쓰고, 맞는 것이 없을 때만 새 태그를 만듭니다.
 			- 태그에 지역명(예: 위 '지역' 값)은 쓰지 않습니다. 지역은 이미 기록의 분류 기준이므로 태그로 중복하지 않습니다.
@@ -69,7 +70,7 @@ public class ReviewSuggestionPromptBuilder {
 	private void appendRecord(StringBuilder content, String memo, String pros) {
 		content.append('\n').append(RECORD_BEGIN).append('\n');
 		content.append("메모:\n").append(orNone(memo)).append("\n\n");
-		content.append("장점:\n").append(orNone(pros)).append('\n');
+		content.append("사용자가 쓴 장점(참고):\n").append(orNone(pros)).append('\n');
 		content.append(RECORD_END).append('\n');
 	}
 
