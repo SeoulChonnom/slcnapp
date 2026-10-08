@@ -26,6 +26,19 @@ class InspectionVisitStoreTest {
 	}
 
 	@Test
+	void jpoMapper_shouldRoundTripCompletedAt() {
+		InspectionVisit visit = visit();
+		LocalDateTime completedAt = LocalDateTime.of(2026, 10, 8, 14, 30);
+		visit.setCompletedAt(completedAt);
+
+		assertThat(inspectionVisitJpoMapper.toJpo(visit).getCompletedAt()).isEqualTo(completedAt);
+		assertThat(inspectionVisitJpoMapper.toDomain(inspectionVisitJpoMapper.toJpo(visit)).getCompletedAt())
+			.isEqualTo(completedAt);
+		assertThat(inspectionVisitJpoMapper.toDomain(inspectionVisitJpoMapper.toJpo(visit())).getCompletedAt())
+			.isNull();
+	}
+
+	@Test
 	void save_shouldConvertOptimisticLockingFailureToConflict() {
 		// EntityJpo의 @Version이 모든 엔티티에 낙관적 잠금을 건다. 두 사용자가 같은 임장을
 		// 동시에 저장하면 이 예외가 나야 하고, 500이 아니라 409로 바뀌어야 한다.

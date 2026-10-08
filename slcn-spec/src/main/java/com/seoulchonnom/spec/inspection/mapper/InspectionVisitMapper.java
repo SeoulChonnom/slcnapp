@@ -44,6 +44,7 @@ public class InspectionVisitMapper {
 		rdo.setInspectionVisitId(visit.getId());
 		rdo.setArea(toInspectionAreaBriefRdo(area));
 		rdo.setVisitedAt(toText(visit.getVisitedAt()));
+		rdo.setCompletedAt(toText(visit.getCompletedAt()));
 		rdo.setOneLineReview(visit.getOneLineReview());
 		rdo.setRevisitIntent(visit.getRevisitIntent());
 		rdo.setStatus(visit.getStatus());
@@ -64,6 +65,7 @@ public class InspectionVisitMapper {
 		InspectionVisitSummaryRdo rdo = new InspectionVisitSummaryRdo();
 		rdo.setVisitId(visit.getId());
 		rdo.setVisitedAt(toText(visit.getVisitedAt()));
+		rdo.setCompletedAt(toText(visit.getCompletedAt()));
 		rdo.setOneLineReview(visit.getOneLineReview());
 		rdo.setRevisitIntent(visit.getRevisitIntent());
 		rdo.setStatus(visit.getStatus());
@@ -85,6 +87,7 @@ public class InspectionVisitMapper {
 		rdo.setInspectionVisitId(visit.getId());
 		rdo.setArea(toInspectionAreaBriefRdo(area));
 		rdo.setVisitedAt(toText(visit.getVisitedAt()));
+		rdo.setCompletedAt(toText(visit.getCompletedAt()));
 		rdo.setMemo(visit.getMemo());
 		rdo.setRevisitIntent(visit.getRevisitIntent());
 		rdo.setOneLineReview(visit.getOneLineReview());
