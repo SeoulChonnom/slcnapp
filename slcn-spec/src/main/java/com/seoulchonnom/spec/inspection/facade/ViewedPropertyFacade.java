@@ -51,8 +51,8 @@ public interface ViewedPropertyFacade {
 	ResponseEntity<Void> deleteViewedProperty(String visitId, String propertyId);
 
 	/**
-	 * 폼에 입력 중인 메모/장점과 **저장된** 문답 답변으로 한줄평·단점·태그를 AI가 제안한다.
-	 * 제안만 하고 아무것도 저장하지 않는다. memo와 pros가 모두 비어 있으면 400,
+	 * 폼에 입력 중인 메모/장점과 **저장된** 문답 답변으로 한줄평·장점·단점·태그를 AI가 제안한다.
+	 * 제안만 하고 아무것도 저장하지 않는다. memo는 필수(비면 400 VALIDATION_FAILED)이고 pros는 참고용 선택 값이며,
 	 * AI 설정이 없거나 호출이 실패하면 503(REVIEW_SUGGESTION_UNAVAILABLE)이다.
 	 */
 	ResponseEntity<ReviewSuggestionRdo> suggestViewedPropertyReview(String visitId, String propertyId,

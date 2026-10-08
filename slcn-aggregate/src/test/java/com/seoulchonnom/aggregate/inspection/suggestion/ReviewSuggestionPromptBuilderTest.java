@@ -54,6 +54,22 @@ class ReviewSuggestionPromptBuilderTest {
 	}
 
 	@Test
+	void instruction_shouldAskForGroundedProsAndKeepUserProsAsReference() {
+		ReviewSuggestionPrompt visitPrompt = builder.forVisit(new InspectionVisit("v", "a", VISITED_AT), area, "메모",
+			"한강뷰", List.of());
+		ReviewSuggestionPrompt propertyPrompt = builder.forProperty(propertyWith(), area, VISITED_AT, "메모", null,
+			List.of());
+
+		assertThat(visitPrompt.instruction()).contains("pros(장점)", "사용자가 쓴 장점(참고)", "빠뜨리지 말고");
+		assertThat(propertyPrompt.instruction()).contains("pros(장점)");
+		String content = visitPrompt.content();
+		assertThat(content).contains("사용자가 쓴 장점(참고):\n한강뷰");
+		assertThat(content.indexOf("<<<기록 시작>>>")).isLessThan(content.indexOf("사용자가 쓴 장점(참고)"));
+		assertThat(content.indexOf("한강뷰")).isLessThan(content.indexOf("<<<기록 끝>>>"));
+		assertThat(propertyPrompt.content()).contains("사용자가 쓴 장점(참고):\n(없음)");
+	}
+
+	@Test
 	void forProperty_shouldRenderAnsweredAnswersByType() {
 		PropertyAnswer text = answer("소음은 어땠나", QuestionAnswerType.LONG_TEXT);
 		text.setTextValue("저녁에 시끄러움");

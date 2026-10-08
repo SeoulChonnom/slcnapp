@@ -183,9 +183,10 @@ public class GeminiReviewSuggestionGenerator implements ReviewSuggestionGenerato
 			.type("OBJECT")
 			.properties(Map.of(
 				"oneLineReview", string,
+				"pros", string,
 				"cons", string,
 				"tags", Schema.builder().type("ARRAY").items(string).build()))
-			.required(List.of("oneLineReview", "cons", "tags"))
+			.required(List.of("oneLineReview", "pros", "cons", "tags"))
 			.build();
 	}
 
@@ -218,7 +219,8 @@ public class GeminiReviewSuggestionGenerator implements ReviewSuggestionGenerato
 				}
 			});
 		}
-		return new ReviewSuggestion(textOf(root, "oneLineReview"), textOf(root, "cons"), tags);
+		return new ReviewSuggestion(textOf(root, "oneLineReview"), textOf(root, "pros"),
+			textOf(root, "cons"), tags);
 	}
 
 	private static String textOf(JsonNode root, String field) {

@@ -15,6 +15,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ReviewSuggestionRdo {
 	private String oneLineReview;
+	private String pros;
 	private String cons;
 	private List<String> tags;
 }

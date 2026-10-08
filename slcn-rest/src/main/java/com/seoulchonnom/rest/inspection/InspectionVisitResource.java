@@ -37,6 +37,7 @@ import com.seoulchonnom.spec.inspection.facade.sdo.ReviewSuggestionRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ReviewSuggestionSdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyOrderUdo;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -112,7 +113,7 @@ public class InspectionVisitResource implements InspectionVisitFacade {
 	@Override
 	@PostMapping("/{visitId}/review-suggestion")
 	public ResponseEntity<ReviewSuggestionRdo> suggestInspectionVisitReview(@PathVariable("visitId") String visitId,
-		@RequestBody ReviewSuggestionSdo reviewSuggestionSdo) {
+		@RequestBody @Valid ReviewSuggestionSdo reviewSuggestionSdo) {
 		return new ResponseEntity<>(inspectionReviewSuggestionFlow.suggestVisitReview(visitId, reviewSuggestionSdo),
 			HttpStatus.OK);
 	}
