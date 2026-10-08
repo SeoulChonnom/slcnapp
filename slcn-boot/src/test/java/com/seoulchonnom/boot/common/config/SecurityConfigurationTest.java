@@ -412,6 +412,24 @@ class SecurityConfigurationTest {
 			.andExpect(status().isOk());
 	}
 
+	/**
+	 * /geo/**는 공개가 아니다. 행안부 호출은 우리 승인키를 쓰므로 로그인한 사용자만 쓸 수 있다.
+	 */
+	@Test
+	void geoAddresses_withoutToken_shouldReturnUnauthorized() throws Exception {
+		mockMvc.perform(get("/geo/addresses").param("keyword", "성수동"))
+			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void geoAddresses_withUserAuthority_shouldReturnOk() throws Exception {
+		givenAuthority("USER");
+
+		mockMvc.perform(get("/geo/addresses").param("keyword", "성수동")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, "access-token"))
+			.andExpect(status().isOk());
+	}
+
 	@Test
 	void categoryRegister_withUserAuthority_shouldReturnForbidden() throws Exception {
 		givenAuthority("USER");
@@ -551,6 +569,11 @@ class SecurityConfigurationTest {
 		@GetMapping("/travels")
 		ResponseEntity<String> travels() {
 			return ResponseEntity.ok("travels");
+		}
+
+		@GetMapping("/geo/addresses")
+		ResponseEntity<String> geoAddresses() {
+			return ResponseEntity.ok("addresses");
 		}
 
 		@GetMapping("/inspection-questions")
