@@ -7,6 +7,8 @@ import org.locationtech.proj4j.CoordinateTransformFactory;
 import org.locationtech.proj4j.ProjCoordinate;
 import org.springframework.stereotype.Component;
 
+import com.seoulchonnom.aggregate.inspection.exception.AddressLookupUnavailableException;
+
 /**
  * 행안부 entX/entY(EPSG:5179, GRS80 UTM-K)를 WGS84 위경도로 바꾼다.
  *
@@ -22,6 +24,12 @@ public class UtmkToWgs84Converter {
 		+ "+ellps=GRS80 +units=m +no_defs";
 	private static final String WGS84_PROJ4 = "+proj=longlat +datum=WGS84 +no_defs";
 
+	/** 국내 범위. 이 밖의 결과는 좌표 오류로 본다. */
+	private static final double MIN_LATITUDE = 32.0;
+	private static final double MAX_LATITUDE = 39.5;
+	private static final double MIN_LONGITUDE = 123.5;
+	private static final double MAX_LONGITUDE = 132.5;
+
 	private final CoordinateTransform transform;
 
 	public UtmkToWgs84Converter() {
@@ -34,9 +42,20 @@ public class UtmkToWgs84Converter {
 	public GeoPoint convert(UtmkPoint point) {
 		ProjCoordinate source = new ProjCoordinate(point.x(), point.y());
 		ProjCoordinate target = new ProjCoordinate();
-		synchronized (transform) {
-			transform.transform(source, target);
+		try {
+			synchronized (transform) {
+				transform.transform(source, target);
+			}
+		} catch (RuntimeException e) {
+			// 좌표 변환 실패는 상대가 준 값이 이상한 것이므로 상대 쪽 실패(502)로 본다.
+			throw AddressLookupUnavailableException.upstreamFailed();
 		}
-		return new GeoPoint(target.y, target.x);
+		double latitude = target.y;
+		double longitude = target.x;
+		if (!Double.isFinite(latitude) || !Double.isFinite(longitude) || latitude < MIN_LATITUDE
+			|| latitude > MAX_LATITUDE || longitude < MIN_LONGITUDE || longitude > MAX_LONGITUDE) {
+			throw AddressLookupUnavailableException.upstreamFailed();
+		}
+		return new GeoPoint(latitude, longitude);
 	}
 }

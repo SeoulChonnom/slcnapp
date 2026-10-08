@@ -15,6 +15,11 @@ import lombok.NoArgsConstructor;
 @Getter
 @EqualsAndHashCode
 public class PropertyLocation {
+	/** ViewedPropertyJpo.bdMgtSn 컬럼 길이. 컬럼과 입력 검증이 같은 값을 쓴다. */
+	public static final int BD_MGT_SN_MAX_LENGTH = 26;
+	/** ViewedPropertyJpo.roadAddress 컬럼 길이. */
+	public static final int ROAD_ADDRESS_MAX_LENGTH = 300;
+
 	private String bdMgtSn;
 	private String roadAddress;
 	private double latitude;

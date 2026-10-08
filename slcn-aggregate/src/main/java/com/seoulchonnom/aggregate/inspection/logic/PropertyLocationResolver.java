@@ -42,6 +42,16 @@ public class PropertyLocationResolver {
 			throw new InvalidPropertyLocationException("건물관리번호(bdMgtSn)는 필수입니다.");
 		}
 		String bdMgtSn = request.getBdMgtSn().trim();
+		String roadAddress = trimToNull(request.getRoadAddress());
+		// 저장 단계(컬럼 길이 초과)의 500을 막으려고 외부 호출 전에 거절한다.
+		if (bdMgtSn.length() > PropertyLocation.BD_MGT_SN_MAX_LENGTH) {
+			throw new InvalidPropertyLocationException(
+				"건물관리번호(bdMgtSn)는 " + PropertyLocation.BD_MGT_SN_MAX_LENGTH + "자 이하여야 합니다.");
+		}
+		if (roadAddress != null && roadAddress.length() > PropertyLocation.ROAD_ADDRESS_MAX_LENGTH) {
+			throw new InvalidPropertyLocationException(
+				"도로명주소(roadAddress)는 " + PropertyLocation.ROAD_ADDRESS_MAX_LENGTH + "자 이하여야 합니다.");
+		}
 		if (stored != null && bdMgtSn.equals(stored.getBdMgtSn())) {
 			return stored;
 		}
@@ -49,7 +59,7 @@ public class PropertyLocationResolver {
 		CoordKey coordKey = toCoordKey(request.getCoordKey());
 		UtmkPoint entrance = addressGateway.findEntrance(coordKey);
 		GeoPoint point = converter.convert(entrance);
-		return new PropertyLocation(bdMgtSn, trimToNull(request.getRoadAddress()), point.latitude(),
+		return new PropertyLocation(bdMgtSn, roadAddress, point.latitude(),
 			point.longitude(), entrance.x(), entrance.y());
 	}
 

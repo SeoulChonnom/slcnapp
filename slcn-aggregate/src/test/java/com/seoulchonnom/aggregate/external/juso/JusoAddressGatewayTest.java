@@ -11,6 +11,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
+import com.seoulchonnom.aggregate.inspection.exception.AddressCoordinateNotFoundException;
 import com.seoulchonnom.aggregate.inspection.exception.AddressLookupUnavailableException;
 import com.seoulchonnom.aggregate.inspection.exception.InvalidAddressKeywordException;
 import com.seoulchonnom.aggregate.inspection.geo.AddressSearchResult;
@@ -91,8 +92,17 @@ class JusoAddressGatewayTest {
 	}
 
 	@Test
-	void findEntrance_shouldFailAsUpstreamWhenNoCoordinates() {
+	void findEntrance_shouldFailAsBadRequestWhenNoCoordinates() {
 		respond("{\"results\":{\"common\":{\"errorCode\":\"0\",\"totalCount\":\"0\"},\"juso\":null}}");
+
+		assertThatThrownBy(() -> gateway.findEntrance(KEY)).isInstanceOfSatisfying(
+			AddressCoordinateNotFoundException.class,
+			e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.ADDRESS_COORDINATE_NOT_FOUND));
+	}
+
+	@Test
+	void findEntrance_shouldStayUpstreamFailureWhenCoordinatesAreMalformed() {
+		respond("{\"results\":{\"common\":{\"errorCode\":\"0\",\"totalCount\":\"1\"},\"juso\":[{\"entX\":\"abc\",\"entY\":\"\"}]}}");
 
 		assertThatThrownBy(() -> gateway.findEntrance(KEY)).isInstanceOfSatisfying(
 			AddressLookupUnavailableException.class,

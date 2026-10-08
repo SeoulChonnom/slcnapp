@@ -28,4 +28,14 @@ class KakaoConfigurationTest {
 			.run(context -> assertThat(context.getBean(WalkingRouteGateway.class))
 				.isInstanceOf(KakaoWalkingRouteGateway.class));
 	}
+
+	@Test
+	void timeoutBelowOne_shouldFailAtStartup() {
+		for (String value : new String[] {"0", "-1"}) {
+			runner.withPropertyValues("slcn.geo.kakao.rest-key=k", "slcn.geo.kakao.timeout-seconds=" + value)
+				.run(context -> assertThat(context).hasFailed().getFailure().rootCause()
+					.isInstanceOf(IllegalStateException.class)
+					.hasMessageContaining("slcn.geo.kakao.timeout-seconds"));
+		}
+	}
 }

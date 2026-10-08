@@ -7,6 +7,7 @@ import org.springframework.web.client.RestClient;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.seoulchonnom.aggregate.inspection.exception.AddressCoordinateNotFoundException;
 import com.seoulchonnom.aggregate.inspection.exception.AddressLookupUnavailableException;
 import com.seoulchonnom.aggregate.inspection.exception.InvalidAddressKeywordException;
 import com.seoulchonnom.aggregate.inspection.geo.AddressCandidate;
@@ -140,7 +141,8 @@ public class JusoAddressGateway implements AddressGateway {
 	UtmkPoint parseCoord(String body) {
 		JsonNode juso = checkedResults(body).path("juso");
 		if (!juso.isArray() || juso.isEmpty()) {
-			throw invalidBody();
+			// errorCode가 정상인데 결과가 없으면 장애가 아니라 좌표 정보가 없는 주소다.
+			throw new AddressCoordinateNotFoundException();
 		}
 		try {
 			return new UtmkPoint(Double.parseDouble(juso.get(0).path("entX").asText()),

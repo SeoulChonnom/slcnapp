@@ -29,4 +29,14 @@ class JusoConfigurationTest {
 		runner.withPropertyValues("slcn.geo.juso.coord-key=k")
 			.run(context -> assertThat(context.getBean(AddressGateway.class)).isInstanceOf(JusoAddressGateway.class));
 	}
+
+	@Test
+	void timeoutBelowOne_shouldFailAtStartup() {
+		for (String value : new String[] {"0", "-1"}) {
+			runner.withPropertyValues("slcn.geo.juso.search-key=k", "slcn.geo.juso.timeout-seconds=" + value)
+				.run(context -> assertThat(context).hasFailed().getFailure().rootCause()
+					.isInstanceOf(IllegalStateException.class)
+					.hasMessageContaining("slcn.geo.juso.timeout-seconds"));
+		}
+	}
 }

@@ -98,4 +98,29 @@ class PropertyLocationResolverTest {
 		assertThatThrownBy(() -> resolver.resolve(STORED, new PropertyLocationInputSdo("NEW-2", "주소", coordKey())))
 			.isInstanceOf(AddressLookupUnavailableException.class);
 	}
+
+	@Test
+	void resolve_shouldRejectTooLongBdMgtSnAndRoadAddressBeforeLookup() {
+		String longBdMgtSn = "B".repeat(27);
+		String longRoad = "도".repeat(301);
+
+		assertThatThrownBy(() -> resolver.resolve(STORED, new PropertyLocationInputSdo(longBdMgtSn, "주소", coordKey())))
+			.isInstanceOfSatisfying(InvalidPropertyLocationException.class,
+				e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_FAILED));
+		assertThatThrownBy(() -> resolver.resolve(STORED, new PropertyLocationInputSdo("NEW-2", longRoad, coordKey())))
+			.isInstanceOfSatisfying(InvalidPropertyLocationException.class,
+				e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_FAILED));
+		verifyNoInteractions(addressGateway);
+	}
+
+	@Test
+	void resolve_shouldAcceptMaxLengthValues() {
+		when(addressGateway.findEntrance(any())).thenReturn(new UtmkPoint(953898.449, 1952035.979));
+
+		PropertyLocation result = resolver.resolve(null,
+			new PropertyLocationInputSdo("B".repeat(26), "도".repeat(300), coordKey()));
+
+		assertThat(result.getBdMgtSn()).hasSize(26);
+		assertThat(result.getRoadAddress()).hasSize(300);
+	}
 }

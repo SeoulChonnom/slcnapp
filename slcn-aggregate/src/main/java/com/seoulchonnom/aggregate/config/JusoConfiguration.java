@@ -22,6 +22,10 @@ public class JusoConfiguration {
 		@Value("${slcn.geo.juso.search-key:}") String searchKey,
 		@Value("${slcn.geo.juso.coord-key:}") String coordKey,
 		@Value("${slcn.geo.juso.timeout-seconds:5}") int timeoutSeconds) {
+		if (timeoutSeconds < 1) {
+			// 0은 HttpURLConnection에서 무한 대기를 뜻하므로 막는다.
+			throw new IllegalStateException("slcn.geo.juso.timeout-seconds는 1 이상이어야 합니다. 현재 값: " + timeoutSeconds);
+		}
 		if (searchKey.isBlank() && coordKey.isBlank()) {
 			return new DisabledAddressGateway();
 		}

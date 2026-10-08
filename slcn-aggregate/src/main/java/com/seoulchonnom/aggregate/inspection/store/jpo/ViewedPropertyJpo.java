@@ -7,6 +7,7 @@ import com.seoulchonnom.aggregate.common.entity.DomainEntityJpo;
 import com.seoulchonnom.aggregate.inspection.store.jpo.converter.PropertyAnswerListConverter;
 import com.seoulchonnom.spec.inspection.entity.vo.InspectionStatus;
 import com.seoulchonnom.spec.inspection.entity.vo.PropertyAnswer;
+import com.seoulchonnom.spec.inspection.entity.vo.PropertyLocation;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
@@ -61,9 +62,9 @@ public class ViewedPropertyJpo extends DomainEntityJpo {
 	private int requiredAnswerCount;
 	private int unansweredRequiredCount;
 	// 위치는 JSON 값 객체가 아니라 일반 컬럼이다. 모두 NULL이면 위치 없음. 좌표 출처는 항상 행안부다
-	@Column(length = 26)
+	@Column(length = PropertyLocation.BD_MGT_SN_MAX_LENGTH)
 	private String bdMgtSn;
-	@Column(length = 300)
+	@Column(length = PropertyLocation.ROAD_ADDRESS_MAX_LENGTH)
 	private String roadAddress;
 	private Double latitude;
 	private Double longitude;

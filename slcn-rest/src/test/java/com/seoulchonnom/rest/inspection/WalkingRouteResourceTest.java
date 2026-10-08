@@ -62,7 +62,7 @@ class WalkingRouteResourceTest {
 		when(propertyStore.findAllByVisitId(VISIT_ID))
 			.thenReturn(List.of(property("P1", 37.5, 127.0), property("P2", 37.6, 127.1)));
 		when(gateway.route(anyList())).thenReturn(new WalkingRouteSegment(400, 300, List.of(
-			new WalkingRouteSegment.Leg(400, 300, List.of(new GeoPoint(37.5, 127.0), new GeoPoint(37.6, 127.1))))));
+			new WalkingRouteSegment.Leg(0, 1, 400, 300, List.of(new GeoPoint(37.5, 127.0), new GeoPoint(37.6, 127.1))))));
 
 		mockMvc.perform(post("/inspection-visits/{id}/walking-route", VISIT_ID))
 			.andExpect(status().isOk())

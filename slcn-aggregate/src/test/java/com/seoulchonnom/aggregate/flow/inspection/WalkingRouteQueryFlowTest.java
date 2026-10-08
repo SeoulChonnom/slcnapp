@@ -53,7 +53,7 @@ class WalkingRouteQueryFlowTest {
 			List<GeoPoint> points = invocation.getArgument(0);
 			List<WalkingRouteSegment.Leg> legs = new ArrayList<>();
 			for (int i = 0; i < points.size() - 1; i++) {
-				legs.add(new WalkingRouteSegment.Leg(100, 60, List.of(points.get(i), points.get(i + 1))));
+				legs.add(new WalkingRouteSegment.Leg(i, i + 1, 100, 60, List.of(points.get(i), points.get(i + 1))));
 			}
 			return new WalkingRouteSegment(100 * legs.size(), 60 * legs.size(), legs);
 		});
@@ -167,7 +167,7 @@ class WalkingRouteQueryFlowTest {
 		when(propertyStore.findAllByVisitId(VISIT_ID)).thenReturn(distinctProperties(10));
 		when(gateway.route(anyList()))
 			.thenReturn(new WalkingRouteSegment(600, 360, IntStream.range(0, 6)
-				.mapToObj(i -> new WalkingRouteSegment.Leg(100, 60, List.of(new GeoPoint(37, 127)))).toList()))
+				.mapToObj(i -> new WalkingRouteSegment.Leg(i, i + 1, 100, 60, List.of(new GeoPoint(37, 127)))).toList()))
 			.thenThrow(WalkingRouteException.quotaExceeded());
 
 		assertThatThrownBy(() -> flow.getWalkingRoute(VISIT_ID)).isInstanceOfSatisfying(WalkingRouteException.class,
@@ -187,5 +187,28 @@ class WalkingRouteQueryFlowTest {
 		assertThat(rdo.getTotalTime()).isZero();
 		assertThat(rdo.getStops()).isEmpty();
 		assertThat(rdo.getLegs()).isEmpty();
+	}
+
+	@Test
+	void getWalkingRoute_shouldEmitSpanningLegWithChunkOffsetAndKeepTotals() {
+		when(propertyStore.findAllByVisitId(VISIT_ID)).thenReturn(distinctProperties(9));
+		// 첫 묶음(0..6)은 묶음 전체를 잇는 구간 하나, 둘째 묶음(6..8)은 정상 구간 둘.
+		when(gateway.route(anyList()))
+			.thenReturn(new WalkingRouteSegment(600, 360,
+				List.of(new WalkingRouteSegment.Leg(0, 6, 600, 360, List.of(new GeoPoint(37, 127))))))
+			.thenReturn(new WalkingRouteSegment(200, 120, List.of(
+				new WalkingRouteSegment.Leg(0, 1, 100, 60, List.of()),
+				new WalkingRouteSegment.Leg(1, 2, 100, 60, List.of()))));
+
+		WalkingRouteRdo rdo = flow.getWalkingRoute(VISIT_ID);
+
+		assertThat(rdo.getTotalDistance()).isEqualTo(800);
+		assertThat(rdo.getTotalTime()).isEqualTo(480);
+		assertThat(rdo.getLegs()).hasSize(3);
+		assertThat(rdo.getLegs().get(0).getFromStopIndex()).isZero();
+		assertThat(rdo.getLegs().get(0).getToStopIndex()).isEqualTo(6);
+		assertThat(rdo.getLegs().get(1).getFromStopIndex()).isEqualTo(6);
+		assertThat(rdo.getLegs().get(1).getToStopIndex()).isEqualTo(7);
+		assertThat(rdo.getLegs().get(2).getToStopIndex()).isEqualTo(8);
 	}
 }

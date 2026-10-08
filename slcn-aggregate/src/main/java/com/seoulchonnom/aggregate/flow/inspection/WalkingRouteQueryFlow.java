@@ -55,9 +55,8 @@ public class WalkingRouteQueryFlow {
 			WalkingRouteSegment segment = walkingRouteGateway.route(points);
 			totalDistance += segment.totalDistance();
 			totalTime += segment.totalTime();
-			for (int i = 0; i < segment.legs().size(); i++) {
-				WalkingRouteSegment.Leg leg = segment.legs().get(i);
-				legs.add(new WalkingRouteLegRdo(from + i, from + i + 1, leg.distance(), leg.time(),
+			for (WalkingRouteSegment.Leg leg : segment.legs()) {
+				legs.add(new WalkingRouteLegRdo(from + leg.fromIndex(), from + leg.toIndex(), leg.distance(), leg.time(),
 					leg.path().stream().map(p -> List.of(p.longitude(), p.latitude())).toList()));
 			}
 		}

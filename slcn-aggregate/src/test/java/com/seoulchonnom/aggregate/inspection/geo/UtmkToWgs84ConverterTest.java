@@ -2,6 +2,9 @@ package com.seoulchonnom.aggregate.inspection.geo;
 
 import static org.assertj.core.api.Assertions.*;
 
+import com.seoulchonnom.aggregate.inspection.exception.AddressLookupUnavailableException;
+import com.seoulchonnom.spec.common.exception.ErrorCode;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -30,5 +33,13 @@ class UtmkToWgs84ConverterTest {
 		UtmkPoint seoul = new UtmkPoint(953898.449, 1952035.979);
 
 		assertThat(converter.convert(seoul)).isEqualTo(converter.convert(seoul));
+	}
+
+	@ParameterizedTest
+	@CsvSource({"0, 0", "-5000000, 100", "100000000, 100000000", "NaN, 1952035.979", "953898.449, Infinity"})
+	void convert_shouldFailAsUpstreamWhenResultIsOutsideKoreaOrNotFinite(double x, double y) {
+		assertThatThrownBy(() -> converter.convert(new UtmkPoint(x, y))).isInstanceOfSatisfying(
+			AddressLookupUnavailableException.class,
+			e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.ADDRESS_LOOKUP_FAILED));
 	}
 }

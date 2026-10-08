@@ -122,15 +122,32 @@ public class KakaoWalkingRouteGateway implements WalkingRouteGateway {
 			int totalDistance = requiredInt(properties, "totalDistance");
 			int totalTime = requiredInt(properties, "totalTime");
 			JsonNode legNodes = route.path("legs");
-			if (!legNodes.isArray() || legNodes.size() != expectedLegs) {
+			if (!legNodes.isArray() || legNodes.isEmpty()) {
 				return invalid();
 			}
 			List<WalkingRouteSegment.Leg> legs = new ArrayList<>();
-			for (JsonNode legNode : legNodes) {
-				JsonNode legProperties = legNode.path("properties");
-				legs.add(new WalkingRouteSegment.Leg(requiredInt(legProperties, "distance"),
-					requiredInt(legProperties, "time"), path(legNode.path("steps"))));
+			if (legNodes.size() == expectedLegs) {
+				int index = 0;
+				for (JsonNode legNode : legNodes) {
+					JsonNode legProperties = legNode.path("properties");
+					legs.add(new WalkingRouteSegment.Leg(index, index + 1, requiredInt(legProperties, "distance"),
+						requiredInt(legProperties, "time"), path(legNode.path("steps"))));
+					index++;
+				}
+				return new WalkingRouteSegment(totalDistance, totalTime, legs);
 			}
+			// 기대와 다른 수의 구간을 주면 어느 구간이 어느 지점 사이인지 알 수 없다.
+			// 실패시키지 않고 묶음 전체를 잇는 구간 하나로 돌려준다(거리·시간은 경로 합계, 경로는 모든 구간을 이은 것).
+			List<GeoPoint> whole = new ArrayList<>();
+			for (JsonNode legNode : legNodes) {
+				for (GeoPoint point : path(legNode.path("steps"))) {
+					if (whole.isEmpty() || !whole.get(whole.size() - 1).equals(point)) {
+						whole.add(point);
+					}
+				}
+			}
+			log.warn("카카오 도보 경로 구간 수가 기대와 다릅니다: expected={}, actual={}", expectedLegs, legNodes.size());
+			legs.add(new WalkingRouteSegment.Leg(0, expectedLegs, totalDistance, totalTime, whole));
 			return new WalkingRouteSegment(totalDistance, totalTime, legs);
 		} catch (WalkingRouteException e) {
 			throw e;

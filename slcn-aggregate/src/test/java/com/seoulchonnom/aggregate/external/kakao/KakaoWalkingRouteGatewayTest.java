@@ -189,6 +189,38 @@ class KakaoWalkingRouteGatewayTest {
 	}
 
 	@Test
+	void route_shouldReturnSingleSpanningLegWhenLegCountDiffersFromExpected() {
+		server.expect(requestTo(org.hamcrest.Matchers.startsWith(BASE)))
+			.andRespond(withSuccess(OK_TWO_LEGS, MediaType.APPLICATION_JSON));
+
+		// 지점 4개면 구간 3개를 기대하지만 카카오는 2개를 준다.
+		WalkingRouteSegment segment = gateway.route(List.of(A, B, C, new GeoPoint(37.53, 127.03)));
+
+		assertThat(segment.totalDistance()).isEqualTo(900);
+		assertThat(segment.totalTime()).isEqualTo(700);
+		assertThat(segment.legs()).hasSize(1);
+		WalkingRouteSegment.Leg leg = segment.legs().get(0);
+		assertThat(leg.fromIndex()).isZero();
+		assertThat(leg.toIndex()).isEqualTo(3);
+		assertThat(leg.distance()).isEqualTo(900);
+		assertThat(leg.time()).isEqualTo(700);
+		// 두 구간의 경계 [127.01,37.51]이 중복 없이 한 번만 들어간다.
+		assertThat(leg.path()).containsExactly(new GeoPoint(37.5, 127.0), new GeoPoint(37.501, 127.001),
+			new GeoPoint(37.51, 127.01), new GeoPoint(37.52, 127.02));
+	}
+
+	@Test
+	void route_shouldKeepPerStopLegIndexesWhenCountMatches() {
+		server.expect(requestTo(org.hamcrest.Matchers.startsWith(BASE)))
+			.andRespond(withSuccess(OK_TWO_LEGS, MediaType.APPLICATION_JSON));
+
+		WalkingRouteSegment segment = gateway.route(List.of(A, B, C));
+
+		assertThat(segment.legs()).extracting(WalkingRouteSegment.Leg::fromIndex).containsExactly(0, 1);
+		assertThat(segment.legs()).extracting(WalkingRouteSegment.Leg::toIndex).containsExactly(1, 2);
+	}
+
+	@Test
 	void route_shouldMapUnparsableOrMismatchedBodyTo502() {
 		for (String body : List.of("not json", "{}", "{\"status\":\"OK\"}",
 			"{\"status\":\"OK\",\"route\":{\"properties\":{\"totalDistance\":1,\"totalTime\":1},\"legs\":[]}}")) {
