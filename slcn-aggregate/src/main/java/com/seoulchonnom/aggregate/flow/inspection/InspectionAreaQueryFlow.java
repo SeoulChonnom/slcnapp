@@ -337,7 +337,7 @@ public class InspectionAreaQueryFlow {
 		Map<String, List<ViewedPropertySummaryPdo>> propertiesByVisit, Map<String, List<String>> tagNames,
 		Map<String, FileBox> fileBoxes, List<FileBoxItem> thumbnailItems, Map<String, FileAsset> assets) {
 		// 계획(completedAt 없음)은 방문으로 세지 않는다. 방문 횟수·방문일 범위·최신 회차·매물 수·최고 관심 매물은
-		// 완료 임장만으로 계산한다. 미완료 요약(incompleteSummary)은 C3 전까지 기존처럼 전체 임장 기준이다
+		// 완료 임장만으로 계산한다. 미완료 요약(incompleteSummary)은 계획을 직접 가르도록 전체 임장·매물을 넘긴다
 		List<InspectionVisit> completedVisits = completedOf(visits);
 		List<ViewedPropertySummaryPdo> everyProperty = propertiesOf(visits, propertiesByVisit);
 		List<ViewedPropertySummaryPdo> allProperties = propertiesOf(completedVisits, propertiesByVisit);

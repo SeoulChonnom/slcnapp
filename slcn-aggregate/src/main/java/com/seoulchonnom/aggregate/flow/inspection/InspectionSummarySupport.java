@@ -2,6 +2,7 @@ package com.seoulchonnom.aggregate.flow.inspection;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
@@ -68,16 +69,30 @@ public class InspectionSummarySupport {
 	/**
 	 * 지역 목록용. 개수만 담는다 — 목록 N행마다 질문 문구를 끌어오면
 	 * 정수 합산이던 집계가 답변 본문 조회로 바뀐다.
+	 *
+	 * 계획 임장(completedAt 없음)은 "끝내지 못한 것"이 아니라 "아직 가지 않은 것"이므로 미완료로 세지 않는다.
+	 * 미완료는 수정 중(완료 이력이 있는 DRAFT) 임장만이고, 계획 임장의 매물도 뺀다. 계획 수는 따로 담는다.
+	 * visits와 properties는 지역의 전체 임장·매물을 받는다 — 매물이 어느 임장 소속인지는 inspectionVisitId로 가른다.
 	 */
 	public IncompleteSummaryRdo ofArea(List<InspectionVisit> visits, List<ViewedPropertySummaryPdo> properties) {
+		Set<String> plannedVisitIds = visits.stream()
+			.filter(visit -> visit.getCompletedAt() == null)
+			.map(InspectionVisit::getId)
+			.collect(Collectors.toSet());
+		List<ViewedPropertySummaryPdo> nonPlanProperties = properties.stream()
+			.filter(property -> !plannedVisitIds.contains(property.getInspectionVisitId()))
+			.toList();
+
 		IncompleteSummaryRdo summary = new IncompleteSummaryRdo();
-		summary.setUnansweredRequiredCount(properties.stream()
+		summary.setUnansweredRequiredCount(nonPlanProperties.stream()
 			.mapToInt(ViewedPropertySummaryPdo::getUnansweredRequiredCount)
 			.sum());
-		summary.setDraftPropertyCount(countDraft(properties));
+		summary.setDraftPropertyCount(countDraft(nonPlanProperties));
 		summary.setDraftVisitCount((int)visits.stream()
+			.filter(visit -> visit.getCompletedAt() != null)
 			.filter(visit -> InspectionStatus.COMPLETED != visit.getStatus())
 			.count());
+		summary.setPlannedVisitCount(plannedVisitIds.size());
 		return summary;
 	}
 
