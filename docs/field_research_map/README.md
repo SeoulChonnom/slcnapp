@@ -12,6 +12,7 @@
 | [02-legal-and-terms.md](./02-legal-and-terms.md) | 데이터 저장 금지 약관, 위치정보법, 공간정보 관련 법령, 출처 표시 의무 |
 | [03-feasibility-and-design.md](./03-feasibility-and-design.md) | 현재 코드·데이터 모델 기준 구현 가능성, 권장 아키텍처, 단계별 계획, 리스크 |
 | [04-decision-review.md](./04-decision-review.md) | **확정 결정 기준 재검토 (설계 기준 문서, 03과 충돌하면 04가 우선)** |
+| [05-fe-handoff.md](./05-fe-handoff.md) | BE 구현(C1~C11) 결과를 FE 작업(FC1~FC6)에 넘기는 전달 문서 |
 
 ## 확정 결정 (2026-10-08)
 
