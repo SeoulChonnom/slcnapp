@@ -39,7 +39,8 @@ public class ViewedPropertyJpo extends DomainEntityJpo {
 	private String inspectionVisitId;
 	@Column(length = 200, nullable = false)
 	private String complexName;
-	@Column(length = 200, nullable = false)
+	// 계획 단계에서는 동·호수를 모를 수 있어 비워 둘 수 있다. 완료 조건(findMissingFieldsForCompletion)은 그대로다
+	@Column(length = 200)
 	private String name;
 	@Column(columnDefinition = "TEXT")
 	private String memo;

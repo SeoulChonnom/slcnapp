@@ -87,6 +87,21 @@ class ViewedPropertyFlowTest {
 	}
 
 	@Test
+	void registerViewedProperty_shouldAcceptOmittedName() {
+		when(inspectionVisitLogic.getInspectionVisit(VISIT_ID)).thenReturn(visit(InspectionStatus.DRAFT));
+		when(viewedPropertyLogic.getViewedProperties(VISIT_ID)).thenReturn(List.of());
+		when(inspectionQuestionLogic.getEnabledQuestions()).thenReturn(List.of());
+		echoSave();
+		ViewedPropertyCdo cdo = cdo();
+		cdo.setName(null);
+
+		ViewedProperty saved = viewedPropertyFlow.registerViewedProperty(VISIT_ID, cdo);
+
+		assertThat(saved.getName()).isNull();
+		assertThat(saved.getStatus()).isEqualTo(InspectionStatus.DRAFT);
+	}
+
+	@Test
 	void registerViewedProperty_shouldMaterializeAnswersBeforeSaving() {
 		when(inspectionVisitLogic.getInspectionVisit(VISIT_ID)).thenReturn(visit(InspectionStatus.DRAFT));
 		when(viewedPropertyLogic.getViewedProperties(VISIT_ID)).thenReturn(List.of());
