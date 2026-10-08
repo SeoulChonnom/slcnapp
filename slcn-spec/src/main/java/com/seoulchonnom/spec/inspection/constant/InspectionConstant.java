@@ -39,6 +39,10 @@ public final class InspectionConstant {
 	public static final String ADDRESS_LOOKUP_FAILED_ERROR_MESSAGE = "주소 검색 서비스에서 응답을 받지 못했습니다. 잠시 후 다시 시도하세요.";
 	public static final String INVALID_ADDRESS_KEYWORD_ERROR_MESSAGE = "검색어가 올바르지 않습니다.";
 
+	public static final String WALKING_ROUTE_UNAVAILABLE_ERROR_MESSAGE = "도보 경로 설정에 문제가 있어 사용할 수 없습니다. 관리자에게 문의하세요.";
+	public static final String WALKING_ROUTE_QUOTA_EXCEEDED_ERROR_MESSAGE = "도보 경로 조회 한도를 초과했습니다. 내일 다시 시도하세요.";
+	public static final String WALKING_ROUTE_FAILED_ERROR_MESSAGE = "도보 경로 서비스에서 경로를 받지 못했습니다. 잠시 후 다시 시도하세요.";
+
 	private InspectionConstant() {
 	}
 }

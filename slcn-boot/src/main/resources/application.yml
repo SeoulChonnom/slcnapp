@@ -86,6 +86,13 @@ slcn:
       coord-key: "${SLCN_JUSO_COORD_KEY:}"
       # 호출 하나당 연결·읽기 제한 시간이다. 넘기면 502(ADDRESS_LOOKUP_FAILED)로 응답한다.
       timeout-seconds: "${SLCN_JUSO_TIMEOUT_SECONDS:5}"
+    kakao:
+      base-url: "${SLCN_KAKAO_BASE_URL:https://dapi.kakao.com}"
+      # 카카오 REST API 키(도보 경로 조회용). 비어 있으면 도보 경로는 503(WALKING_ROUTE_UNAVAILABLE)을 돌려준다.
+      # 카카오 콘솔에서 유료 API 사용을 켜지 않으면 일 1,000건 초과 시 429로 차단된다(과금 없음). 운영에서는 켜지 않는다.
+      rest-key: "${SLCN_KAKAO_REST_KEY:}"
+      # 호출 하나당 연결·읽기 제한 시간이다. 넘기면 502(WALKING_ROUTE_FAILED)로 응답한다.
+      timeout-seconds: "${SLCN_KAKAO_TIMEOUT_SECONDS:5}"
   storage:
     # local | r2. r2가 아니면 로컬 디스크에 저장하고 바이트를 직접 서빙한다.
     provider: "${SLCN_STORAGE_PROVIDER:local}"

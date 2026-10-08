@@ -42,7 +42,8 @@ class ReviewSuggestionResourceJsonContractTest {
 		LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
 		validator.afterPropertiesSet();
 		InspectionVisitResource visitResource = new InspectionVisitResource(mock(InspectionVisitQueryFlow.class),
-			mock(InspectionVisitFlow.class), mock(ViewedPropertyFlow.class), flow);
+			mock(InspectionVisitFlow.class), mock(ViewedPropertyFlow.class), flow,
+			mock(com.seoulchonnom.aggregate.flow.inspection.WalkingRouteQueryFlow.class));
 		ViewedPropertyResource propertyResource = new ViewedPropertyResource(mock(ViewedPropertyFlow.class),
 			mock(InspectionVisitQueryFlow.class), flow);
 		mockMvc = MockMvcBuilders.standaloneSetup(visitResource, propertyResource)

@@ -15,6 +15,7 @@ import com.seoulchonnom.aggregate.flow.inspection.InspectionReviewSuggestionFlow
 import com.seoulchonnom.aggregate.flow.inspection.InspectionVisitFlow;
 import com.seoulchonnom.aggregate.flow.inspection.InspectionVisitQueryFlow;
 import com.seoulchonnom.aggregate.flow.inspection.ViewedPropertyFlow;
+import com.seoulchonnom.aggregate.flow.inspection.WalkingRouteQueryFlow;
 import com.seoulchonnom.spec.common.response.PageRdo;
 import com.seoulchonnom.spec.inspection.entity.InspectionVisit;
 import com.seoulchonnom.spec.inspection.entity.vo.InspectionStatus;
@@ -27,6 +28,7 @@ import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ReviewSuggestionRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ReviewSuggestionSdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyOrderUdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.WalkingRouteRdo;
 
 class InspectionVisitResourceTest {
 	private static final String VISIT_ID = "INSPECTION_VISIT-0001";
@@ -36,8 +38,10 @@ class InspectionVisitResourceTest {
 	private final ViewedPropertyFlow viewedPropertyFlow = mock(ViewedPropertyFlow.class);
 	private final InspectionReviewSuggestionFlow inspectionReviewSuggestionFlow = mock(
 		InspectionReviewSuggestionFlow.class);
+	private final WalkingRouteQueryFlow walkingRouteQueryFlow = mock(WalkingRouteQueryFlow.class);
 	private final InspectionVisitResource inspectionVisitResource = new InspectionVisitResource(
-		inspectionVisitQueryFlow, inspectionVisitFlow, viewedPropertyFlow, inspectionReviewSuggestionFlow);
+		inspectionVisitQueryFlow, inspectionVisitFlow, viewedPropertyFlow, inspectionReviewSuggestionFlow,
+		walkingRouteQueryFlow);
 
 	private InspectionVisit savedVisit() {
 		InspectionVisit visit = new InspectionVisit(VISIT_ID, "INSPECTION_AREA-0001",
@@ -161,5 +165,16 @@ class InspectionVisitResourceTest {
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 		assertThat(response.getBody()).isSameAs(suggestion);
+	}
+
+	@Test
+	void getWalkingRoute_shouldDelegateToFlowWithoutBody() {
+		WalkingRouteRdo route = new WalkingRouteRdo(0, 0, List.of(), List.of());
+		when(walkingRouteQueryFlow.getWalkingRoute(VISIT_ID)).thenReturn(route);
+
+		var response = inspectionVisitResource.getWalkingRoute(VISIT_ID);
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+		assertThat(response.getBody()).isSameAs(route);
 	}
 }
