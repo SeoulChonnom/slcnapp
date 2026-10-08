@@ -77,6 +77,15 @@ slcn:
       # MINIMAL | LOW | MEDIUM | HIGH. 3.x 계열은 기본으로 오래 생각해 응답이 느려지므로 LOW로 줄인다.
       # 비우면 보내지 않는다(2.5 등 thinkingLevel 미지원 모델). MINIMAL은 일부 모델이 400으로 거절한다.
       thinking-level: "${SLCN_GEMINI_THINKING_LEVEL:LOW}"
+  geo:
+    juso:
+      base-url: "${SLCN_JUSO_BASE_URL:https://business.juso.go.kr}"
+      # 행안부 도로명주소 검색 API 승인키. 비어 있으면 주소 검색은 503(ADDRESS_LOOKUP_UNAVAILABLE)을 돌려준다.
+      search-key: "${SLCN_JUSO_SEARCH_KEY:}"
+      # 좌표제공 API 승인키(검색 키와 별도 발급). 비어 있으면 좌표 조회만 꺼진다.
+      coord-key: "${SLCN_JUSO_COORD_KEY:}"
+      # 호출 하나당 연결·읽기 제한 시간이다. 넘기면 502(ADDRESS_LOOKUP_FAILED)로 응답한다.
+      timeout-seconds: "${SLCN_JUSO_TIMEOUT_SECONDS:5}"
   storage:
     # local | r2. r2가 아니면 로컬 디스크에 저장하고 바이트를 직접 서빙한다.
     provider: "${SLCN_STORAGE_PROVIDER:local}"
