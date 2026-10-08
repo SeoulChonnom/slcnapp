@@ -13,6 +13,8 @@ import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitDetailRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitStatusUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitUdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.ReviewSuggestionRdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.ReviewSuggestionSdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyOrderUdo;
 
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -54,4 +56,12 @@ public interface InspectionVisitFacade {
 	 */
 	@ApiResponse(responseCode = "204", description = "성공. 본문 없음")
 	ResponseEntity<Void> deleteInspectionVisit(String visitId);
+
+	/**
+	 * 폼에 입력 중인 메모/장점으로 한줄평·단점·태그를 AI가 제안한다. **제안만 하고 아무것도 저장하지 않는다** —
+	 * FE가 폼을 채우고 사용자가 기존 PUT으로 저장한다. memo와 pros가 모두 비어 있으면 400이다.
+	 * AI 설정이 없거나 호출이 실패하면 503(REVIEW_SUGGESTION_UNAVAILABLE)이다.
+	 */
+	ResponseEntity<ReviewSuggestionRdo> suggestInspectionVisitReview(String visitId,
+		ReviewSuggestionSdo reviewSuggestionSdo);
 }
