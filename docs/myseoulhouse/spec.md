@@ -325,7 +325,7 @@ f_k(P) = Cash - Reserve - cost(P) + \min(L_{DSR},\; LTV \times P,\; Cap_k) - P
 | 학교 위치 | 공공데이터포털, 전국초중등학교위치표준데이터 | 학교ID, 학교명, 학교급, 위도·경도 | 반기 | 활용신청 시 확인 |
 | 정비사업 | 서울시 정비사업 공개 데이터 (데이터셋 확정 필요, 13장) | 사업명, 유형, 진행단계, 위치 | 월 1회 | 확정 시 확인 |
 
-- 필드명은 0단계에서 실거래 API를 한 번 호출해 실제 응답으로 확인한다. 특히 `aptSeq`가 모든 행에 채워지는지 확인한다(8장 설계의 전제). 거래금액은 쉼표 포함 문자열(예: "82,500")이므로 정수로 바꾼다.
+- 필드명은 2026-10-21 실제 호출로 확인했다. `aptSeq`는 서울 3개 구 670건 모두에 채워져 있다(8장 설계의 전제). 같은 필드가 숫자로도 문자열로도 오고, 빈 값은 공백 한 칸이다(변환 규칙은 `be-design.md` §4.1). 거래금액은 쉼표 포함 문자열(예: "82,500")이므로 정수로 바꾼다.
 - 공동주택 단지 목록·기본정보(K-apt)는 1차에서 쓰지 않는다. 의무관리 단지만 있어 소규모 단지가 빠지고, 이름 매칭이 필요해지기 때문이다. 세대수·사용승인일은 건축물대장으로 얻는다.
 - 영상 화면의 출처 표기는 "Seoul Real Estate Portal"이다. 국토부 API로 부족하면 서울 부동산정보광장을 대체 소스로 검토한다 (1차는 국토부만).
 
@@ -336,9 +336,9 @@ f_k(P) = Cash - Reserve - cost(P) + \min(L_{DSR},\; LTV \times P,\; Cap_k) - P
 | 단계 | 내용 | 외부 호출 |
 | --- | --- | --- |
 | 1. 수집 단위 준비 | 25개 구 × 최근 40개월(3년 전 3개월 창을 덮는 범위)의 (구, 계약년월) 행을 `house_collect_unit`에 보장 | — |
-| 2. 실거래 수집 | 아래 우선순위로 단위를 골라 수집, 일일 호출 상한(`slcn.house.daily-call-limit`, 기본 1,000)에 닿으면 멈춤 | 공공데이터포털 |
-| 3. 단지 보강 | 새 단지 또는 보강 실패(재시도 3회 미만) 단지의 좌표·건축물대장 조회. 매월 1일에는 전체 단지의 건축물대장 재조회 | 행안부, 공공데이터포털 |
-| 4. 학교 동기화 | `SCHOOL_SYNC`의 마지막 SUCCESS가 없거나 180일 지났으면 학교 갱신 + 단지별 최근접 학교 재계산. 아니면 SKIPPED | 공공데이터포털 |
+| 2. 실거래 수집 | 아래 우선순위로 단위를 골라 수집, 실거래 API 일일 호출 상한(`slcn.house.call-limit.trade`, 기본 1,000)에 닿으면 멈춤 | 공공데이터포털 |
+| 3. 단지 보강 | 새 단지 또는 보강 실패(재시도 3회 미만) 단지의 좌표·건축물대장 조회. 남은 예산으로 건축물대장 갱신이 30일 지난 단지를 오래된 순으로 재조회(약 월 1회 주기) | 행안부, 공공데이터포털 |
+| 4. 학교 동기화 | `SCHOOL_SYNC`의 마지막 SUCCESS가 없거나 180일 지났으면 학교 갱신 + 단지별 최근접 학교 재계산. 아니면 SKIPPED. 3단계에서 좌표가 새로 생긴 단지가 있으면 수집 없이 최근접만 재계산(기록은 SKIPPED라 180일 주기에 영향 없음) | 공공데이터포털 |
 | 5. 정비사업 동기화 | `REDEVELOPMENT_SYNC`의 마지막 SUCCESS가 없거나 30일 지났으면 정비사업 갱신 + 단지별 반경 500m 연결 재계산. 데이터셋 미확정(13장)이면 SKIPPED | 서울시 |
 | 6. 통계 | 이상치 표시 → 단지·평형 통계 → 랭킹 4종. 통계·랭킹 테이블은 한 트랜잭션에서 통째로 교체 | — |
 
@@ -352,7 +352,7 @@ f_k(P) = Cash - Reserve - cost(P) + \min(L_{DSR},\; LTV \times P,\; Cap_k) - P
 - 전체 백필 규모: 25 × 40 = 1,000 단위 + 페이지. 상한 1,000이면 1\~2일 걸린다.
 - 이 작업은 기본 스케줄러 스레드 하나에서 돈다. 04:30 업로드 정리 작업(`RawUploadCleanupScheduler`)보다 오래 걸리면 정리 작업이 그만큼 늦게 시작한다. 이 정도 지연은 허용한다.
 - 운영 중 즉시 실행이 필요하면 cron 값을 바꿔 재시작한다. 수동 실행 API는 두지 않는다.
-- `SLCN_DATA_GO_KR_SERVICE_KEY`가 비어 있으면 배치 전체를 건너뛰고 로그만 남긴다 (Gemini·행안부 키와 같은 패턴). 개발 환경 cron 기본값은 `-`(비활성)이다.
+- `SLCN_DATA_ORG_API_KEY`가 비어 있으면 배치 전체를 건너뛰고 로그만 남긴다 (Gemini·행안부 키와 같은 패턴). 개발 환경 cron 기본값은 `-`(비활성)이다.
 
 ### 수집 규칙
 
@@ -388,6 +388,7 @@ f_k(P) = Cash - Reserve - cost(P) + \min(L_{DSR},\; LTV \times P,\; Cap_k) - P
 - 세대수: 총괄표제부 세대수. 없으면 표제부 중 주용도가 공동주택인 동의 세대수 합.
 - 용적률·건폐율: 총괄표제부 우선, 없으면 표제부(동이 여럿이면 연면적이 가장 큰 동). 출처를 `far_source`(RECAP | TITLE)에 남긴다.
 - 사용승인일: 위와 같은 우선순위. 없으면 실거래 `buildYear`로 연식만 표시한다.
+- 총괄표제부 호출이 장애(타임아웃 등)로 실패하면 표제부로 대체한다. 용적률·건폐율이 0으로 오면 값이 없는 것으로 본다.
 - 조회 결과가 없으면 `register_status = FAILED`, 해당 칸은 "정보 없음"이다. 대표 지번과 대장 지번이 다른 단지는 관리자가 지번을 보정한다.
 
 ### 면적 구간
@@ -415,7 +416,7 @@ f_k(P) = Cash - Reserve - cost(P) + \min(L_{DSR},\; LTV \times P,\; Cap_k) - P
 | `house_complex` (`HouseComplexJpo`) | `apt_seq`, `lawd_cd`(5), `umd_cd`(5), `umd_name`, `bonbun`, `bubun`, `apt_name`, `road_address`, `address_override`, `latitude`, `longitude`, `geocode_status`(PENDING\|DONE\|FAILED), `geocode_attempts`, `build_year`, `approval_date`, `households`, `far_pct`, `far_source`(RECAP\|TITLE), `bcr_pct`, `register_status`(PENDING\|DONE\|FAILED), `register_attempts` | UK `apt_seq`, IDX (`latitude`, `longitude`), IDX `apt_name`, IDX (`lawd_cd`, `umd_cd`) (구·동 묶음 집계) |
 | `house_trade` (`HouseTradeJpo`) | `dedup_key`(64), `complex_id`, `lawd_cd`, `deal_ym`(YYYYMM), `deal_date`, `exclusive_area`, `area_bucket`(B59\|B84\|OTHER), `amount_manwon`, `floor`, `apt_dong`, `build_year`, `dealing_type`(BROKER\|DIRECT\|UNKNOWN), `cancelled`, `cancelled_date`, `outlier`, `removed` | UK `dedup_key`, IDX (`complex_id`, `area_bucket`, `deal_date`), IDX (`lawd_cd`, `deal_ym`) |
 | `house_collect_unit` (`HouseCollectUnitJpo`) | `lawd_cd`, `deal_ym`, `status`(NEVER\|DONE\|FAILED), `last_success_date`, `attempts` | UK (`lawd_cd`, `deal_ym`) |
-| `house_complex_area_stat` | PK (`complex_id`, `area_bucket`), `avg_area_12m`, `recent_price_manwon`, `recent_window_months`(3\|6\|null), `recent_sample`, `avg_3m`/`cnt_3m`, `avg_3m_1y_ago`/`cnt_3m_1y_ago`, `avg_3m_3y_ago`/`cnt_3m_3y_ago`, `avg_12m`/`cnt_12m`, `change_1y_pct`, `change_1y_manwon`, `change_3y_pct`, `change_3y_manwon`, `volume_3m`, `computed_date` | — |
+| `house_complex_area_stat` | PK (`complex_id`, `area_bucket`), `avg_area_12m`, `recent_price_manwon`, `recent_window_months`(3\|6\|null), `recent_sample`, `avg_3m`/`cnt_3m`, `avg_6m`/`cnt_6m`, `avg_3m_1y_ago`/`cnt_3m_1y_ago`, `avg_3m_3y_ago`/`cnt_3m_3y_ago`, `avg_12m`/`cnt_12m`, `change_1y_pct`, `change_1y_manwon`, `change_3y_pct`, `change_3y_manwon`, `volume_3m`, `computed_date` | — |
 | `house_ranking` | PK (`ranking_type`, `area_bucket`, `rank_no`), `lawd_cd`, `complex_id`(구별 대장 "거래 없음" 행은 null), `value_num`, `change_manwon`, `sample_count`, `badge`(LOW_SAMPLE\|NO_TRADE\|null), `period_from`, `period_to`, `computed_date` | — |
 | `house_school` | `school_code`, `name`, `level`(E\|M\|H), `latitude`, `longitude`, `synced_date` | UK `school_code` |
 | `house_complex_school` | PK (`complex_id`, `level`), `school_id`, `distance_m` | — |
@@ -447,8 +448,9 @@ INSERT INTO slcn.house_budget_policy
   (id, entity_version, registered_time, modified_time, effective_from,
    dsr_ratio, stress_rate_pp, term_years, default_reserve_manwon, ltv_first_time, ltv_non_first,
    price_caps, cost_rates, source_note)
-VALUES
-  ('<생성 ID>', 0, <epoch ms>, <epoch ms>, '2025-10-16',
+SELECT
+   gen_random_uuid()::text, 0,
+   (extract(epoch from now()) * 1000)::bigint, (extract(epoch from now()) * 1000)::bigint, DATE '2025-10-16',
    0.400, 3.00, 30, 2000, 0.700, 0.400,
    '[{"maxPriceManwon":150000,"capManwon":60000},
      {"maxPriceManwon":250000,"capManwon":40000},
@@ -463,10 +465,11 @@ VALUES
                            {"belowManwon":null,"ratePct":0.7,"capManwon":null}],
                   "vatRatio":0.1},
      "registrationRatePct":0.2}',
-   '10·15 대책(2025-10-16 시행), 지방세법, 서울시 중개보수 조례');
+   '10·15 대책(2025-10-16 시행), 지방세법, 서울시 중개보수 조례'
+WHERE NOT EXISTS (SELECT 1 FROM slcn.house_budget_policy WHERE effective_from = DATE '2025-10-16');
 ```
 
-컬럼명은 JPO 필드명이 확정된 뒤 실제 테이블과 맞춘다. 넣기 전에 같은 `effective_from` 행이 없는지 조회해 확인한다.
+정책 ID는 UUID라 `id_sequence` 행이 필요 없고, `WHERE NOT EXISTS`로 두 번 실행해도 안전하다. JSON 컬럼은 TEXT다(`be-design.md` §9).
 
 ## 10. API 명세
 
@@ -708,7 +711,7 @@ slcn-spec/…/spec/house/
   constant/   HouseConstant (구 코드↔이름, 구별 고정 중심 좌표, 면적 구간 경계 기본값)
   entity/     HouseComplex, HouseTrade, HouseBudgetPolicy …  (JPA 애너테이션 없음)
   entity/vo/  AreaBucket, RankingType, SampleStatus, PriceCap, CostRates …
-  facade/     HouseBudgetPolicyFacade, HouseComplexFacade, HouseRankingFacade, HouseMetaFacade, HouseAdminFacade
+  facade/     HouseBudgetPolicyFacade, HouseComplexFacade, HouseCompareFacade, HouseRankingFacade, HouseMetaFacade, HouseAdminFacade
   facade/sdo/ BudgetPolicyRdo, ComplexMapListRdo, ComplexSummaryRdo, ComplexSearchRdo, ComplexCardRdo, CompareRdo,
               RankingListRdo, HouseMetaRdo, IncompleteComplexListRdo, AddressOverrideUdo …
 
@@ -741,11 +744,17 @@ slcn-boot/
 
 | 키 | 환경변수 | 기본 | 설명 |
 | --- | --- | --- | --- |
-| `slcn.house.data-go-kr.service-key` | `SLCN_DATA_GO_KR_SERVICE_KEY` | (빈 값) | 비면 배치 전체 SKIP |
-| `slcn.house.data-go-kr.base-url` | `SLCN_DATA_GO_KR_BASE_URL` | `https://apis.data.go.kr` | |
-| `slcn.house.data-go-kr.timeout-seconds` | `SLCN_DATA_GO_KR_TIMEOUT_SECONDS` | 10 | |
+| `slcn.house.data-go-kr.service-key` | `SLCN_DATA_ORG_API_KEY` | (빈 값) | 공공데이터포털 Decoding 키. 세 API 공용. 비면 배치 전체 SKIP |
+| `slcn.house.data-go-kr.base-url` | `SLCN_DATA_ORG_BASE_URL` | `https://apis.data.go.kr` | 실거래·건축물대장 |
+| `slcn.house.data-go-kr.school-base-url` | `SLCN_DATA_ORG_SCHOOL_BASE_URL` | `https://api.data.go.kr` | 학교 표준데이터 |
+| `slcn.house.data-go-kr.timeout-seconds` | `SLCN_DATA_ORG_TIMEOUT_SECONDS` | 10 | |
 | `slcn.house.nightly-cron` | `SLCN_HOUSE_NIGHTLY_CRON` | `-` (운영 `0 0 3 * * *`) | |
-| `slcn.house.daily-call-limit` | `SLCN_HOUSE_DAILY_CALL_LIMIT` | 1000 | 공공데이터포털 호출 상한 |
+| `slcn.house.call-limit.trade` | `SLCN_HOUSE_CALL_LIMIT_TRADE` | 1000 | 실거래 API 일일 호출 상한 |
+| `slcn.house.call-limit.building-register` | `SLCN_HOUSE_CALL_LIMIT_BUILDING_REGISTER` | 5000 | 건축물대장 API 일일 호출 상한 (개발계정 한도 10,000) |
+| `slcn.house.call-limit.school` | `SLCN_HOUSE_CALL_LIMIT_SCHOOL` | 100 | 학교 표준데이터 API 일일 호출 상한 |
+| `slcn.house.call-limit.juso` | `SLCN_HOUSE_CALL_LIMIT_JUSO` | 4000 | 행안부 검색·좌표 호출 상한 (단지 보강용) |
+
+공공데이터포털 한도는 활용신청한 API마다 따로 매겨지므로 상한도 API별로 둔다. 상세는 `be-design.md` §4.7, §8.1.
 
 행안부 키(`SLCN_JUSO_SEARCH_KEY`, `SLCN_JUSO_COORD_KEY`)는 기존 값을 그대로 쓴다. 키를 추가하면 AGENTS.md의 환경변수 목록도 갱신한다.
 
@@ -886,10 +895,10 @@ src/lib/api/query-keys.ts   houseQueryKeys 추가
 
 | # | 이슈 | 기본안 | 담당 |
 | --- | --- | --- | --- |
-| 1 | `aptSeq`가 모든 실거래 행에 있는지 | 있다고 보고 설계. 빈 행은 대체 키(8장) | BE (0단계 확인) |
+| 1 | `aptSeq`가 모든 실거래 행에 있는지 | 확인 완료(2026-10-21, 670건 중 누락 0건). 대체 키(8장)는 방어용으로 둔다 | BE |
 | 2 | 정비사업 데이터셋 | 미확정이면 7번 지표 "정보 없음"으로 출시 | BE |
 | 3 | 카카오맵 레이어 전환 level | 구 묶음 ≥ 8, 동 묶음 6\~7, 단지 ≤ 5 (영역 0.2도 초과 시 동 묶음, 1.0도 초과 시 구 묶음), 실측 후 조정 | FE |
-| 4 | 공공데이터포털 API별 일일 호출 한도 | 상한 1,000(설정값), 한도 확인 후 조정 | BE |
+| 4 | 공공데이터포털 API별 일일 호출 한도 | API별 상한(실거래 1,000, 건축물대장 5,000, 학교 100). 건축물대장 한도 10,000 확인, 나머지는 확인 후 조정 | BE |
 
 **결정 완료**
 
