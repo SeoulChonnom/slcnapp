@@ -794,6 +794,11 @@ src/lib/api/query-keys.ts   houseQueryKeys 추가
   - `reserveManwon`이 빈 문자열이면 정책 기본값을 쓴다. 정책이 늦게 도착해도 사용자 입력을 덮어쓰지 않는다.
   - 계산 결과는 저장하지 않고 입력 + 정책에서 매번 만든다.
 - **예산 계산** (`calculate-budget.ts`): 정책 응답과 입력을 받아 3장 결과를 돌려주는 순수 함수다. React·네트워크에 의존하지 않는다. 3장 검증 케이스 12개를 `__tests__/calculate-budget.test.ts`에 그대로 고정한다. 정책은 react-query로 받고 `staleTime`을 길게 둔다(하루에 한 번 바뀔 일도 드물다).
+- **기준일 표시** (`DataAsOf`, `GET /house/meta`):
+  - zod 스키마에서 `dataAsOf`·`statsComputedDate`는 둘 다 `nullable`이다.
+  - 페이지 상단 `DataAsOf`: "데이터 기준일 2026-10-20 · 정책 기준일 2025-10-16". `dataAsOf`가 null이면 "데이터 준비 중"으로 표시한다.
+  - 랭킹 하단: 집계 기간 옆에 "통계 계산일 2026-10-20"을 표시한다.
+  - `statsComputedDate`가 null이면(통계가 한 번도 만들어지지 않음) 지도 후보 리스트와 랭킹에 "통계 준비 중이에요" 빈 상태를 보여 준다. "조건에 맞는 단지가 없어요" 빈 상태와 구분하기 위해서다. 이때 지도는 그대로 움직일 수 있고, 구·동 묶음 숫자는 표시하지 않는다.
 - **서버 상태**: react-query + `houseQueryKeys`. 응답은 zod 스키마로 검증하고 mapper로 화면 타입으로 바꾼다(`inspection`과 같은 패턴). 서버 오류는 `AppError.apiCode`(서버 ErrorCode 이름)로 분기한다. `AppError.code`는 FE 분류(`HTTP_ERROR`\|`NETWORK_ERROR`\|`INVALID_RESPONSE`)다.
 - **카카오 SDK**: 지금 FE에는 카카오 코드가 없으므로 `src/lib/kakao/kakao-loader.ts`를 새로 만든다. house와 임장 지도(FC4b)가 함께 쓰므로 도메인이 아니라 `lib`에 둔다. 앱 전체에서 1회만 로드한다(`autoload=false` + `kakao.maps.load`, 진행 중인 로드는 같은 Promise를 돌려준다). 로더 URL에는 `libraries=clusterer`를 넣는다(SDK는 한 번만 로드되므로 라이브러리도 한 번에 정해야 한다). `kakao-maps.d.ts`에 쓰는 타입(`Map`, `LatLng`, `LatLngBounds`, `CustomOverlay`, `MarkerClusterer`, `event`)만 선언한다. 새 npm 의존성은 넣지 않는다.
 - **카카오 키**: `VITE_KAKAO_MAP_JS_KEY`(선택). `src/lib/env/env.ts`의 zod 스키마와 `AppEnv`에 optional로 추가해 `getAppEnv().kakaoMapJsKey`로 읽는다(빈 문자열은 없음으로 본다). 없으면 4장 "지도 없는 모드"로 동작한다. 도메인은 카카오 개발자 콘솔에 등록한다.
@@ -825,7 +830,7 @@ src/lib/api/query-keys.ts   houseQueryKeys 추가
 
   색은 5장 규칙(상승 파랑, 하락 빨강, 0은 기본색)을 따른다.
 - **디자인**: 프로토타입(`docs/SeoulChonnom_Prototype.html`)에 이 화면이 없으므로 `DESIGN.md` 토큰과 기존 컴포넌트로 구성한다. 시안이 생기면 그 시안을 따른다.
-- **테스트 (FE)**: `calculate-budget` 검증 케이스, `format-eok`(위 두 표 전부), `compare-param`(직렬화, `59`↔`B59` 변환, 같은 단지 59·84 허용, 같은 평형 중복 거부, 최대 3개), `map-bounds`(바깥쪽 반올림, 레이어 선택, 0.2도 초과 시 DONG, 1.0도 초과 시 DISTRICT, DISTRICT 요청에 영역 파라미터 없음), `useBudgetInput`(빈 여유금은 정책 기본값, 범위 오류 우선), zod 스키마(`costRates` 정렬 규칙), msw로 지도 없는 모드의 구 리스트 → 후보 리스트, 비교표 `missingIds` 처리.
+- **테스트 (FE)**: `calculate-budget` 검증 케이스, `format-eok`(위 두 표 전부), `compare-param`(직렬화, `59`↔`B59` 변환, 같은 단지 59·84 허용, 같은 평형 중복 거부, 최대 3개), `map-bounds`(바깥쪽 반올림, 레이어 선택, 0.2도 초과 시 DONG, 1.0도 초과 시 DISTRICT, DISTRICT 요청에 영역 파라미터 없음), `useBudgetInput`(빈 여유금은 정책 기본값, 범위 오류 우선), zod 스키마(`costRates` 정렬 규칙, 메타 날짜 null 허용), 메타 null일 때 "데이터 준비 중"·"통계 준비 중이에요" 표시, msw로 지도 없는 모드의 구 리스트 → 후보 리스트, 비교표 `missingIds` 처리.
 
 ## 12. 로드맵과 작업 분해
 
