@@ -27,6 +27,7 @@ SLCN(BE `slcnapp`, FE `slcnfront`)에 "서울 아파트 내집찾기" 기능을 
 | 항목 | 영상 | 본 명세 |
 | --- | --- | --- |
 | 후보 표시 | 지도 가격 마커 | 지도 마커 + 지도와 동기화되는 후보 리스트 패널 추가 |
+| 축소 지도 | 구별 대장 단지 가격 | 구·동별 예산 내 후보 수 묶음 마커. 클릭하면 해당 구·동으로 확대 (4장). 구별 대장은 랭킹 탭에만 |
 | 학군·호재 | 직선거리, 정비사업 표기 | 동일. LLM 생성 금지, 공공데이터로만 산출 |
 | 대출 규제 수치 | 화면에 고정값 | 정책 테이블로 분리, 시행일 버전 관리 |
 | 예산 계산 | (서버/클라이언트 불명) | 브라우저에서 계산. 입력값은 서버와 URL로 보내지 않는다 |
@@ -35,7 +36,7 @@ SLCN(BE `slcnapp`, FE `slcnfront`)에 "서울 아파트 내집찾기" 기능을 
 
 **공통 규칙**
 
-- 금액: 만원 단위 정수 (DB `bigint`, API `number`), 화면은 억 단위 소수 둘째 자리 (지도 라벨만 첫째 자리)
+- 금액: 만원 단위 정수 (DB `bigint`, API `number`), 화면은 억 단위 소수 둘째 자리 반올림 (지도 라벨만 첫째 자리). 표기 규칙은 11장 "금액 표시"
 - 면적: ㎡ 소수 둘째 자리
 - 기간: 모든 "최근 N개월"은 **오늘 기준**이다. 통계는 야간 배치가 만들므로 "오늘"은 배치 실행일이다 (7장)
 - 모든 화면에 면책 문구 고정: "참고용이며 투자·대출 조언이 아닙니다. 정확한 한도는 금융기관에 문의하세요."
@@ -51,7 +52,7 @@ SLCN(BE `slcnapp`, FE `slcnfront`)에 "서울 아파트 내집찾기" 기능을 
 │                                                                      │
 │ ① 내 예산 ── 탐색 범위 [0.8P, P] ──┐                                  │
 │   (브라우저 계산, 세션 저장)         ▼                                  │
-│ ② 집 찾기   지도(구 레이어 ↔ 단지 레이어) + 후보 리스트 ── [비교 담기] ─┐ │
+│ ② 집 찾기   지도(구 묶음 ↔ 동 묶음 ↔ 단지) + 후보 리스트 ─ [비교 담기] ┐ │
 │                 ▲                                                  │ │
 │                 └── [지도에서 위치 보기] ──┐                          ▼ │
 │ ④ 공부 레퍼런스  랭킹 4종 ─────────────────┴──── [비교 담기] ──▶ ③ 매물 비교 │
@@ -60,6 +61,7 @@ SLCN(BE `slcnapp`, FE `slcnfront`)에 "서울 아파트 내집찾기" 기능을 
 ```
 
 - 예산 계산 전에도 지도와 랭킹은 바로 쓸 수 있다. 예산이 없으면 단지 레이어는 가격 필터 없이 영역 안 단지를 모두 보여 주고, "예산을 계산하면 살 수 있는 단지만 보여 드려요" 안내를 띄운다.
+- 평형 토글(59/84)은 페이지 상단에 하나만 두고 지도·후보 리스트·랭킹이 함께 쓴다. 비교함 항목의 평형은 담을 때 고정되며 토글을 바꿔도 따라 바뀌지 않는다 (5장).
 - URL에는 평형, 비교 단지, 지도 중심·레벨, 랭킹 탭만 담는다. **예산 입력값과 예산 결과는 URL에 싣지 않는다** (11장).
 - `링크 복사`는 현재 URL을 복사하고 "예산 입력값은 링크에 포함되지 않습니다" 토스트를 띄운다.
 
@@ -71,7 +73,9 @@ SLCN(BE `slcnapp`, FE `slcnfront`)에 "서울 아파트 내집찾기" 기능을 
 
 - 규제 수치는 코드에 넣지 않고 정책 테이블(`house_budget_policy`)에서 시행일 기준으로 내려받는다. 수치가 바뀌면 행만 추가하면 되고 FE를 배포할 필요가 없다.
 - 산식 자체(아래 알고리즘)가 바뀌면 FE를 배포해야 한다.
-- 계산은 입력 변경 즉시 동기로 한다. 서버 호출이 없으므로 디바운스는 필요 없다.
+- 계산은 입력 변경 즉시 동기로 한다. 서버 호출이 없으므로 계산 자체에는 디바운스가 필요 없다. 단, 계산 결과(탐색 범위)를 모듈 2 지도 필터로 넘길 때는 300ms 디바운스를 둔다(키 입력마다 지도 API가 호출되지 않게).
+- 결과가 입력 오류·미입력·`NO_BUDGET`이면 지도 필터는 "필터 없음"으로 돌아간다.
+- 정책 조회가 실패하면(`HOUSE_BUDGET_POLICY_NOT_FOUND` 503, 네트워크 오류) 예산 섹션만 "예산 계산 규칙을 불러오지 못했어요" + `[다시 시도]`로 바꾸고, 지도·비교·랭킹은 그대로 쓸 수 있다.
 
 ### 입력
 
@@ -85,10 +89,16 @@ SLCN(BE `slcnapp`, FE `slcnfront`)에 "서울 아파트 내집찾기" 기능을 
 | 안전여유금 | `reserveManwon` | 만원, 정수 | 2,000 | 0 이상. 기본값은 정책의 `defaultReserveManwon`, 사용자 수정 가능 |
 
 - 영상의 "가구 상황(신혼부부)", "지역(규제지역·서울)", "관심 가격대" 입력은 1차에서 계산에 영향이 없으므로 넣지 않는다. 지역은 서울(전역 규제지역)로 고정하고, 가격대는 알고리즘이 모든 구간을 풀어서 정한다.
+- 기본값: `existingMonthlyPaymentManwon` = 0, `firstTimeBuyer` = false, `reserveManwon` = 비어 있음(= 정책의 `defaultReserveManwon` 사용). 나머지는 비어 있다.
+- 빈 값 처리:
+  - 안전여유금을 비우면 정책 기본값으로 계산한다. 입력란 placeholder에 기본값을 보여 준다.
+  - 보유현금·연소득·금리 중 하나라도 비어 있으면 오류가 아니라 미입력 상태다. 계산하지 않고 결과 패널에 "보유현금, 연소득, 예상 금리를 입력하면 예산을 계산해 드려요"를 보여 준다.
+  - 기존대출 월 상환을 비우면 0으로 본다.
 - 입력 오류 메시지 (결과 패널에 항목별로 표시):
   - 금리 범위: "예상 대출금리는 0.1%에서 20% 사이로 입력해 주세요" (영상 문구)
   - 금리 소수: "예상 대출금리는 소수 첫째 자리까지 입력해 주세요"
   - 정수 필드: "{필드명}은(는) 0 이상의 숫자로 입력해 주세요"
+- 한 필드에 오류가 여럿이면 범위 오류를 먼저 하나만 보여 준다 (예: 0.05는 범위 오류).
 - 오류가 있으면 계산하지 않고 결과 패널을 비운다.
 
 ### 알고리즘
@@ -129,13 +139,16 @@ f_k(P) = Cash - Reserve - cost(P) + \min(L_{DSR},\; LTV \times P,\; Cap_k) - P
 
 | 항목 | 계산 | 정책 필드 |
 | --- | --- | --- |
-| 취득세 | P ≤ 6억: 1% / 6억 < P ≤ 9억: (P(억) × 2/3 − 3)%, 소수 넷째 자리까지(다섯째 자리에서 반올림) / 9억 초과: 3% | `costRates.acquisitionTax` |
+| 취득세 | P ≤ 6억: 1% / 6억 < P ≤ 9억: 세율 = (P(억) × 2/3 − 3) × 1/100, **이 비율을** 소수 다섯째 자리에서 반올림해 넷째 자리까지 (7억 → 0.0167 = 1.67%) / 9억 초과: 3% | `costRates.acquisitionTax` |
 | 지방교육세 | 감면 전 취득세 × 10% | `costRates.acquisitionTax.localEducationRatio` |
 | 생애최초 감면 | 생애최초이고 P ≤ 12억이면 min(취득세, 200만원)을 뺀다 | `costRates.firstTimeRelief` |
 | 중개보수 (서울 조례 상한) | 5천만 미만 0.6%(한도 25만) / 2억 미만 0.5%(한도 80만) / 9억 미만 0.4% / 12억 미만 0.5% / 15억 미만 0.6% / 15억 이상 0.7%, 부가세 10% 포함 | `costRates.brokerage` |
 | 등기비용 | P × 0.2% (국민주택채권 할인 매도, 법무사 보수, 인지세의 근사치) | `costRates.registrationRatePct` |
 
 - 취득세 누진 구간 산식(6\~9억)은 법 조문 형태라 코드에 둔다. 경계 금액과 요율은 정책값으로 받는다.
+- 누진 요율 반올림은 지방세법 제11조 제1항 제8호 나목을 따른다. 조문 산식은 `(취득당시가액 × 2/3억원 − 3) × 1/100`이고, "소수점이하 다섯째자리에서 반올림하여 소수점 넷째자리까지 계산한다"는 `× 1/100`을 곱한 **비율**에 적용된다. 그래서 7억은 0.0167(1.67%), 8억은 0.0233(2.33%)이다. 많은 민간 계산기가 쓰는 1.6667%(% 값을 넷째 자리까지)는 조문과 다르다.
+- 구현은 부동소수 오차를 피하려고 만분율 정수로 계산한다: `rateBp = Math.round(P / 150 − 300)`, 세율 = `rateBp / 10000` (P는 만원). P = 60,000이면 100bp(1%), 90,000이면 300bp(3%)로 양쪽 구간과 이어진다.
+- 반올림 때문에 세율이 계단식이지만 P가 커질 때 줄지 않으므로 f_k가 엄격히 감소한다는 전제는 유지된다.
 - 부가세는 중개사무소가 일반과세자라고 가정한다(보수적으로 예산을 적게 잡는 쪽).
 
 ### 출력 (결과 패널)
@@ -157,7 +170,7 @@ f_k(P) = Cash - Reserve - cost(P) + \min(L_{DSR},\; LTV \times P,\; Cap_k) - P
 | LTV (생애최초) | 70% | 영상 화면 |
 | LTV (생애최초 아님, 무주택) | 40% | 10·15 대책: 서울 전역 규제지역, LTV 40% |
 | 상품 상한 | 15억 이하 6억 / 15억 초과\~25억 이하 4억 / 25억 초과 2억 | 10·15 대책 |
-| 취득세 | 6억 이하 1%, 9억 초과 3%, 지방교육세 10% | 지방세법 |
+| 취득세 | 6억 이하 1%, 6억 초과\~9억 이하 산식(비율 소수 넷째 자리 반올림), 9억 초과 3%, 지방교육세 10% | 지방세법 제11조 제1항 제8호 (2026-07-01 시행본 확인) |
 | 생애최초 감면 | 12억 이하, 한도 200만원 | 지방세특례제한법. 40세 미만 300만원 상향안은 입법예고 단계라 확정 후 반영 |
 | 중개보수 | 위 표 | 서울시 주택 중개보수 조례 |
 | 등기비용 | 0.2% | 근사치 |
@@ -173,7 +186,7 @@ f_k(P) = Cash - Reserve - cost(P) + \min(L_{DSR},\; LTV \times P,\; Cap_k) - P
 | 2 | 1과 같고 생애최초 아님 | LTV 11,661 · 대출 11,661(LTV) · 부대비용 507 · **예산 29,154** |
 | 3 | 1과 같고 소득 0 | DSR 0 · 대출 0(DSR) · 부대비용 142 · **예산 17,858** (감면이 취득세보다 커서 취득세 0) |
 | 4 | 1과 같고 기존상환 400/월 | 연 상환 여력 음수 → DSR 0 · **예산 17,858** |
-| 5 | 현금 25,000 / 소득 20,000 / 생애최초 | 6\~9억 누진 구간 · 대출 49,870(LTV) · 부대비용 1,627 · **예산 71,243** |
+| 5 | 현금 25,000 / 소득 20,000 / 생애최초 | 6\~9억 누진 구간(세율 0.0175) · 대출 49,869(LTV) · 부대비용 1,627 · **예산 71,242** · 탐색 56,993\~71,242 |
 | 6 | 현금 50,000 / 소득 30,000 / 생애최초 | 상한 적용 · 대출 60,000(CAP) · 부대비용 4,012 · **예산 103,988** |
 | 7 | 현금 105,000 / 소득 30,000 / 생애최초 | 15억 경계에서 멈춤 · 대출 60,000 · 부대비용 6,405 · 남는 금액 6,595 · **예산 150,000** |
 | 8 | 현금 125,000 / 소득 30,000 / 생애최초 | 15\~25억 구간 · 대출 40,000(CAP) · 부대비용 6,676 · **예산 156,324** |
@@ -186,25 +199,31 @@ f_k(P) = Cash - Reserve - cost(P) + \min(L_{DSR},\; LTV \times P,\; Cap_k) - P
 
 ## 4. 모듈 2 — 예산에 맞는 서울 아파트 (지도)
 
-모듈 1의 탐색 범위(예산의 80\~100%)에 최근 실거래가가 들어오는 단지를 카카오맵에 가격 라벨로 표시하고, 같은 목록을 지도 옆 리스트로 보여 준다.
+모듈 1의 탐색 범위(예산의 80\~100%)에 최근 실거래가가 들어오는 단지를 카카오맵에 표시하고, 같은 목록을 지도 옆 리스트로 보여 준다. 축소 상태에서는 단지를 하나하나 그리지 않고 구·동별 후보 수로 묶어 보여 준다. 서울 전체에서 "내 예산으로 어느 동네가 가능한지"를 먼저 보고, 원하는 곳을 눌러 들어가는 흐름이다.
 
 ### 지도 레이어
 
-| 레이어 | 표시 조건 | 마커 | 데이터 |
+| 레이어 | 표시 조건 (카카오 level, 실측 후 조정) | 마커 | 데이터 |
 | --- | --- | --- | --- |
-| 구 레이어 | 축소 상태 (카카오 level ≥ 7, 실측 후 조정) | 구별 대장 단지명 + 가격 | `GET /house/rankings?type=LEADER` |
-| 단지 레이어 | 확대 상태 (level ≤ 6) | 단지 가격 라벨 (억, 소수 첫째 자리) | `GET /house/complexes` |
+| 구 묶음 | level ≥ 8, 또는 동 묶음 레벨인데 영역 한 변이 1.0도 초과 | 구 중심에 원형 마커 "강북구 · 42" | `GET /house/complexes/summary?groupBy=DISTRICT` |
+| 동 묶음 | (level 6\~7, 또는 단지 레벨인데 영역 한 변이 0.2도 초과) 이고 영역 한 변이 1.0도 이하 | 동 중심에 원형 마커 "미아동 · 12" | `GET /house/complexes/summary?groupBy=DONG` + 영역 |
+| 단지 | level ≤ 5 이고 영역 한 변이 0.2도 이하 | 단지 가격 라벨 (억, 소수 첫째 자리) | `GET /house/complexes` |
 
+- 숫자는 예산이 있으면 예산 내 후보 수, 없으면 좌표가 있는 전체 단지 수다. 후보가 0개인 구·동도 회색 "0" 마커로 보여 준다(숨기면 데이터가 없는 건지 살 수 있는 단지가 없는 건지 구분할 수 없다).
+- 묶음 마커 클릭: 구 → 그 구 중심으로 이동 + 동 묶음 레벨(7)로 확대, 동 → 그 동 중심으로 이동 + 단지 레벨(5)로 확대. 후보 리스트도 새 영역 기준으로 갱신된다.
+- "0.2도"는 지도에 보이는 영역의 위경도 폭이다. 서울 위도에서 경도 0.2도는 약 17.6km다. 같은 level이라도 모니터가 넓으면 보이는 영역이 넓어지므로, 단지 레벨에서도 영역이 0.2도를 넘으면 단지 조회 대신 동 묶음을 보여 준다(BE의 0.2도 검증에 걸리지 않게).
 - 영상 화면의 "ZOOM 14+ → COMPLEX LAYER"는 웹 메르카토르 줌 기준으로 보인다. 카카오맵 level은 숫자가 작을수록 확대이므로 임계값은 실측 후 정한다.
-- 가격 라벨은 `CustomOverlay`, 겹치면 `MarkerClusterer`(SDK `libraries=clusterer`).
-- 지도 `idle` 이벤트마다 영역 조회, 300ms 디바운스, react-query 캐시(key = 영역 좌표 소수 셋째 자리 반올림 + 평형 + 가격 범위).
-- 마커 클릭 → 정보 카드(`GET /house/complexes/{complexId}`): 단지명, 구·동, 최근 실거래가(기간 라벨·건수), 연식, 세대수, `[비교 담기]`.
+- 구별 대장 단지는 지도에 표시하지 않고 랭킹 탭(6장)에서만 보여 준다.
+- 초기 지도: URL에 `lat`·`lng`·`level`이 없으면 서울시청(37.5665, 126.9780), level 8(구 묶음)로 연다.
+- 가격 라벨·묶음 마커는 `CustomOverlay`, 단지 레이어에서 라벨이 겹치면 `MarkerClusterer`(SDK `libraries=clusterer`). 행정구역 묶음은 클러스터러가 아니라 BE 집계로 만든다(클러스터러는 화면 거리로만 묶고, 단지는 최대 300건만 내려오므로 개수가 정확하지 않다).
+- 지도 `idle` 이벤트마다 영역 조회, 300ms 디바운스. 영역 좌표는 소수 셋째 자리로 **바깥쪽으로** 맞춘다(sw는 내림, ne는 올림). 맞춘 값을 요청 파라미터와 react-query 캐시 키(+ 평형 + 가격 범위 + 레이어)에 똑같이 쓴다.
+- 단지 마커 클릭 → 정보 카드(`GET /house/complexes/{complexId}`): 단지명, 구·동, 최근 실거래가(기간 라벨·건수), 연식, 세대수, `[비교 담기]`.
 
 ### 필터
 
-- 평형 토글: `59㎡` / `84㎡` (영상), 기본 59. 구간 정의는 8장.
-- 가격 범위: 모듈 1 결과가 있으면 \[0.8P, P\], 없으면 필터 없음.
-- 후보 개수 표기: "N개 후보" (영상: "34/34 Budget Candidates"의 앞 숫자는 화면에 그린 수, 뒤 숫자는 영역 안 전체 수).
+- 평형 토글: `59㎡` / `84㎡` (영상), 기본 59. 페이지 상단 토글 하나를 지도·리스트·랭킹이 함께 쓴다. 구간 정의는 8장.
+- 가격 범위: 모듈 1 결과가 있으면 \[0.8P, P\] (양 끝 포함), 없으면 필터 없음.
+- 후보 개수 표기: "N개 후보" (영상: "34/34 Budget Candidates"의 앞 숫자는 화면에 그린 수, 뒤 숫자는 영역 안 전체 수). 단지 레이어에서 `truncated: true`면 "{total}개 중 300개 표시 · 지도를 확대하면 모두 볼 수 있어요".
 
 ### 최근 실거래가 규칙 (지도·리스트·정보 카드·비교표 공통)
 
@@ -219,9 +238,17 @@ f_k(P) = Cash - Reserve - cost(P) + \min(L_{DSR},\; LTV \times P,\; Cap_k) - P
 
 ### 후보 리스트 패널 (영상 대비 추가)
 
-- 지도 현재 영역의 후보를 최근 실거래가 내림차순으로 표시, 항목 클릭 시 지도 이동 + 정보 카드.
+- 단지 레이어: 지도 현재 영역의 후보를 최근 실거래가 내림차순으로 표시, 항목 클릭 시 지도 이동 + 정보 카드.
+- 구·동 묶음 레이어: 구·동 이름과 후보 수를 후보 수 내림차순으로 표시, 항목 클릭은 묶음 마커 클릭과 같다(확대).
 - 데스크톱은 지도(좌) + 리스트(우) 2열, 모바일은 지도 아래 바텀시트.
-- 항목: 단지명, 구, 최근 실거래가(기간 라벨), 연식, 세대수, `[비교 담기]`.
+- 단지 항목: 단지명, 구, 최근 실거래가(기간 라벨), 연식, 세대수, `[비교 담기]`. `[비교 담기]`는 현재 평형 토글 값으로 담는다.
+
+### 지도 없는 모드
+
+카카오 JS 키가 없으면(로컬·테스트) 지도 대신 리스트만 보여 준다. 영역 좌표가 없으므로 다음 순서로 동작한다.
+
+1. 구 묶음 리스트(`summary?groupBy=DISTRICT`)를 보여 준다.
+2. 구를 고르면 `GET /house/complexes?lawdCd={구 코드}`로 그 구의 후보 리스트를 보여 준다.
 
 ## 5. 모듈 3 — 매물 비교
 
@@ -229,9 +256,12 @@ f_k(P) = Cash - Reserve - cost(P) + \min(L_{DSR},\; LTV \times P,\; Cap_k) - P
 
 ### 동작
 
-- 비교 트레이: 최대 3개, 4번째 추가 시 "최대 3개까지 비교할 수 있어요" 토스트. 단지마다 평형 구간(59/84) 선택. 같은 단지·같은 평형은 중복 추가하지 않는다.
-- 단지 검색: 단지명 자동완성 (`GET /house/complexes/search`), 2글자 이상, 결과 10건.
-- 상태는 URL 쿼리 `cmp={complexId}:59,{complexId}:84`에 둔다 → 상단 `링크 복사`로 공유.
+- 비교 트레이: 최대 3칸, 4번째 추가 시 "최대 3개까지 비교할 수 있어요" 토스트.
+- 평형: 담을 때의 평형 토글 값으로 고정한다. 이후 상단 토글을 바꿔도 담긴 항목은 바뀌지 않는다. 트레이 항목마다 59/84 전환 버튼을 둔다.
+- 같은 단지의 59와 84를 따로 담을 수 있고, 각각 한 칸씩 쓴다("같은 단지에서 평형을 키우면 얼마나 더 드나" 비교). 같은 단지·같은 평형은 중복 추가하지 않고 "이미 비교함에 있어요" 토스트를 띄운다. 전환 버튼으로 중복이 되는 경우도 같다.
+- 단지 검색: 단지명 자동완성 (`GET /house/complexes/search`), 2글자 이상, 결과 10건. 검색으로 담으면 현재 평형 토글 값으로 담는다.
+- 상태는 URL 쿼리 `cmp={complexId}:59,{complexId}:84`에 둔다 → 상단 `링크 복사`로 공유. URL은 `59`/`84`, API는 `B59`/`B84`이므로 변환은 `compare-param.ts`가 맡는다.
+- 공유 링크의 단지가 삭제됐거나 없으면(응답 `missingIds`) 그 항목을 `cmp`에서 빼고 "찾을 수 없는 단지 N개를 비교에서 뺐어요" 토스트를 띄운다. 나머지 열은 그대로 보여 준다.
 - 표 하단 안내: "온라인 비교는 손품 단계입니다. 현장 확인 후 매수 준비가 끝난 단계에서 중개사무소에 연락하세요."
 
 ### 비교 지표
@@ -244,7 +274,7 @@ f_k(P) = Cash - Reserve - cost(P) + \min(L_{DSR},\; LTV \times P,\; Cap_k) - P
 | 4 | 평형 | 59.8㎡ 평균 · 59 구간 | 해당 구간 최근 12개월 거래의 전용면적 평균 + 구간명 | 실거래 |
 | 5 | 용적률 | 365.74% · 총괄표제부 | 총괄표제부 우선, 없으면 표제부 | 건축물대장 |
 | 6 | 교육·통학 참고 | 초 OO초 · 약 604m (초·중·고 각 1개) | 단지 좌표에서 가장 가까운 학교 직선거리 | 학교 위치 표준데이터 |
-| 7 | 호재·정비사업 | 직접 연관 사업 없음 | 반경 500m 안 정비사업 | 서울시 정비사업 데이터 (13장) |
+| 7 | 호재·정비사업 | 직접 연관 사업 없음 / OO재개발 · 관리처분 · 약 320m | 반경 500m 안 정비사업. 데이터 미적재(`null`)면 "정보 없음", 적재됐는데 없으면(`[]`) "직접 연관 사업 없음" | 서울시 정비사업 데이터 (13장) |
 | 8 | 1년 실거래 변동 | 4.3억 → 4.5억 (+4.65%) | 1년 전 3개월 평균 → 최근 3개월 평균 | 실거래 |
 | 9 | 3년 실거래 변동 | 4.0억 → 4.5억 (+12.50%) | 3년 전 3개월 평균 → 최근 3개월 평균 | 실거래 |
 
@@ -271,15 +301,15 @@ f_k(P) = Cash - Reserve - cost(P) + \min(L_{DSR},\; LTV \times P,\; Cap_k) - P
 
 - **20개 미만**: 상승·하락 단지가 20개보다 적으면 있는 만큼만 보여 준다. 반대쪽 단지로 채우지 않는다.
 - **동률**: 주 정렬값이 같으면 1년 변동률(높은 순, 하락 TOP은 낮은 순) → 1년 등락가격 절댓값(큰 순) → 단지명 가나다순으로 정한다. 변동률을 계산할 수 없는 단지는 해당 비교에서 뒤로 보낸다. 마지막 기준(단지명)은 순위를 결정적으로 만들기 위한 것이다.
-- **구별 대장 표본 미달**: 구는 25개가 모두 보여야 지도 구 레이어와 공부 화면이 일관된다. 그래서 행을 빼지 않고 단계적으로 완화한다.
+- **구별 대장 표본 미달**: 구는 25개가 모두 보여야 "구별" 표가 빈 곳 없이 읽힌다. 그래서 행을 빼지 않고 단계적으로 완화한다.
   1. 최근 12개월 3건 이상인 단지 중 평균가 1위
   2. 없으면 1건 이상인 단지 중 1위 + "표본 적음" 배지
   3. 그래도 없으면 "최근 12개월 거래 없음" 행 (단지 없음, 지도 마커 없음)
 - 구별 대장 기준은 영상 문구("최근 월 자치구별 평균 실거래 총액 1위")가 모호해서 위 기준으로 정했다.
 - 행 구성: 순위, 구, 단지명, 연식 · 평형 · 세대수, 값(가격 또는 % 또는 건수) + 기간 라벨, `[지도에서 위치 보기]`, `[비교 담기]`.
-- `[지도에서 위치 보기]` → 지도를 해당 단지로 이동하고 단지 레이어로 확대, 정보 카드 오픈.
+- `[지도에서 위치 보기]` → 지도를 해당 단지로 이동하고 단지 레이어(level 5)로 확대, 정보 카드 오픈. 좌표가 없는 단지(보강 실패)와 "거래 없음" 행은 버튼을 비활성화하고 "위치 정보 없음"을 표시한다.
 - 하락 TOP 상단 안내: "싸 보이는 단지가 저평가인지 저가치인지, 입지·연식·세대수 공통점을 비교해 보세요."
-- 구별 대장 결과는 모듈 2의 구 레이어 마커에도 그대로 쓴다.
+- 구별 대장은 지도에 쓰지 않는다. 지도 축소 상태는 구·동별 후보 수 묶음이다 (4장).
 
 ## 7. 데이터 소스와 수집 배치
 
@@ -381,7 +411,7 @@ f_k(P) = Cash - Reserve - cost(P) + \min(L_{DSR},\; LTV \times P,\; Cap_k) - P
 
 | 테이블 (JPO) | 주요 컬럼 | 제약·인덱스 |
 | --- | --- | --- |
-| `house_complex` (`HouseComplexJpo`) | `apt_seq`, `lawd_cd`(5), `umd_cd`(5), `umd_name`, `bonbun`, `bubun`, `apt_name`, `road_address`, `address_override`, `latitude`, `longitude`, `geocode_status`(PENDING\|DONE\|FAILED), `geocode_attempts`, `build_year`, `approval_date`, `households`, `far_pct`, `far_source`(RECAP\|TITLE), `bcr_pct`, `register_status`(PENDING\|DONE\|FAILED), `register_attempts` | UK `apt_seq`, IDX (`latitude`, `longitude`), IDX `apt_name` |
+| `house_complex` (`HouseComplexJpo`) | `apt_seq`, `lawd_cd`(5), `umd_cd`(5), `umd_name`, `bonbun`, `bubun`, `apt_name`, `road_address`, `address_override`, `latitude`, `longitude`, `geocode_status`(PENDING\|DONE\|FAILED), `geocode_attempts`, `build_year`, `approval_date`, `households`, `far_pct`, `far_source`(RECAP\|TITLE), `bcr_pct`, `register_status`(PENDING\|DONE\|FAILED), `register_attempts` | UK `apt_seq`, IDX (`latitude`, `longitude`), IDX `apt_name`, IDX (`lawd_cd`, `umd_cd`) (구·동 묶음 집계) |
 | `house_trade` (`HouseTradeJpo`) | `dedup_key`(64), `complex_id`, `lawd_cd`, `deal_ym`(YYYYMM), `deal_date`, `exclusive_area`, `area_bucket`(B59\|B84\|OTHER), `amount_manwon`, `floor`, `apt_dong`, `build_year`, `dealing_type`(BROKER\|DIRECT\|UNKNOWN), `cancelled`, `cancelled_date`, `outlier`, `removed` | UK `dedup_key`, IDX (`complex_id`, `area_bucket`, `deal_date`), IDX (`lawd_cd`, `deal_ym`) |
 | `house_collect_unit` (`HouseCollectUnitJpo`) | `lawd_cd`, `deal_ym`, `status`(NEVER\|DONE\|FAILED), `last_success_date`, `attempts` | UK (`lawd_cd`, `deal_ym`) |
 | `house_complex_area_stat` | PK (`complex_id`, `area_bucket`), `avg_area_12m`, `recent_price_manwon`, `recent_window_months`(3\|6\|null), `recent_sample`, `avg_3m`/`cnt_3m`, `avg_3m_1y_ago`/`cnt_3m_1y_ago`, `avg_3m_3y_ago`/`cnt_3m_3y_ago`, `avg_12m`/`cnt_12m`, `change_1y_pct`, `change_1y_manwon`, `change_3y_pct`, `change_3y_manwon`, `volume_3m`, `computed_date` | — |
@@ -442,11 +472,12 @@ VALUES
 | --- | --- | --- | --- |
 | GET | `/house/budget-policy` | 예산 계산 규칙 (모듈 1) | — |
 | GET | `/house/meta` | 데이터 기준일, 통계 계산일 | — |
-| GET | `/house/complexes` | 지도 영역 단지 (모듈 2) | `swLat`, `swLng`, `neLat`, `neLng`, `area`, `minPrice`?, `maxPrice`? |
+| GET | `/house/complexes` | 지도 영역 단지 (모듈 2) | (`swLat`, `swLng`, `neLat`, `neLng`) 또는 `lawdCd` 중 하나, `area`, `minPrice`?, `maxPrice`? |
+| GET | `/house/complexes/summary` | 구·동 묶음 후보 수 (모듈 2) | `groupBy=DISTRICT\|DONG`, `area`, `minPrice`?, `maxPrice`?, 영역 좌표(DONG은 필수, DISTRICT는 생략 가능) |
 | GET | `/house/complexes/search` | 단지명 자동완성 | `keyword`(2자 이상), `size`(기본 10, 최대 20) |
 | GET | `/house/complexes/{complexId}` | 정보 카드 | `area` |
 | GET | `/house/compare` | 비교표 (모듈 3) | `items={complexId}:B59,{complexId}:B84` (1\~3개) |
-| GET | `/house/rankings` | 랭킹 (모듈 4), 구 레이어 | `type=LEADER\|RISE\|FALL\|VOLUME`, `area` |
+| GET | `/house/rankings` | 랭킹 (모듈 4) | `type=LEADER\|RISE\|FALL\|VOLUME`, `area` |
 | GET | `/house/admin/complexes/incomplete` | 좌표·건축물대장 보강 실패 단지 | `page`(1부터), `size`(기본 20) |
 | PUT | `/house/admin/complexes/{complexId}/address-override` | 주소·지번 보정 (다음 배치에서 재조회) | 본문 `{ "roadAddress"?, "bonbun"?, "bubun"? }` |
 
@@ -454,8 +485,8 @@ VALUES
 
 | 코드 | HTTP | 언제 |
 | --- | --- | --- |
-| `VALIDATION_FAILED` (기존) | 400 | `area` 누락·오류, 영역 좌표 누락·뒤집힘, 영역 한 변이 0.2도(약 20km) 초과, `minPrice > maxPrice`, `keyword` 2자 미만, `items` 0개·4개 이상·형식 오류·중복 |
-| `HOUSE_COMPLEX_NOT_FOUND` | 404 | `complexId`가 없음 (비교표는 하나라도 없으면) |
+| `VALIDATION_FAILED` (기존) | 400 | `area` 누락·오류, 영역 좌표 누락·뒤집힘, `/house/complexes`에서 영역과 `lawdCd`가 둘 다 없거나 둘 다 있음, `/house/complexes` 영역 한 변이 0.2도(경도 기준 약 17.6km) 초과, `summary` 영역 한 변이 1.0도 초과, `minPrice > maxPrice`, `keyword` 2자 미만, `items` 0개·4개 이상·형식 오류·중복 |
+| `HOUSE_COMPLEX_NOT_FOUND` | 404 | 정보 카드의 `complexId`가 없음. 비교표는 404를 내지 않고 `missingIds`로 알린다 |
 | `HOUSE_BUDGET_POLICY_NOT_FOUND` | 503 | 오늘 시행 중인 정책 행이 없음 (시드 누락) |
 
 ### 예산 계산 규칙
@@ -475,10 +506,33 @@ VALUES
     { "maxPriceManwon": 250000, "capManwon": 40000 },
     { "maxPriceManwon": null,   "capManwon": 20000 }
   ],
-  "costRates": { "...": "9장 시드의 cost_rates와 같은 구조" },
+  "costRates": {
+    "acquisitionTax": {
+      "lowRatePct": 1.0, "lowMaxManwon": 60000,
+      "highRatePct": 3.0, "highMinManwon": 90000,
+      "localEducationRatio": 0.1
+    },
+    "firstTimeRelief": { "capManwon": 200, "maxPriceManwon": 120000 },
+    "brokerage": {
+      "tiers": [
+        { "belowManwon": 5000,   "ratePct": 0.6, "capManwon": 25 },
+        { "belowManwon": 20000,  "ratePct": 0.5, "capManwon": 80 },
+        { "belowManwon": 90000,  "ratePct": 0.4, "capManwon": null },
+        { "belowManwon": 120000, "ratePct": 0.5, "capManwon": null },
+        { "belowManwon": 150000, "ratePct": 0.6, "capManwon": null },
+        { "belowManwon": null,   "ratePct": 0.7, "capManwon": null }
+      ],
+      "vatRatio": 0.1
+    },
+    "registrationRatePct": 0.2
+  },
   "sourceNote": "10·15 대책(2025-10-16 시행), 지방세법, 서울시 중개보수 조례"
 }
 ```
+
+- `priceCaps`는 `maxPriceManwon` 오름차순이고 마지막 항목만 `null`(상한 없음)이다. 구간은 (이전 max, max]이다.
+- `brokerage.tiers`는 `belowManwon` 오름차순이고 마지막 항목만 `null`이다. 구간은 [이전 below, below)이다(15억 정확히는 0.7%).
+- FE zod 스키마는 위 구조를 그대로 검증하고, 정렬·마지막 `null` 규칙이 깨지면 `INVALID_RESPONSE`로 처리해 예산 섹션 오류 상태로 보낸다.
 
 `effective_from <= 오늘`인 행 중 가장 최근 행 하나를 내려준다.
 
@@ -494,7 +548,7 @@ VALUES
 ### 지도 영역 단지
 
 ```json
-// GET /house/complexes?swLat=37.45&swLng=126.80&neLat=37.70&neLng=127.18&area=B59&minPrice=45872&maxPrice=57340
+// GET /house/complexes?swLat=37.540&swLng=126.980&neLat=37.620&neLng=127.100&area=B59&minPrice=45872&maxPrice=57340
 {
   "total": 34,
   "truncated": false,
@@ -510,6 +564,29 @@ VALUES
 - 좌표가 없는 단지(`geocode_status ≠ DONE`)는 빠진다.
 - 가격 범위가 있으면 최근 실거래가가 있는 단지만 대상이다. 없으면 가격이 없는 단지도 `recentPrice: null`로 포함한다.
 - 최대 300건, 최근 실거래가 내림차순(가격 없는 단지는 뒤). 넘치면 `truncated: true`, `total`은 전체 수다.
+- `minPrice`·`maxPrice`는 양 끝 포함(`minPrice ≤ 최근 실거래가 ≤ maxPrice`)이다.
+- `lawdCd`로 부르면 영역 대신 그 구 전체가 대상이다(지도 없는 모드).
+
+### 구·동 묶음
+
+```json
+// GET /house/complexes/summary?groupBy=DONG&area=B59&minPrice=45872&maxPrice=57340&swLat=37.540&swLng=126.980&neLat=37.620&neLng=127.100
+{
+  "groupBy": "DONG",
+  "items": [
+    { "code": "1130510100", "name": "미아동", "lawdCd": "11305", "districtName": "강북구",
+      "count": 12, "centerLat": 37.6131, "centerLng": 127.0298 }
+  ]
+}
+```
+
+- `code`: DISTRICT는 `lawdCd`(5자리), DONG은 `lawdCd` + `umdCd`(10자리). DONG의 `name`은 `umdName`이다.
+- `count`: 좌표가 있는 단지 중 조건에 맞는 수. 가격 범위가 있으면 최근 실거래가가 범위 안인 단지만, 없으면 전부.
+- `centerLat`·`centerLng`: 필터와 무관하게 정해져 있어 필터를 바꿔도 마커 위치가 흔들리지 않는다.
+  - DISTRICT: `HouseConstant`의 구별 고정 중심 좌표 25개. 좌표 보강 초기처럼 어떤 구에 좌표 있는 단지가 없어도 항상 값이 있다.
+  - DONG: 그 동의 좌표 있는 **전체** 단지 좌표 평균.
+- `count`가 0인 묶음도 내려준다. DISTRICT는 항상 25행이다. DONG은 좌표 있는 단지가 하나라도 있는 동만, 중심이 영역 안에 있는 것만 내려준다.
+- DISTRICT는 영역을 생략하면 서울 전체다.
 
 ### 단지 검색
 
@@ -535,17 +612,21 @@ VALUES
 ### 비교표
 
 ```json
-// GET /house/compare?items=c1:B59,c2:B84
+// GET /house/compare?items=c1:B59,c2:B84,c9:B59
 {
+  "missingIds": ["c9"],
   "columns": [
-    { "complexId": "c1", "name": "OO아파트", "area": "B59",
+    { "complexId": "c1", "name": "OO아파트", "districtName": "동대문구", "umdName": "OO동", "area": "B59",
       "recentPrice":  { "priceManwon": 45000, "windowMonths": 3, "sample": 5 },
       "households":   380,
       "buildYear":    1999, "ageYears": 27,
       "areaInfo":     { "avgExclusiveArea": 59.8, "bucket": "B59" },
       "far":          { "pct": 365.74, "source": "RECAP" },
       "schools":      [ { "level": "E", "name": "OO초등학교", "distanceM": 604 } ],
-      "redevelopments": [],
+      "redevelopments": [
+        { "name": "OO재정비촉진구역", "projectType": "재개발", "stage": "관리처분인가",
+          "distanceM": 320, "sourceUrl": "https://…" }
+      ],
       "change1y":     { "fromManwon": 43000, "toManwon": 45000, "pct": 4.65, "changeManwon": 2000,
                         "sampleFrom": 3, "sampleTo": 5, "sampleStatus": "OK" },
       "change3y":     { "fromManwon": 40000, "toManwon": 45000, "pct": 12.50, "changeManwon": 5000,
@@ -557,7 +638,11 @@ VALUES
 
 - `sampleStatus`: 양쪽 모두 3건 이상 `OK`, 한쪽이라도 3건 미만 `LOW`, 한쪽이라도 2건 미만 `INSUFFICIENT`(`pct`, `changeManwon`, `fromManwon`·`toManwon` 중 없는 쪽은 null).
 - `recentPrice.windowMonths`가 6이면 최근 3개월 거래가 없다는 뜻이므로 `change1y`·`change3y`는 `INSUFFICIENT`다.
-- 열 순서는 요청 `items` 순서를 따른다. 값이 없는 필드는 null이고, FE가 "정보 없음"으로 표시한다.
+- 열 순서는 요청 `items` 순서를 따른다(없는 단지는 건너뜀). 값이 없는 필드는 null이고, FE가 "정보 없음"으로 표시한다.
+- `missingIds`: 요청했지만 없는 `complexId` 목록. 없으면 `[]`. 전부 없으면 `columns: []`. 비교표는 이 경우에도 200이다.
+- `redevelopments`: 정비사업 데이터가 아직 적재되지 않았으면 `null`, 적재됐는데 반경 500m 안에 없으면 `[]`.
+  - "적재됨"은 `house_batch_run`에 정비사업 동기화 단계의 SUCCESS 기록이 한 번이라도 있는지로 판단한다. 테이블이 비었는지로 판단하지 않는다. 그러면 동기화는 성공했는데 사업이 0건인 경우와 미적재를 구분할 수 없다.
+- `complexId`에는 `:`와 `,`가 들어가지 않는다(`items`·`cmp` 구분자).
 
 ### 랭킹
 
@@ -577,7 +662,8 @@ VALUES
 
 - `value`의 의미: LEADER = 최근 12개월 평균가(만원), RISE/FALL = 1년 변동률(%), VOLUME = 최근 3개월 거래 건수.
 - `period`: LEADER는 최근 12개월, RISE/FALL은 1년 전 3개월 시작일 \~ 오늘, VOLUME은 최근 3개월.
-- LEADER의 "거래 없음" 구는 `complexId`·`name`·`value`가 null이고 `badge: "NO_TRADE"`다.
+- LEADER의 "거래 없음" 구는 `complexId`·`name`·`value`·좌표·단지 정보가 null이고 `badge: "NO_TRADE"`다.
+- 좌표 보강에 실패한 단지도 랭킹에는 나올 수 있다. 이때 `latitude`·`longitude`는 null이다.
 
 ### 관리자
 
@@ -603,11 +689,11 @@ VALUES
 
 ```text
 slcn-spec/…/spec/house/
-  constant/   HouseConstant (구 코드↔이름, 면적 구간 경계 기본값)
+  constant/   HouseConstant (구 코드↔이름, 구별 고정 중심 좌표, 면적 구간 경계 기본값)
   entity/     HouseComplex, HouseTrade, HouseBudgetPolicy …  (JPA 애너테이션 없음)
   entity/vo/  AreaBucket, RankingType, SampleStatus, PriceCap, CostRates …
   facade/     HouseBudgetPolicyFacade, HouseComplexFacade, HouseRankingFacade, HouseMetaFacade, HouseAdminFacade
-  facade/sdo/ BudgetPolicyRdo, ComplexMapListRdo, ComplexSearchRdo, ComplexCardRdo, CompareRdo,
+  facade/sdo/ BudgetPolicyRdo, ComplexMapListRdo, ComplexSummaryRdo, ComplexSearchRdo, ComplexCardRdo, CompareRdo,
               RankingListRdo, HouseMetaRdo, IncompleteComplexListRdo, AddressOverrideUdo …
 
 slcn-aggregate/…/aggregate/
@@ -653,7 +739,9 @@ slcn-boot/
 - `OutlierMarker`: 5건 미만 미판정, ±40% 경계, 앞뒤 6개월 창
 - `AreaStatBuilder`/`RankingBuilder`: 3개월 → 6개월 → 없음 대체, 표본 배지, 동률 정렬, 구별 대장 단계적 완화, 20개 미만
 - `MolitTradeGateway`: 쉼표 금액 파싱, 오류 응답, 키가 로그에 남지 않음
-- Resource: 오류 코드, `items` 검증, 관리자 권한
+- Resource: 오류 코드, `items` 검증, 관리자 권한, `/house/complexes` 영역·`lawdCd` 택일 검증
+- 비교표: 없는 단지는 `missingIds`로 빠지고 200, `redevelopments` null/[] 구분(동기화 SUCCESS 기록 기준)
+- 구·동 묶음: 0건 묶음 포함, DISTRICT 항상 25행, 중심 좌표가 필터와 무관
 - 통계 SQL은 로컬 DB에서 직접 실행해 확인한다(9장)
 
 ### FE (`slcnfront`)
@@ -663,31 +751,65 @@ slcn-boot/
 ```text
 src/domains/house/
   api/        house-api.ts, house-schemas.ts (zod 응답 검증)
-  components/ BudgetSection, BudgetForm, BudgetResult, MapSection, DistrictLayer, ComplexLayer,
+  components/ BudgetSection, BudgetForm, BudgetResult, MapSection, SummaryLayer, ComplexLayer,
               PriceOverlay, AreaToggle, CandidateList, ComplexInfoCard, CompareSection, ComplexPicker,
               CompareTable, RankingSection, RankingTabs, RankingList, Disclaimer, DataAsOf
-  hooks/      useBudgetPolicy, useBudgetInput, useComplexesInBounds, useCompareTray, useHouseUrlState, useRankings
+  hooks/      useBudgetPolicy, useBudgetInput, useComplexesInBounds, useComplexSummary, useCompareTray,
+              useHouseUrlState, useRankings
   mappers/    house-mappers.ts
-  utils/      calculate-budget.ts, budget-cost.ts, format-eok.ts, compare-param.ts
+  utils/      calculate-budget.ts, budget-cost.ts, format-eok.ts, compare-param.ts, map-bounds.ts
   types.ts
-src/domains/geo/map/      kakao-loader.ts, kakao-maps.d.ts (임장 지도 FC4b와 공용)
+src/lib/kakao/            kakao-loader.ts, kakao-maps.d.ts (새로 만든다. 임장 지도 FC4b도 나중에 이 로더를 쓴다)
+src/lib/env/env.ts        VITE_KAKAO_MAP_JS_KEY 추가
+src/lib/routing/route-builders.ts  buildDeviceHousePath 추가
 src/pages/main/HouseFinderPage.tsx, src/pages/mobile/HouseFinderPage.tsx
+src/pages/shared/HomeHubPage.tsx  진입 카드 추가
 src/lib/api/query-keys.ts   houseQueryKeys 추가
 ```
 
-- **라우트**: `/main/house`, `/mobile/house`. `route-constants.ts`의 `MAIN_/MOBILE_ROUTE_PATTERNS`와 `route-manifest.tsx`에 추가하고, `RESERVED_SHOE_BRAND_SEGMENTS`에 `'house'`를 넣는다(신발 브랜드 경로와 충돌 방지). 홈 허브에 진입 카드를 추가한다.
-- **인증**: 기존 라우터 인증 가드 아래에 둔다. 비로그인으로 공유 링크를 열면 로그인 화면으로 이동하고(`redirect` 쿼리), 로그인 후 같은 링크로 돌아온다. BE도 401을 돌려주므로 비회원은 데이터를 받을 수 없다.
+- **라우트**: `/main/house`, `/mobile/house`. `route-constants.ts`의 `MAIN_/MOBILE_ROUTE_PATTERNS`와 `route-manifest.tsx`에 추가하고, `route-builders.ts`에 `buildDeviceHousePath(device)`를 추가한다. `RESERVED_SHOE_BRAND_SEGMENTS`에 `'house'`를 넣는다(신발 브랜드 경로와 충돌 방지). 홈 허브(`src/pages/shared/HomeHubPage.tsx`)에 진입 카드를 추가한다.
+- **인증**: 기존 라우터 인증 가드 아래에 둔다. 비로그인으로 공유 링크를 열면 로그인 화면으로 이동하고(`redirect` 쿼리), 로그인 후 같은 링크로 돌아온다. 가드는 `redirect`에 pathname·search·hash를 모두 담으므로(`guards.tsx`) `cmp`도 유지된다. BE도 401을 돌려주므로 비회원은 데이터를 받을 수 없다.
 - **URL 상태** (`useHouseUrlState`, react-router `useSearchParams`): `area`(59\|84), `cmp`(`{complexId}:59,…`), `lat`, `lng`, `level`, `rank`(LEADER\|RISE\|FALL\|VOLUME). 새로고침·링크 공유 시 그대로 복원된다.
+  - 모든 갱신은 `setSearchParams(next, { replace: true })`로 한다. 지도 `idle`마다 기록이 쌓이지 않고, 뒤로가기는 이 페이지를 떠난다.
+  - `lat`·`lng`는 소수 다섯째 자리까지만 쓴다. 잘못된 값은 무시하고 기본값(4장 초기 지도)을 쓴다.
+- **섹션 앵커**: `#budget`(내 예산), `#find`(집 찾기), `#compare`(매물 비교), `#study`(공부 레퍼런스). 상단 네비는 `scrollIntoView`로 이동하고, 해시는 URL에 남기지 않는다.
 - **예산 상태** (`useBudgetInput`): zustand 스토어 + `persist`(sessionStorage, 키 `house-budget-input`). URL과 서버로 보내지 않는다. "입력값 지우기" 버튼을 둔다.
+  - 입력값은 **입력한 문자열 그대로** 저장하고 계산할 때 파싱한다. "5."처럼 입력 중인 값과 오류 메시지를 다루기 위해서다.
+  - `reserveManwon`이 빈 문자열이면 정책 기본값을 쓴다. 정책이 늦게 도착해도 사용자 입력을 덮어쓰지 않는다.
+  - 계산 결과는 저장하지 않고 입력 + 정책에서 매번 만든다.
 - **예산 계산** (`calculate-budget.ts`): 정책 응답과 입력을 받아 3장 결과를 돌려주는 순수 함수다. React·네트워크에 의존하지 않는다. 3장 검증 케이스 12개를 `__tests__/calculate-budget.test.ts`에 그대로 고정한다. 정책은 react-query로 받고 `staleTime`을 길게 둔다(하루에 한 번 바뀔 일도 드물다).
-- **서버 상태**: react-query + `houseQueryKeys`. 응답은 zod 스키마로 검증하고 mapper로 화면 타입으로 바꾼다(`inspection`과 같은 패턴). 오류는 `AppError.code`로 분기한다.
-- **카카오 SDK**: `src/domains/geo/map/kakao-loader.ts`로 앱 전체에서 1회만 로드한다(`autoload=false` + `kakao.maps.load`). 임장 지도(FC4b)가 먼저 들어가 있으면 그 로더를 쓰고, 아니면 같은 경로에 만든다. 로더 URL에는 `libraries=clusterer`를 넣는다(SDK는 한 번만 로드되므로 라이브러리도 한 번에 정해야 한다). `kakao-maps.d.ts`에 `MarkerClusterer`를 추가한다. 새 npm 의존성은 넣지 않는다.
-- **카카오 키**: `VITE_KAKAO_MAP_JS_KEY`(선택). 없으면 지도 대신 후보 리스트만 보여 준다(로컬·테스트에서 지도 없이 동작). 도메인은 카카오 개발자 콘솔에 등록한다.
-- **섹션 간 연동**: 예산 결과 → 지도 가격 필터 / 마커·리스트·랭킹의 `[비교 담기]` → `cmp` / 랭킹 `[지도에서 위치 보기]` → `lat`·`lng`·`level` 갱신 + 정보 카드 오픈 + 지도 섹션으로 스크롤.
+- **서버 상태**: react-query + `houseQueryKeys`. 응답은 zod 스키마로 검증하고 mapper로 화면 타입으로 바꾼다(`inspection`과 같은 패턴). 서버 오류는 `AppError.apiCode`(서버 ErrorCode 이름)로 분기한다. `AppError.code`는 FE 분류(`HTTP_ERROR`\|`NETWORK_ERROR`\|`INVALID_RESPONSE`)다.
+- **카카오 SDK**: 지금 FE에는 카카오 코드가 없으므로 `src/lib/kakao/kakao-loader.ts`를 새로 만든다. house와 임장 지도(FC4b)가 함께 쓰므로 도메인이 아니라 `lib`에 둔다. 앱 전체에서 1회만 로드한다(`autoload=false` + `kakao.maps.load`, 진행 중인 로드는 같은 Promise를 돌려준다). 로더 URL에는 `libraries=clusterer`를 넣는다(SDK는 한 번만 로드되므로 라이브러리도 한 번에 정해야 한다). `kakao-maps.d.ts`에 쓰는 타입(`Map`, `LatLng`, `LatLngBounds`, `CustomOverlay`, `MarkerClusterer`, `event`)만 선언한다. 새 npm 의존성은 넣지 않는다.
+- **카카오 키**: `VITE_KAKAO_MAP_JS_KEY`(선택). `src/lib/env/env.ts`의 zod 스키마와 `AppEnv`에 optional로 추가해 `getAppEnv().kakaoMapJsKey`로 읽는다(빈 문자열은 없음으로 본다). 없으면 4장 "지도 없는 모드"로 동작한다. 도메인은 카카오 개발자 콘솔에 등록한다.
+- **지도 영역** (`map-bounds.ts`): 영역을 소수 셋째 자리로 바깥쪽으로 맞추고(sw 내림, ne 올림), 레벨·영역 폭으로 레이어(DISTRICT/DONG/COMPLEX)를 고르는 순수 함수. 영역 폭 규칙은 BE 검증과 맞춘다: 단지는 0.2도 이하, 동 묶음은 1.0도 이하. 넘으면 한 단계 위 묶음으로 올린다(COMPLEX → DONG → DISTRICT). 레이어 임계값은 상수 한 곳에 둔다(실측 후 조정).
+- **섹션 간 연동**: 예산 결과 → (300ms 디바운스) 지도 가격 필터 / 마커·리스트·랭킹의 `[비교 담기]` → `cmp` (현재 평형 토글 값) / 구·동 묶음 클릭 → `lat`·`lng`·`level` 갱신 / 랭킹 `[지도에서 위치 보기]` → `lat`·`lng`·`level` 갱신 + 정보 카드 오픈 + `#find`로 스크롤.
 - **반응형**: 데스크톱은 섹션 세로 배치이고, 집 찾기 섹션 안에서만 지도(좌) + 후보 리스트(우) 2열이다. 모바일은 세로 스택과 후보 리스트 바텀시트다.
-- **금액 표시**: `formatEok(manwon)` 하나로 통일한다. 1억 이상은 억 단위 소수 둘째 자리(57340 → "5.73억"), 지도 라벨은 첫째 자리("5.7억"), 1억 미만은 "9,500만".
+- **금액 표시**: `format-eok.ts` 하나로 통일한다.
+  - 1억 이상: 억 단위, **반올림**, 소수 자리 고정. 일반은 둘째 자리, 지도 라벨은 첫째 자리.
+  - 1억 미만: "N,NNN만", 소수 없음.
+  - 정수 연산으로 반올림한다: 일반 `Math.round(abs / 100) / 100`, 지도 `Math.round(abs / 1000) / 10`. 음수는 절댓값을 반올림한 뒤 부호를 붙인다(JS `Math.round(-0.5)`는 `-0`이 돼서 반올림 방향이 어긋난다).
+  - 반올림한 값이 1억 이상인지가 아니라 **원값**이 10,000만원 이상인지로 억/만 표기를 고른다.
+
+  | 원값(만원) | 일반 | 지도 라벨 |
+  | --- | --- | --- |
+  | 57,340 | 5.73억 | 5.7억 |
+  | 57,350 | 5.74억 | 5.7억 |
+  | 150,000 | 15.00억 | 15.0억 |
+  | 10,000 | 1.00억 | 1.0억 |
+  | 9,500 | 9,500만 | 9,500만 |
+
+- **등락 표시** (`formatChangeManwon`, `formatChangePct`): 0이 아니면 부호를 항상 붙이고, 0이면 부호 없이 쓴다. 금액 규칙은 위와 같다. 변동률은 소수 둘째 자리 고정.
+
+  | 값 | 표기 |
+  | --- | --- |
+  | +2,000만원 | +2,000만 |
+  | −12,000만원 | -1.20억 |
+  | 0 | 0만 (변동 없음) |
+  | +4.65% / −3.1% / 0% | +4.65% / -3.10% / 0.00% |
+
+  색은 5장 규칙(상승 파랑, 하락 빨강, 0은 기본색)을 따른다.
 - **디자인**: 프로토타입(`docs/SeoulChonnom_Prototype.html`)에 이 화면이 없으므로 `DESIGN.md` 토큰과 기존 컴포넌트로 구성한다. 시안이 생기면 그 시안을 따른다.
-- **테스트 (FE)**: `calculate-budget` 검증 케이스, `formatEok`, `compare-param`(직렬화·중복·최대 3개), zod 스키마, msw로 지도 없는 모드의 후보 리스트·비교표 렌더링.
+- **테스트 (FE)**: `calculate-budget` 검증 케이스, `format-eok`(위 두 표 전부), `compare-param`(직렬화, `59`↔`B59` 변환, 같은 단지 59·84 허용, 같은 평형 중복 거부, 최대 3개), `map-bounds`(바깥쪽 반올림, 레이어 선택, 0.2도 초과 시 DONG, 1.0도 초과 시 DISTRICT), `useBudgetInput`(빈 여유금은 정책 기본값, 범위 오류 우선), zod 스키마(`costRates` 정렬 규칙), msw로 지도 없는 모드의 구 리스트 → 후보 리스트, 비교표 `missingIds` 처리.
 
 ## 12. 로드맵과 작업 분해
 
@@ -718,10 +840,10 @@ src/lib/api/query-keys.ts   houseQueryKeys 추가
 
 ### 3단계 — 지도 탐색
 
-- [ ] BE: 이상치 판정, `AreaStatBuilder`(최근 실거래가), `RankingBuilder` 중 LEADER, `GET /house/complexes`, `GET /house/complexes/{complexId}`, `GET /house/rankings?type=LEADER`, `GET /house/meta`
-- [ ] FE: 카카오맵, 구/단지 레이어 전환, 가격 오버레이, 평형 토글, 후보 리스트, 정보 카드, 지도 없는 모드
+- [ ] BE: 이상치 판정, `AreaStatBuilder`(최근 실거래가), `GET /house/complexes`(영역·`lawdCd`), `GET /house/complexes/summary`, `GET /house/complexes/{complexId}`, `GET /house/meta`
+- [ ] FE: 카카오 로더(`src/lib/kakao`), 구·동 묶음 / 단지 레이어 전환, 묶음 클릭 확대, 가격 오버레이, 평형 토글, 후보 리스트, 정보 카드, 지도 없는 모드, 레이어 level 실측
 
-* 완료 기준: 예산 결과 변경 시 1초 안에 마커 갱신, 후보 300개에서 지도 이동이 끊기지 않음, 기간 라벨 표시
+* 완료 기준: 예산 결과 변경 시 1초 안에 마커 갱신, 후보 300개에서 지도 이동이 끊기지 않음, 기간 라벨 표시, 1920px 화면에서도 단지 조회 400 오류 없음
 
 ### 4단계 — 단지 비교
 
@@ -732,7 +854,7 @@ src/lib/api/query-keys.ts   houseQueryKeys 추가
 
 ### 5단계 — 랭킹과 마무리
 
-- [ ] BE: `RankingBuilder` RISE·FALL·VOLUME, 동률 정렬
+- [ ] BE: `RankingBuilder` LEADER·RISE·FALL·VOLUME, 동률 정렬, `GET /house/rankings`
 - [ ] FE: 랭킹 탭, 지도 연동, 면책·기준일 표기, 모바일 레이아웃, 홈 허브 진입
 
 * 완료 기준: 구별 대장 항상 25행, 상승·하락 최대 20행(부족하면 있는 만큼), 야간 배치 후 기준일 갱신
@@ -745,7 +867,7 @@ src/lib/api/query-keys.ts   houseQueryKeys 추가
 | --- | --- | --- | --- |
 | 1 | `aptSeq`가 모든 실거래 행에 있는지 | 있다고 보고 설계. 빈 행은 대체 키(8장) | BE (0단계 확인) |
 | 2 | 정비사업 데이터셋 | 미확정이면 7번 지표 "정보 없음"으로 출시 | BE |
-| 3 | 카카오맵 레이어 전환 level | 구 ≥ 7, 단지 ≤ 6, 실측 후 조정 | FE |
+| 3 | 카카오맵 레이어 전환 level | 구 묶음 ≥ 8, 동 묶음 6\~7, 단지 ≤ 5 (영역 0.2도 초과 시 동 묶음), 실측 후 조정 | FE |
 | 4 | 공공데이터포털 API별 일일 호출 한도 | 상한 1,000(설정값), 한도 확인 후 조정 | BE |
 
 **결정 완료**
@@ -756,6 +878,12 @@ src/lib/api/query-keys.ts   houseQueryKeys 추가
 - 소규모 단지: 세대수와 무관하게 모두 노출 (거래가 적으면 표본 배지로 구분)
 - 직거래: 통계에 포함하고 이상치 판정으로 저가 직거래를 제외, `dealing_type`은 저장
 - 관리자 보강: 1차는 API만 (Swagger로 사용), FE 화면 없음
+- 축소 지도: 구별 대장 대신 구·동별 예산 내 후보 수 묶음, 클릭 시 확대. 구별 대장은 랭킹 탭에만
+- FE 리뷰 추가 API (BE 합의 완료): 구·동 묶음 API(`/house/complexes/summary`, 구 중심은 고정 좌표), `/house/complexes?lawdCd=`, 비교표 `missingIds`·`districtName`·`umdName`, `redevelopments` null/[] 구분(동기화 SUCCESS 기록 기준), 영역 폭 초과 시 상위 묶음으로 전환(0.2도 → 동, 1.0도 → 구)
+- 평형 토글: 페이지에 하나, 지도·리스트·랭킹 공유. 비교함 항목은 담을 때 평형 고정 + 항목별 전환
+- 비교함: 같은 단지 59·84 동시 담기 허용(각 1칸), 같은 평형 중복 불가
+- 금액 표기: 반올림, 소수 자리 고정(15.00억), 등락은 부호 표기(+2,000만, -1.20억)
+- 취득세 6\~9억 누진 세율: 지방세법 조문대로 비율을 소수 넷째 자리까지 반올림(7억 → 0.0167). 검증 케이스 5 = 71,242
 - 생애최초 감면 40세 미만 300만원 상향안: 법이 확정되면 정책 행을 추가하고 나이 입력을 넣는다. 그 전까지는 200만원
 
 ## 참고 자료
@@ -764,5 +892,6 @@ src/lib/api/query-keys.ts   houseQueryKeys 추가
 - [2026년 8월 주택담보대출 금리·한도 총정리 (주택가격별 한도, 스트레스 금리 하한)](https://mhb-blog.com/?p=4694)
 - [10·15 대책: 15억 집 대출 최대 4억 (머니투데이)](https://www.mt.co.kr/finance/2025/10/15/2025101507090160110)
 - [2026년 지방세제 개편안 (생애최초 감면)](https://www.taxnet.co.kr/contents/taxnetpost/post-detail?id=5002)
+- [지방세법 제11조 제1항 제8호 (국가법령정보센터, 2026-07-01 시행)](https://law.go.kr/lsLinkCommonInfo.do?lsJoLnkSeq=1021846727)
 - [국토교통부 아파트 매매 실거래가 상세 자료 (공공데이터포털)](https://www.data.go.kr/data/15126468/openapi.do)
 - `docs/field_research_map/02-legal-and-terms.md` — 지도·주소 API 저장 약관 검토
