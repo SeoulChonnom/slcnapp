@@ -205,7 +205,7 @@ f_k(P) = Cash - Reserve - cost(P) + \min(L_{DSR},\; LTV \times P,\; Cap_k) - P
 
 | 레이어 | 표시 조건 (카카오 level, 실측 후 조정) | 마커 | 데이터 |
 | --- | --- | --- | --- |
-| 구 묶음 | level ≥ 8, 또는 동 묶음 레벨인데 영역 한 변이 1.0도 초과 | 구 중심에 원형 마커 "강북구 · 42" | `GET /house/complexes/summary?groupBy=DISTRICT` |
+| 구 묶음 | level ≥ 8, 또는 동 묶음 레벨인데 영역 한 변이 1.0도 초과 | 구 중심에 원형 마커 "강북구 · 42" | `GET /house/complexes/summary?groupBy=DISTRICT` (영역 없이, 항상 서울 전체 25행) |
 | 동 묶음 | (level 6\~7, 또는 단지 레벨인데 영역 한 변이 0.2도 초과) 이고 영역 한 변이 1.0도 이하 | 동 중심에 원형 마커 "미아동 · 12" | `GET /house/complexes/summary?groupBy=DONG` + 영역 |
 | 단지 | level ≤ 5 이고 영역 한 변이 0.2도 이하 | 단지 가격 라벨 (억, 소수 첫째 자리) | `GET /house/complexes` |
 
@@ -338,8 +338,9 @@ f_k(P) = Cash - Reserve - cost(P) + \min(L_{DSR},\; LTV \times P,\; Cap_k) - P
 | 1. 수집 단위 준비 | 25개 구 × 최근 40개월(3년 전 3개월 창을 덮는 범위)의 (구, 계약년월) 행을 `house_collect_unit`에 보장 | — |
 | 2. 실거래 수집 | 아래 우선순위로 단위를 골라 수집, 일일 호출 상한(`slcn.house.daily-call-limit`, 기본 1,000)에 닿으면 멈춤 | 공공데이터포털 |
 | 3. 단지 보강 | 새 단지 또는 보강 실패(재시도 3회 미만) 단지의 좌표·건축물대장 조회. 매월 1일에는 전체 단지의 건축물대장 재조회 | 행안부, 공공데이터포털 |
-| 4. 참조 데이터 | `house_school`이 비었거나 마지막 갱신이 180일 지났으면 학교 갱신 + 단지별 최근접 학교 재계산. 정비사업도 같은 방식 | 공공데이터포털 등 |
-| 5. 통계 | 이상치 표시 → 단지·평형 통계 → 랭킹 4종. 통계·랭킹 테이블은 한 트랜잭션에서 통째로 교체 | — |
+| 4. 학교 동기화 | `SCHOOL_SYNC`의 마지막 SUCCESS가 없거나 180일 지났으면 학교 갱신 + 단지별 최근접 학교 재계산. 아니면 SKIPPED | 공공데이터포털 |
+| 5. 정비사업 동기화 | `REDEVELOPMENT_SYNC`의 마지막 SUCCESS가 없거나 30일 지났으면 정비사업 갱신 + 단지별 반경 500m 연결 재계산. 데이터셋 미확정(13장)이면 SKIPPED | 서울시 |
+| 6. 통계 | 이상치 표시 → 단지·평형 통계 → 랭킹 4종. 통계·랭킹 테이블은 한 트랜잭션에서 통째로 교체 | — |
 
 **실거래 수집 우선순위** (한 실행 안에서 위에서부터):
 
@@ -421,8 +422,20 @@ f_k(P) = Cash - Reserve - cost(P) + \min(L_{DSR},\; LTV \times P,\; Cap_k) - P
 | `house_redevelopment` | `source_key`, `name`, `project_type`, `stage`, `latitude`, `longitude`, `source_url`, `synced_date` | UK `source_key` |
 | `house_complex_redevelopment` | PK (`complex_id`, `redevelopment_id`), `distance_m` | — |
 | `house_budget_policy` (`HouseBudgetPolicyJpo`) | `effective_from`, `dsr_ratio`, `stress_rate_pp`, `term_years`, `default_reserve_manwon`, `ltv_first_time`, `ltv_non_first`, `price_caps`(JSON), `cost_rates`(JSON), `source_note` | UK `effective_from` |
-| `house_batch_run` | `run_date`, `step`, `status`(SUCCESS\|PARTIAL\|FAILED\|SKIPPED), `api_calls`, `detail`(JSON), `started_time`, `finished_time`, `error` | IDX `run_date` |
+| `house_batch_run` | `run_date`, `step`(아래 목록), `status`(SUCCESS\|PARTIAL\|FAILED\|SKIPPED), `api_calls`, `detail`(JSON), `started_time`, `finished_time`, `error` | IDX (`step`, `status`, `run_date`) |
 
+- `house_batch_run.step` 값 (7장 야간 배치 단계와 1:1, 한 실행에서 단계마다 1행):
+
+  | step | 7장 단계 | 이 기록을 읽는 곳 |
+  | --- | --- | --- |
+  | `COLLECT_UNIT_PREPARE` | 1. 수집 단위 준비 | — |
+  | `TRADE_COLLECT` | 2. 실거래 수집 | `/house/meta`의 `dataAsOf` |
+  | `COMPLEX_ENRICH` | 3. 단지 보강 | — |
+  | `SCHOOL_SYNC` | 4. 학교 동기화 | 다음 갱신 시점(180일) 판단 |
+  | `REDEVELOPMENT_SYNC` | 5. 정비사업 동기화 | 다음 갱신 시점(30일) 판단, 비교표 `redevelopments` null/[] 판단 |
+  | `STATS_BUILD` | 6. 통계 | `/house/meta`의 `statsComputedDate` |
+
+  SKIPPED(갱신 시점 전, 키 없음, 데이터셋 미확정)는 SUCCESS로 치지 않는다. 그래서 정비사업을 한 번도 받지 않았으면 계속 `null`이다.
 - 지도 영역 조회는 위경도 B-tree 인덱스로 충분하다(서울 아파트 단지 수천 개). PostGIS는 쓰지 않는다.
 - `house_complex_area_stat.avg_3m`은 최근 실거래가가 3개월 창일 때 `recent_price_manwon`과 같은 값이다. 비교표 1행과 8행 "최근"이 서로 다르게 보이지 않는다.
 - 쿼리는 단위 테스트로 검증되지 않는다(DB 통합 테스트 없음). 통계·랭킹 SQL은 로컬 DB에 백필 데이터를 넣고 직접 실행해 결과를 확인한다.
@@ -462,7 +475,7 @@ VALUES
 - 경로에 `/api` 접두어가 없다(FE는 `VITE_API_URL=/api` 아래로 호출하고 프록시가 넘긴다). 모든 경로는 `/house` 아래에 둔다.
 - 인증: 모든 경로는 기존 `anyRequest().hasAuthority(USER_AUTHORITY)` 규칙으로 로그인 회원만 허용한다. **`permitAll` 경로를 추가하지 않는다.** 관리자 경로(`/house/admin/**`)는 `SecurityConfiguration`에 `hasAuthority(ADMIN_AUTHORITY)` 매처를 추가한다.
 - 응답: `ResponseEntity<*Rdo>` 본문을 그대로 낸다(감싸는 객체 없음). 목록은 `{ "items": [...] }` 형태다.
-- 오류: `ErrorResponse { title, status, code, errors }`. FE는 `code`(ErrorCode 이름)로 분기한다. 입력 검증은 `VALIDATION_FAILED` + `errors[]`(field, code, message)를 쓴다.
+- 오류: `ErrorResponse { title, status, code, errors }`. FE는 `code`(ErrorCode 이름)로 분기한다(FE에서는 이 값이 `AppError.apiCode`에 들어간다, 11장). 입력 검증은 `VALIDATION_FAILED` + `errors[]`(field, code, message)를 쓴다.
 - 금액은 만원 정수, 면적 구간은 `B59`/`B84`, 날짜는 `yyyy-MM-dd` 문자열.
 - 응답의 구 이름(`districtName`)은 BE가 `lawdCd`로 채운다(25개 구 상수).
 
@@ -473,7 +486,7 @@ VALUES
 | GET | `/house/budget-policy` | 예산 계산 규칙 (모듈 1) | — |
 | GET | `/house/meta` | 데이터 기준일, 통계 계산일 | — |
 | GET | `/house/complexes` | 지도 영역 단지 (모듈 2) | (`swLat`, `swLng`, `neLat`, `neLng`) 또는 `lawdCd` 중 하나, `area`, `minPrice`?, `maxPrice`? |
-| GET | `/house/complexes/summary` | 구·동 묶음 후보 수 (모듈 2) | `groupBy=DISTRICT\|DONG`, `area`, `minPrice`?, `maxPrice`?, 영역 좌표(DONG은 필수, DISTRICT는 생략 가능) |
+| GET | `/house/complexes/summary` | 구·동 묶음 후보 수 (모듈 2) | `groupBy=DISTRICT\|DONG`, `area`, `minPrice`?, `maxPrice`?, 영역 좌표(DONG만 필수. DISTRICT는 받지 않음) |
 | GET | `/house/complexes/search` | 단지명 자동완성 | `keyword`(2자 이상), `size`(기본 10, 최대 20) |
 | GET | `/house/complexes/{complexId}` | 정보 카드 | `area` |
 | GET | `/house/compare` | 비교표 (모듈 3) | `items={complexId}:B59,{complexId}:B84` (1\~3개) |
@@ -485,7 +498,7 @@ VALUES
 
 | 코드 | HTTP | 언제 |
 | --- | --- | --- |
-| `VALIDATION_FAILED` (기존) | 400 | `area` 누락·오류, 영역 좌표 누락·뒤집힘, `/house/complexes`에서 영역과 `lawdCd`가 둘 다 없거나 둘 다 있음, `/house/complexes` 영역 한 변이 0.2도(경도 기준 약 17.6km) 초과, `summary` 영역 한 변이 1.0도 초과, `minPrice > maxPrice`, `keyword` 2자 미만, `items` 0개·4개 이상·형식 오류·중복 |
+| `VALIDATION_FAILED` (기존) | 400 | `area` 누락·오류, 영역 좌표 누락·뒤집힘, `/house/complexes`에서 영역과 `lawdCd`가 둘 다 없거나 둘 다 있음, `/house/complexes` 영역 한 변이 0.2도(경도 기준 약 17.6km) 초과, `summary` DONG에서 영역 누락 또는 한 변이 1.0도 초과, `summary` DISTRICT에 영역 좌표가 있음, `minPrice > maxPrice`, `keyword` 2자 미만, `items` 0개·4개 이상·형식 오류·중복 |
 | `HOUSE_COMPLEX_NOT_FOUND` | 404 | 정보 카드의 `complexId`가 없음. 비교표는 404를 내지 않고 `missingIds`로 알린다 |
 | `HOUSE_BUDGET_POLICY_NOT_FOUND` | 503 | 오늘 시행 중인 정책 행이 없음 (시드 누락) |
 
@@ -585,8 +598,8 @@ VALUES
 - `centerLat`·`centerLng`: 필터와 무관하게 정해져 있어 필터를 바꿔도 마커 위치가 흔들리지 않는다.
   - DISTRICT: `HouseConstant`의 구별 고정 중심 좌표 25개. 좌표 보강 초기처럼 어떤 구에 좌표 있는 단지가 없어도 항상 값이 있다.
   - DONG: 그 동의 좌표 있는 **전체** 단지 좌표 평균.
-- `count`가 0인 묶음도 내려준다. DISTRICT는 항상 25행이다. DONG은 좌표 있는 단지가 하나라도 있는 동만, 중심이 영역 안에 있는 것만 내려준다.
-- DISTRICT는 영역을 생략하면 서울 전체다.
+- `count`가 0인 묶음도 내려준다. DONG은 좌표 있는 단지가 하나라도 있는 동만, 중심이 영역 안에 있는 것만 내려준다.
+- DISTRICT는 영역 파라미터를 받지 않고 항상 서울 전체 25행을 내려준다(`count`도 구 전체 기준). 가장 위 단계라 더 올릴 묶음이 없으므로, 지도를 아무리 축소해도 영역 검증에 걸리지 않게 하기 위해서다. 화면 밖 구 마커는 카카오맵이 알아서 그리지 않는다.
 
 ### 단지 검색
 
@@ -641,7 +654,7 @@ VALUES
 - 열 순서는 요청 `items` 순서를 따른다(없는 단지는 건너뜀). 값이 없는 필드는 null이고, FE가 "정보 없음"으로 표시한다.
 - `missingIds`: 요청했지만 없는 `complexId` 목록. 없으면 `[]`. 전부 없으면 `columns: []`. 비교표는 이 경우에도 200이다.
 - `redevelopments`: 정비사업 데이터가 아직 적재되지 않았으면 `null`, 적재됐는데 반경 500m 안에 없으면 `[]`.
-  - "적재됨"은 `house_batch_run`에 정비사업 동기화 단계의 SUCCESS 기록이 한 번이라도 있는지로 판단한다. 테이블이 비었는지로 판단하지 않는다. 그러면 동기화는 성공했는데 사업이 0건인 경우와 미적재를 구분할 수 없다.
+  - "적재됨"은 `house_batch_run`에 `step = REDEVELOPMENT_SYNC`, `status = SUCCESS` 기록이 한 번이라도 있는지로 판단한다(9장 step 목록). 테이블이 비었는지로 판단하지 않는다. 그러면 동기화는 성공했는데 사업이 0건인 경우와 미적재를 구분할 수 없다.
 - `complexId`에는 `:`와 `,`가 들어가지 않는다(`items`·`cmp` 구분자).
 
 ### 랭킹
@@ -741,7 +754,7 @@ slcn-boot/
 - `MolitTradeGateway`: 쉼표 금액 파싱, 오류 응답, 키가 로그에 남지 않음
 - Resource: 오류 코드, `items` 검증, 관리자 권한, `/house/complexes` 영역·`lawdCd` 택일 검증
 - 비교표: 없는 단지는 `missingIds`로 빠지고 200, `redevelopments` null/[] 구분(동기화 SUCCESS 기록 기준)
-- 구·동 묶음: 0건 묶음 포함, DISTRICT 항상 25행, 중심 좌표가 필터와 무관
+- 구·동 묶음: 0건 묶음 포함, DISTRICT 항상 25행·영역 파라미터 거부, DONG 영역 필수, 중심 좌표가 필터와 무관
 - 통계 SQL은 로컬 DB에서 직접 실행해 확인한다(9장)
 
 ### FE (`slcnfront`)
@@ -781,7 +794,7 @@ src/lib/api/query-keys.ts   houseQueryKeys 추가
 - **서버 상태**: react-query + `houseQueryKeys`. 응답은 zod 스키마로 검증하고 mapper로 화면 타입으로 바꾼다(`inspection`과 같은 패턴). 서버 오류는 `AppError.apiCode`(서버 ErrorCode 이름)로 분기한다. `AppError.code`는 FE 분류(`HTTP_ERROR`\|`NETWORK_ERROR`\|`INVALID_RESPONSE`)다.
 - **카카오 SDK**: 지금 FE에는 카카오 코드가 없으므로 `src/lib/kakao/kakao-loader.ts`를 새로 만든다. house와 임장 지도(FC4b)가 함께 쓰므로 도메인이 아니라 `lib`에 둔다. 앱 전체에서 1회만 로드한다(`autoload=false` + `kakao.maps.load`, 진행 중인 로드는 같은 Promise를 돌려준다). 로더 URL에는 `libraries=clusterer`를 넣는다(SDK는 한 번만 로드되므로 라이브러리도 한 번에 정해야 한다). `kakao-maps.d.ts`에 쓰는 타입(`Map`, `LatLng`, `LatLngBounds`, `CustomOverlay`, `MarkerClusterer`, `event`)만 선언한다. 새 npm 의존성은 넣지 않는다.
 - **카카오 키**: `VITE_KAKAO_MAP_JS_KEY`(선택). `src/lib/env/env.ts`의 zod 스키마와 `AppEnv`에 optional로 추가해 `getAppEnv().kakaoMapJsKey`로 읽는다(빈 문자열은 없음으로 본다). 없으면 4장 "지도 없는 모드"로 동작한다. 도메인은 카카오 개발자 콘솔에 등록한다.
-- **지도 영역** (`map-bounds.ts`): 영역을 소수 셋째 자리로 바깥쪽으로 맞추고(sw 내림, ne 올림), 레벨·영역 폭으로 레이어(DISTRICT/DONG/COMPLEX)를 고르는 순수 함수. 영역 폭 규칙은 BE 검증과 맞춘다: 단지는 0.2도 이하, 동 묶음은 1.0도 이하. 넘으면 한 단계 위 묶음으로 올린다(COMPLEX → DONG → DISTRICT). 레이어 임계값은 상수 한 곳에 둔다(실측 후 조정).
+- **지도 영역** (`map-bounds.ts`): 영역을 소수 셋째 자리로 바깥쪽으로 맞추고(sw 내림, ne 올림), 레벨·영역 폭으로 레이어(DISTRICT/DONG/COMPLEX)를 고르는 순수 함수. 영역 폭 규칙은 BE 검증과 맞춘다: 단지는 0.2도 이하, 동 묶음은 1.0도 이하. 넘으면 한 단계 위 묶음으로 올린다(COMPLEX → DONG → DISTRICT). DISTRICT는 영역 없이 부르므로 폭 제한이 없다. 레이어 임계값은 상수 한 곳에 둔다(실측 후 조정).
 - **섹션 간 연동**: 예산 결과 → (300ms 디바운스) 지도 가격 필터 / 마커·리스트·랭킹의 `[비교 담기]` → `cmp` (현재 평형 토글 값) / 구·동 묶음 클릭 → `lat`·`lng`·`level` 갱신 / 랭킹 `[지도에서 위치 보기]` → `lat`·`lng`·`level` 갱신 + 정보 카드 오픈 + `#find`로 스크롤.
 - **반응형**: 데스크톱은 섹션 세로 배치이고, 집 찾기 섹션 안에서만 지도(좌) + 후보 리스트(우) 2열이다. 모바일은 세로 스택과 후보 리스트 바텀시트다.
 - **금액 표시**: `format-eok.ts` 하나로 통일한다.
@@ -809,7 +822,7 @@ src/lib/api/query-keys.ts   houseQueryKeys 추가
 
   색은 5장 규칙(상승 파랑, 하락 빨강, 0은 기본색)을 따른다.
 - **디자인**: 프로토타입(`docs/SeoulChonnom_Prototype.html`)에 이 화면이 없으므로 `DESIGN.md` 토큰과 기존 컴포넌트로 구성한다. 시안이 생기면 그 시안을 따른다.
-- **테스트 (FE)**: `calculate-budget` 검증 케이스, `format-eok`(위 두 표 전부), `compare-param`(직렬화, `59`↔`B59` 변환, 같은 단지 59·84 허용, 같은 평형 중복 거부, 최대 3개), `map-bounds`(바깥쪽 반올림, 레이어 선택, 0.2도 초과 시 DONG, 1.0도 초과 시 DISTRICT), `useBudgetInput`(빈 여유금은 정책 기본값, 범위 오류 우선), zod 스키마(`costRates` 정렬 규칙), msw로 지도 없는 모드의 구 리스트 → 후보 리스트, 비교표 `missingIds` 처리.
+- **테스트 (FE)**: `calculate-budget` 검증 케이스, `format-eok`(위 두 표 전부), `compare-param`(직렬화, `59`↔`B59` 변환, 같은 단지 59·84 허용, 같은 평형 중복 거부, 최대 3개), `map-bounds`(바깥쪽 반올림, 레이어 선택, 0.2도 초과 시 DONG, 1.0도 초과 시 DISTRICT, DISTRICT 요청에 영역 파라미터 없음), `useBudgetInput`(빈 여유금은 정책 기본값, 범위 오류 우선), zod 스키마(`costRates` 정렬 규칙), msw로 지도 없는 모드의 구 리스트 → 후보 리스트, 비교표 `missingIds` 처리.
 
 ## 12. 로드맵과 작업 분해
 
@@ -867,7 +880,7 @@ src/lib/api/query-keys.ts   houseQueryKeys 추가
 | --- | --- | --- | --- |
 | 1 | `aptSeq`가 모든 실거래 행에 있는지 | 있다고 보고 설계. 빈 행은 대체 키(8장) | BE (0단계 확인) |
 | 2 | 정비사업 데이터셋 | 미확정이면 7번 지표 "정보 없음"으로 출시 | BE |
-| 3 | 카카오맵 레이어 전환 level | 구 묶음 ≥ 8, 동 묶음 6\~7, 단지 ≤ 5 (영역 0.2도 초과 시 동 묶음), 실측 후 조정 | FE |
+| 3 | 카카오맵 레이어 전환 level | 구 묶음 ≥ 8, 동 묶음 6\~7, 단지 ≤ 5 (영역 0.2도 초과 시 동 묶음, 1.0도 초과 시 구 묶음), 실측 후 조정 | FE |
 | 4 | 공공데이터포털 API별 일일 호출 한도 | 상한 1,000(설정값), 한도 확인 후 조정 | BE |
 
 **결정 완료**
@@ -879,7 +892,7 @@ src/lib/api/query-keys.ts   houseQueryKeys 추가
 - 직거래: 통계에 포함하고 이상치 판정으로 저가 직거래를 제외, `dealing_type`은 저장
 - 관리자 보강: 1차는 API만 (Swagger로 사용), FE 화면 없음
 - 축소 지도: 구별 대장 대신 구·동별 예산 내 후보 수 묶음, 클릭 시 확대. 구별 대장은 랭킹 탭에만
-- FE 리뷰 추가 API (BE 합의 완료): 구·동 묶음 API(`/house/complexes/summary`, 구 중심은 고정 좌표), `/house/complexes?lawdCd=`, 비교표 `missingIds`·`districtName`·`umdName`, `redevelopments` null/[] 구분(동기화 SUCCESS 기록 기준), 영역 폭 초과 시 상위 묶음으로 전환(0.2도 → 동, 1.0도 → 구)
+- FE 리뷰 추가 API (BE 합의 완료): 구·동 묶음 API(`/house/complexes/summary`, 구 중심은 고정 좌표), `/house/complexes?lawdCd=`, 비교표 `missingIds`·`districtName`·`umdName`, `redevelopments` null/[] 구분(`REDEVELOPMENT_SYNC` SUCCESS 기록 기준, 학교와 단계 분리), 영역 폭 초과 시 상위 묶음으로 전환(0.2도 → 동, 1.0도 → 구)
 - 평형 토글: 페이지에 하나, 지도·리스트·랭킹 공유. 비교함 항목은 담을 때 평형 고정 + 항목별 전환
 - 비교함: 같은 단지 59·84 동시 담기 허용(각 1칸), 같은 평형 중복 불가
 - 금액 표기: 반올림, 소수 자리 고정(15.00억), 등락은 부호 표기(+2,000만, -1.20억)
