@@ -429,7 +429,7 @@ f_k(P) = Cash - Reserve - cost(P) + \min(L_{DSR},\; LTV \times P,\; Cap_k) - P
   | step | 7장 단계 | 이 기록을 읽는 곳 |
   | --- | --- | --- |
   | `COLLECT_UNIT_PREPARE` | 1. 수집 단위 준비 | — |
-  | `TRADE_COLLECT` | 2. 실거래 수집 | `/house/meta`의 `dataAsOf` |
+  | `TRADE_COLLECT` | 2. 실거래 수집 | — (`dataAsOf`는 `house_collect_unit`에서 만든다, 10장 메타) |
   | `COMPLEX_ENRICH` | 3. 단지 보강 | — |
   | `SCHOOL_SYNC` | 4. 학교 동기화 | 다음 갱신 시점(180일) 판단 |
   | `REDEVELOPMENT_SYNC` | 5. 정비사업 동기화 | 다음 갱신 시점(30일) 판단, 비교표 `redevelopments` null/[] 판단 |
@@ -556,7 +556,10 @@ VALUES
 { "dataAsOf": "2026-10-20", "statsComputedDate": "2026-10-20" }
 ```
 
-`dataAsOf` = 최근 3개월 수집 단위가 모두 성공한 마지막 날짜.
+- `dataAsOf` = 최근 3개월 수집 단위(25개 구 × 이번 달 포함 3개월 = 75개)의 `house_collect_unit.last_success_date` 중 **가장 이른 날짜**. "이 날짜까지는 최근 3개월이 모든 구에서 수집됐다"는 뜻이다.
+  - `house_batch_run`의 `TRADE_COLLECT` 상태는 보지 않는다. 백필 중 일일 호출 상한에 닿으면 `TRADE_COLLECT`는 PARTIAL로 남지만, 최근 3개월 단위는 가장 먼저 받으므로(7장 우선순위 1) 이미 다 성공했을 수 있다. 화면의 기준일은 최근 데이터가 실제로 언제 수집됐는지를 보여 줘야 한다.
+  - 75개 중 한 번도 성공하지 못한 단위가 있으면 `null`이다. 첫 배포 직후, 또는 월이 바뀐 첫날 새 달 단위 수집이 실패한 경우다. FE는 "데이터 준비 중"으로 표시한다. 다음 실행에서 성공하면 바로 날짜가 생긴다.
+- `statsComputedDate` = `STATS_BUILD`의 마지막 SUCCESS 실행일. 한 번도 없으면 `null`.
 
 ### 지도 영역 단지
 
@@ -847,27 +850,27 @@ src/lib/api/query-keys.ts   houseQueryKeys 추가
 
 - [ ] BE: `MolitTradeGateway`, `TradeCollector`, `house_collect_unit` 우선순위, dedup·해제·원천 삭제 처리
 - [ ] BE: 행안부 좌표, 건축물대장 보강, 관리자 보강 목록·주소 보정 API
-- [ ] BE: `HouseNightlyScheduler` 단계 1\~3, `house_batch_run` 기록
+- [ ] BE: `HouseNightlyScheduler` 단계 1\~3(`COLLECT_UNIT_PREPARE`, `TRADE_COLLECT`, `COMPLEX_ENRICH`), `house_batch_run` 기록
 
 * 완료 기준: 40개월 백필 완료(`house_collect_unit` 전부 DONE), 최근 12개월 거래 기준 좌표 보강률 95% 이상, 해제·원천 삭제 거래 통계 제외 확인
 
 ### 3단계 — 지도 탐색
 
-- [ ] BE: 이상치 판정, `AreaStatBuilder`(최근 실거래가), `GET /house/complexes`(영역·`lawdCd`), `GET /house/complexes/summary`, `GET /house/complexes/{complexId}`, `GET /house/meta`
+- [ ] BE: 배치 단계 6(`STATS_BUILD`) — 이상치 판정, `AreaStatBuilder`(최근 실거래가), `GET /house/complexes`(영역·`lawdCd`), `GET /house/complexes/summary`, `GET /house/complexes/{complexId}`, `GET /house/meta`
 - [ ] FE: 카카오 로더(`src/lib/kakao`), 구·동 묶음 / 단지 레이어 전환, 묶음 클릭 확대, 가격 오버레이, 평형 토글, 후보 리스트, 정보 카드, 지도 없는 모드, 레이어 level 실측
 
 * 완료 기준: 예산 결과 변경 시 1초 안에 마커 갱신, 후보 300개에서 지도 이동이 끊기지 않음, 기간 라벨 표시, 1920px 화면에서도 단지 조회 400 오류 없음
 
 ### 4단계 — 단지 비교
 
-- [ ] BE: 학교 데이터 적재 + 단지별 최근접 거리, (데이터셋 확정 시) 정비사업 적재 + 단지 연결, `GET /house/compare`, `GET /house/complexes/search`
+- [ ] BE: 배치 단계 4(`SCHOOL_SYNC`) 학교 데이터 적재 + 단지별 최근접 거리, 배치 단계 5(`REDEVELOPMENT_SYNC`) 정비사업 적재 + 단지 연결(데이터셋 미확정이면 SKIPPED까지만), `GET /house/compare`, `GET /house/complexes/search`
 - [ ] FE: 비교 트레이, 단지 검색, 9개 지표 표, 낮은 표본 배지, `cmp` URL
 
 * 완료 기준: 3개 단지 비교표가 공유 URL로 동일하게 복원(로그인 후), 비로그인 접근 시 로그인 화면으로 이동
 
 ### 5단계 — 랭킹과 마무리
 
-- [ ] BE: `RankingBuilder` LEADER·RISE·FALL·VOLUME, 동률 정렬, `GET /house/rankings`
+- [ ] BE: 배치 단계 6(`STATS_BUILD`)에 `RankingBuilder` LEADER·RISE·FALL·VOLUME 추가, 동률 정렬, `GET /house/rankings`
 - [ ] FE: 랭킹 탭, 지도 연동, 면책·기준일 표기, 모바일 레이아웃, 홈 허브 진입
 
 * 완료 기준: 구별 대장 항상 25행, 상승·하락 최대 20행(부족하면 있는 만큼), 야간 배치 후 기준일 갱신
