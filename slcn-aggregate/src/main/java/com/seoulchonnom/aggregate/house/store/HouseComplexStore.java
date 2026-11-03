@@ -12,9 +12,13 @@ import org.springframework.stereotype.Repository;
 
 import com.seoulchonnom.aggregate.house.store.jpo.HouseComplexJpo;
 import com.seoulchonnom.aggregate.house.store.mapper.HouseComplexJpoMapper;
+import com.seoulchonnom.aggregate.house.store.projection.ComplexMapPdo;
+import com.seoulchonnom.aggregate.house.store.projection.DistrictCountPdo;
+import com.seoulchonnom.aggregate.house.store.projection.DongSummaryPdo;
 import com.seoulchonnom.aggregate.house.store.projection.IncompleteComplexPdo;
 import com.seoulchonnom.aggregate.house.store.repository.HouseComplexRepository;
 import com.seoulchonnom.spec.house.entity.HouseComplex;
+import com.seoulchonnom.spec.house.entity.vo.AreaBucket;
 
 import lombok.RequiredArgsConstructor;
 
@@ -104,5 +108,52 @@ public class HouseComplexStore {
 
 	public long countTrades12m(String complexId, LocalDate today) {
 		return houseComplexRepository.countRecentTrades(complexId, today.minusMonths(12));
+	}
+
+	/**
+	 * 지도 영역·구 단위 목록(최대 limit건). 좌표가 있는 단지만, 최근 실거래가 내림차순.
+	 */
+	public List<ComplexMapPdo> findMapItems(AreaBucket area, ComplexMapFilter filter, int limit) {
+		return houseComplexRepository.findMapItems(area.name(), filter.bounded(), filter.swLat(), filter.swLng(),
+			filter.neLat(), filter.neLng(), filter.byDistrict(), filter.lawdCd(), filter.hasPrice(),
+			filter.minPrice(), filter.maxPrice(), limit).stream()
+			.map(row -> new ComplexMapPdo((String)row[0], (String)row[1], (String)row[2], (String)row[3],
+				(Double)row[4], (Double)row[5], toInteger(row[6]), toInteger(row[7]), toLong(row[8]),
+				toInteger(row[9]), toInteger(row[10])))
+			.toList();
+	}
+
+	public long countMapItems(AreaBucket area, ComplexMapFilter filter) {
+		return houseComplexRepository.countMapItems(area.name(), filter.bounded(), filter.swLat(), filter.swLng(),
+			filter.neLat(), filter.neLng(), filter.byDistrict(), filter.lawdCd(), filter.hasPrice(),
+			filter.minPrice(), filter.maxPrice());
+	}
+
+	public List<DistrictCountPdo> countByDistrict(AreaBucket area, Long minPrice, Long maxPrice) {
+		return houseComplexRepository
+			.countByDistrict(area.name(), minPrice != null || maxPrice != null, minPrice == null ? 0 : minPrice,
+				maxPrice == null ? Long.MAX_VALUE : maxPrice)
+			.stream()
+			.map(row -> new DistrictCountPdo((String)row[0], ((Number)row[1]).longValue()))
+			.toList();
+	}
+
+	public List<DongSummaryPdo> summarizeByDong(AreaBucket area, Long minPrice, Long maxPrice, double swLat,
+		double swLng, double neLat, double neLng) {
+		return houseComplexRepository
+			.summarizeByDong(area.name(), minPrice != null || maxPrice != null, minPrice == null ? 0 : minPrice,
+				maxPrice == null ? Long.MAX_VALUE : maxPrice, swLat, swLng, neLat, neLng)
+			.stream()
+			.map(row -> new DongSummaryPdo((String)row[0], (String)row[1], (String)row[2],
+				((Number)row[3]).doubleValue(), ((Number)row[4]).doubleValue(), ((Number)row[5]).longValue()))
+			.toList();
+	}
+
+	private static Integer toInteger(Object value) {
+		return value == null ? null : ((Number)value).intValue();
+	}
+
+	private static Long toLong(Object value) {
+		return value == null ? null : ((Number)value).longValue();
 	}
 }

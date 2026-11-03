@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.seoulchonnom.aggregate.house.store.jpo.HouseTradeJpo;
+import com.seoulchonnom.aggregate.house.store.projection.OutlierCandidatePdo;
 
 /**
  * 거래 쓰기는 JPA save를 쓰지 않는다. 기존 행을 먼저 SELECT해야 해서 행마다 두 번 왕복하고,
@@ -67,4 +68,36 @@ public interface HouseTradeRepository extends JpaRepository<HouseTradeJpo, Strin
 		nativeQuery = true)
 	int markRemovedExcept(@Param("lawdCd") String lawdCd, @Param("dealYm") String dealYm,
 		@Param("keys") String keys, @Param("now") long now);
+
+	/**
+	 * 이상치 판정 대상. 해제·원천 삭제가 아닌 B59/B84 거래를 필요한 컬럼만 읽는다(약 20만 행 규모).
+	 * JPQL 생성자 표현식이라 날짜·enum이 타입대로 온다.
+	 */
+	@Query("select new com.seoulchonnom.aggregate.house.store.projection.OutlierCandidatePdo("
+		+ "t.id, t.complexId, t.areaBucket, t.dealDate, t.amountManwon) "
+		+ "from HouseTradeJpo t "
+		+ "where t.areaBucket in (com.seoulchonnom.spec.house.entity.vo.AreaBucket.B59, "
+		+ "com.seoulchonnom.spec.house.entity.vo.AreaBucket.B84) "
+		+ "and t.cancelled = false and t.removed = false and t.dealDate > :since")
+	List<OutlierCandidatePdo> findOutlierCandidates(@Param("since") LocalDate since);
+
+	/**
+	 * 기준일 이후 거래의 이상치 표시를 모두 푼다. 이어서 markOutliers로 다시 찍는다(같은 트랜잭션).
+	 * 파생값이라 entity_version/modified_time은 올리지 않는다.
+	 */
+	@Modifying(flushAutomatically = true)
+	@Query(value = "UPDATE slcn.house_trade SET outlier = false "
+		+ "WHERE outlier = true AND deal_date > CAST(:since AS date)",
+		nativeQuery = true)
+	int clearOutliers(@Param("since") LocalDate since);
+
+	/**
+	 * id를 쉼표로 이은 문자열 하나로 받는다(UUID라 쉼표가 없다). 빈 문자열이면 아무 행도 맞지 않지만
+	 * 호출하는 쪽이 빈 목록이면 부르지 않는다.
+	 */
+	@Modifying(flushAutomatically = true)
+	@Query(value = "UPDATE slcn.house_trade SET outlier = true "
+		+ "WHERE id = ANY (string_to_array(CAST(:ids AS text), ','))",
+		nativeQuery = true)
+	int markOutliers(@Param("ids") String ids);
 }

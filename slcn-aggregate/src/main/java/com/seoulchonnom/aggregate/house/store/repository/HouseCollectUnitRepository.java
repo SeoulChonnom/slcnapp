@@ -31,4 +31,16 @@ public interface HouseCollectUnitRepository extends JpaRepository<HouseCollectUn
 		+ "ON CONFLICT (lawd_cd, deal_ym) DO NOTHING",
 		nativeQuery = true)
 	int insertMissing(@Param("lawdCds") String lawdCds, @Param("dealYms") String dealYms, @Param("now") long now);
+
+	/**
+	 * 최근 3개월 수집 단위(구 25 x 3개월 = :required개)의 마지막 성공일 중 가장 이른 날짜.
+	 * 단위가 모자라거나 한 번도 성공하지 못한 단위가 있으면 null. 반환은 날짜(java.sql.Date 등)라 Store가 LocalDate로 바꾼다.
+	 * 사람이 검증할 지점: 75개 중 1개가 NEVER일 때 null, 모두 성공일 때 MIN, 단위가 74개일 때 null.
+	 */
+	@Query(value = "SELECT CASE WHEN COUNT(*) < :required OR COUNT(*) FILTER (WHERE last_success_date IS NULL) > 0 "
+		+ "THEN NULL ELSE MIN(last_success_date) END "
+		+ "FROM slcn.house_collect_unit WHERE deal_ym IN (:ym0, :ym1, :ym2)",
+		nativeQuery = true)
+	Object findDataAsOf(@Param("required") int required, @Param("ym0") String ym0, @Param("ym1") String ym1,
+		@Param("ym2") String ym2);
 }

@@ -2,6 +2,7 @@ package com.seoulchonnom.aggregate.house.store.repository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -9,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.seoulchonnom.aggregate.house.store.jpo.HouseBatchRunJpo;
+import com.seoulchonnom.spec.house.entity.vo.BatchRunStatus;
 import com.seoulchonnom.spec.house.entity.vo.BatchStep;
 
 @Repository
@@ -27,4 +29,9 @@ public interface HouseBatchRunRepository extends JpaRepository<HouseBatchRunJpo,
 	 * 하루 한 단계의 기록은 실행 횟수만큼(보통 1~2행)이라 JSON을 SQL로 파싱하지 않는다.
 	 */
 	List<HouseBatchRunJpo> findByRunDateAndStep(LocalDate runDate, BatchStep step);
+
+	/**
+	 * 이 단계의 해당 상태 기록 중 가장 최근 실행일의 한 행.
+	 */
+	Optional<HouseBatchRunJpo> findTopByStepAndStatusOrderByRunDateDesc(BatchStep step, BatchRunStatus status);
 }

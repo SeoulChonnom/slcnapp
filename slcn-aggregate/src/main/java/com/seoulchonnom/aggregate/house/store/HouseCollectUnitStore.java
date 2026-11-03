@@ -55,4 +55,24 @@ public class HouseCollectUnitStore {
 		return houseCollectUnitJpoMapper
 			.toDomain(houseCollectUnitRepository.save(houseCollectUnitJpoMapper.toJpo(unit)));
 	}
+
+	/**
+	 * 데이터 기준일. 이번 달 포함 최근 3개월 단위 전부(구 수 x 3)가 한 번 이상 성공했을 때만 그중 가장 이른 마지막 성공일, 아니면 null.
+	 */
+	public LocalDate findDataAsOf(LocalDate today, int districtCount) {
+		YearMonth thisMonth = YearMonth.from(today);
+		Object value = houseCollectUnitRepository.findDataAsOf(districtCount * 3,
+			CollectUnitPriority.format(thisMonth), CollectUnitPriority.format(thisMonth.minusMonths(1)),
+			CollectUnitPriority.format(thisMonth.minusMonths(2)));
+		if (value instanceof LocalDate date) {
+			return date;
+		}
+		if (value instanceof java.sql.Date date) {
+			return date.toLocalDate();
+		}
+		if (value instanceof java.util.Date date) {
+			return new java.sql.Date(date.getTime()).toLocalDate();
+		}
+		return null;
+	}
 }

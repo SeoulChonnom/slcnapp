@@ -2,12 +2,15 @@ package com.seoulchonnom.aggregate.house.store;
 
 import java.time.LocalDate;
 import java.util.Map;
+import java.util.Optional;
 
 import org.springframework.stereotype.Repository;
 
+import com.seoulchonnom.aggregate.house.store.jpo.HouseBatchRunJpo;
 import com.seoulchonnom.aggregate.house.store.mapper.HouseBatchRunJpoMapper;
 import com.seoulchonnom.aggregate.house.store.repository.HouseBatchRunRepository;
 import com.seoulchonnom.spec.house.entity.HouseBatchRun;
+import com.seoulchonnom.spec.house.entity.vo.BatchRunStatus;
 import com.seoulchonnom.spec.house.entity.vo.BatchStep;
 
 import lombok.RequiredArgsConstructor;
@@ -41,5 +44,13 @@ public class HouseBatchRunStore {
 			}
 		}
 		return sum;
+	}
+
+	/**
+	 * 이 단계가 마지막으로 SUCCESS였던 실행일. 한 번도 없으면 empty.
+	 */
+	public Optional<LocalDate> findLastSuccessRunDate(BatchStep step) {
+		return houseBatchRunRepository.findTopByStepAndStatusOrderByRunDateDesc(step, BatchRunStatus.SUCCESS)
+			.map(HouseBatchRunJpo::getRunDate);
 	}
 }

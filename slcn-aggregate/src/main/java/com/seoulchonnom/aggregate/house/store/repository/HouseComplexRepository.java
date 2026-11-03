@@ -83,4 +83,78 @@ public interface HouseComplexRepository extends JpaRepository<HouseComplexJpo, S
 		+ "AND t.deal_date > CAST(:since AS date)",
 		nativeQuery = true)
 	long countRecentTrades(@Param("complexId") String complexId, @Param("since") LocalDate since);
+
+	/**
+	 * 지도 영역·구 단위 목록. 좌표가 보강된 단지만, 최근 실거래가 내림차순(가격 없는 단지는 뒤).
+	 * 조건 없는 항목은 플래그(:bounds, :byDistrict, :hasPrice)를 false로 두고 기본값을 넘긴다(null 파라미터 금지).
+	 * 행은 [id, apt_name, lawd_cd, umd_name, latitude, longitude, build_year, households,
+	 * recent_price_manwon, recent_window_months, recent_sample]다.
+	 * 사람이 검증할 지점: 플래그 OR 조건의 타입 추론, LEFT JOIN으로 통계 없는 단지 포함, 가격 양 끝 포함, 정렬.
+	 */
+	@Query(value = "SELECT c.id, c.apt_name, c.lawd_cd, c.umd_name, c.latitude, c.longitude, c.build_year, c.households, "
+		+ "s.recent_price_manwon, s.recent_window_months, s.recent_sample "
+		+ "FROM slcn.house_complex c "
+		+ "LEFT JOIN slcn.house_complex_area_stat s ON s.complex_id = c.id AND s.area_bucket = :area "
+		+ "WHERE c.geocode_status = 'DONE' "
+		+ "AND (:bounds = false OR (c.latitude BETWEEN :swLat AND :neLat AND c.longitude BETWEEN :swLng AND :neLng)) "
+		+ "AND (:byDistrict = false OR c.lawd_cd = :lawdCd) "
+		+ "AND (:hasPrice = false OR (s.recent_price_manwon IS NOT NULL "
+		+ "     AND s.recent_price_manwon >= :minPrice AND s.recent_price_manwon <= :maxPrice)) "
+		+ "ORDER BY s.recent_price_manwon DESC NULLS LAST, c.apt_name, c.id "
+		+ "LIMIT :limit",
+		nativeQuery = true)
+	List<Object[]> findMapItems(@Param("area") String area, @Param("bounds") boolean bounds,
+		@Param("swLat") double swLat, @Param("swLng") double swLng, @Param("neLat") double neLat,
+		@Param("neLng") double neLng, @Param("byDistrict") boolean byDistrict, @Param("lawdCd") String lawdCd,
+		@Param("hasPrice") boolean hasPrice, @Param("minPrice") long minPrice, @Param("maxPrice") long maxPrice,
+		@Param("limit") int limit);
+
+	/**
+	 * findMapItems와 같은 조건의 전체 건수(LIMIT 없음).
+	 */
+	@Query(value = "SELECT COUNT(*) FROM slcn.house_complex c "
+		+ "LEFT JOIN slcn.house_complex_area_stat s ON s.complex_id = c.id AND s.area_bucket = :area "
+		+ "WHERE c.geocode_status = 'DONE' "
+		+ "AND (:bounds = false OR (c.latitude BETWEEN :swLat AND :neLat AND c.longitude BETWEEN :swLng AND :neLng)) "
+		+ "AND (:byDistrict = false OR c.lawd_cd = :lawdCd) "
+		+ "AND (:hasPrice = false OR (s.recent_price_manwon IS NOT NULL "
+		+ "     AND s.recent_price_manwon >= :minPrice AND s.recent_price_manwon <= :maxPrice))",
+		nativeQuery = true)
+	long countMapItems(@Param("area") String area, @Param("bounds") boolean bounds, @Param("swLat") double swLat,
+		@Param("swLng") double swLng, @Param("neLat") double neLat, @Param("neLng") double neLng,
+		@Param("byDistrict") boolean byDistrict, @Param("lawdCd") String lawdCd,
+		@Param("hasPrice") boolean hasPrice, @Param("minPrice") long minPrice, @Param("maxPrice") long maxPrice);
+
+	/**
+	 * 구별 후보 수. 행은 [lawd_cd, cnt]다. 좌표 있는 단지가 없는 구는 행이 없다(Java에서 0으로 채운다).
+	 * 사람이 검증할 지점: FILTER 안의 플래그 조건, 통계 없는 단지는 가격 필터가 켜지면 빠지는지.
+	 */
+	@Query(value = "SELECT c.lawd_cd, "
+		+ "COUNT(*) FILTER (WHERE :hasPrice = false OR s.recent_price_manwon BETWEEN :minPrice AND :maxPrice) AS cnt "
+		+ "FROM slcn.house_complex c "
+		+ "LEFT JOIN slcn.house_complex_area_stat s ON s.complex_id = c.id AND s.area_bucket = :area "
+		+ "WHERE c.geocode_status = 'DONE' "
+		+ "GROUP BY c.lawd_cd",
+		nativeQuery = true)
+	List<Object[]> countByDistrict(@Param("area") String area, @Param("hasPrice") boolean hasPrice,
+		@Param("minPrice") long minPrice, @Param("maxPrice") long maxPrice);
+
+	/**
+	 * 동별 후보 수와 중심. 중심은 필터와 무관하게 좌표 있는 전체 단지의 평균이고(COUNT에만 FILTER), 중심이 영역 안인 동만 낸다.
+	 * 행은 [lawd_cd, umd_cd, umd_name, center_lat, center_lng, cnt]다. 후보 수 내림차순, 그다음 동 이름.
+	 * 사람이 검증할 지점: HAVING 경계, 필터를 바꿔도 center가 그대로인지, umd_cd가 null인 단지(Java에서 건너뜀).
+	 */
+	@Query(value = "SELECT c.lawd_cd, c.umd_cd, MAX(c.umd_name) AS umd_name, "
+		+ "AVG(c.latitude) AS center_lat, AVG(c.longitude) AS center_lng, "
+		+ "COUNT(*) FILTER (WHERE :hasPrice = false OR s.recent_price_manwon BETWEEN :minPrice AND :maxPrice) AS cnt "
+		+ "FROM slcn.house_complex c "
+		+ "LEFT JOIN slcn.house_complex_area_stat s ON s.complex_id = c.id AND s.area_bucket = :area "
+		+ "WHERE c.geocode_status = 'DONE' "
+		+ "GROUP BY c.lawd_cd, c.umd_cd "
+		+ "HAVING AVG(c.latitude) BETWEEN :swLat AND :neLat AND AVG(c.longitude) BETWEEN :swLng AND :neLng "
+		+ "ORDER BY cnt DESC, umd_name, c.lawd_cd, c.umd_cd",
+		nativeQuery = true)
+	List<Object[]> summarizeByDong(@Param("area") String area, @Param("hasPrice") boolean hasPrice,
+		@Param("minPrice") long minPrice, @Param("maxPrice") long maxPrice, @Param("swLat") double swLat,
+		@Param("swLng") double swLng, @Param("neLat") double neLat, @Param("neLng") double neLng);
 }

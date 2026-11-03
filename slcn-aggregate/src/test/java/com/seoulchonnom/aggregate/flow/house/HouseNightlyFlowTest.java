@@ -27,7 +27,9 @@ import com.seoulchonnom.aggregate.house.collect.TradeGateway;
 import com.seoulchonnom.aggregate.house.logic.HouseBatchRunLogic;
 import com.seoulchonnom.aggregate.house.logic.HouseCollectUnitLogic;
 import com.seoulchonnom.aggregate.house.logic.HouseComplexLogic;
+import com.seoulchonnom.aggregate.house.logic.HouseStatLogic;
 import com.seoulchonnom.aggregate.house.logic.HouseTradeLogic;
+import com.seoulchonnom.aggregate.house.logic.StatRebuildResult;
 import com.seoulchonnom.aggregate.house.logic.TradeApplyResult;
 import com.seoulchonnom.spec.house.entity.HouseBatchRun;
 import com.seoulchonnom.spec.house.entity.HouseCollectUnit;
@@ -43,6 +45,7 @@ class HouseNightlyFlowTest {
 	private final HouseTradeLogic tradeLogic = mock(HouseTradeLogic.class);
 	private final HouseBatchRunLogic batchRunLogic = mock(HouseBatchRunLogic.class);
 	private final BuildingRegisterGateway registerGateway = mock(BuildingRegisterGateway.class);
+	private final HouseStatLogic statLogic = mock(HouseStatLogic.class);
 	private final HouseProperties properties = new HouseProperties();
 	private final Clock clock = Clock.fixed(Instant.parse("2026-10-19T18:00:00Z"), ZoneId.of("Asia/Seoul"));
 	private HouseNightlyFlow flow;
@@ -52,7 +55,8 @@ class HouseNightlyFlowTest {
 		ComplexEnrichStep enrichStep = new ComplexEnrichStep(mock(ComplexGeocoder.class), registerGateway,
 			mock(HouseComplexLogic.class), batchRunLogic, properties);
 		flow = new HouseNightlyFlow(tradeGateway, unitLogic, tradeLogic, batchRunLogic,
-			new BatchStepRecorder(batchRunLogic, clock), properties, enrichStep);
+			new BatchStepRecorder(batchRunLogic, clock), properties, enrichStep, statLogic);
+		when(statLogic.rebuild(any())).thenReturn(new StatRebuildResult(100, 3, 40));
 		when(tradeGateway.available()).thenReturn(true);
 		when(registerGateway.available()).thenReturn(true);
 		when(batchRunLogic.usedApiCalls(any(), any())).thenReturn(0L);
@@ -86,16 +90,19 @@ class HouseNightlyFlowTest {
 	}
 
 	@Test
-	void run_shouldSkipBothStepsWhenNoServiceKey() {
+	void run_shouldSkipCollectStepsButStillBuildStatsWhenNoServiceKey() {
 		when(tradeGateway.available()).thenReturn(false);
 
 		flow.run(TODAY);
 
 		assertThat(savedRuns()).extracting(HouseBatchRun::getStep)
-			.containsExactly(BatchStep.COLLECT_UNIT_PREPARE, BatchStep.TRADE_COLLECT, BatchStep.COMPLEX_ENRICH);
-		// 실거래 키가 없어도 단지 보강은 독립적으로 돈다(대상이 없으면 SUCCESS).
+			.containsExactly(BatchStep.COLLECT_UNIT_PREPARE, BatchStep.TRADE_COLLECT, BatchStep.COMPLEX_ENRICH,
+				BatchStep.STATS_BUILD);
+		// 실거래 키가 없어도 단지 보강과 통계는 독립적으로 돈다(보강 대상이 없으면 SUCCESS, 통계는 쌓인 거래로 계산).
 		assertThat(savedRuns()).extracting(HouseBatchRun::getStatus)
-			.containsExactly(BatchRunStatus.SKIPPED, BatchRunStatus.SKIPPED, BatchRunStatus.SUCCESS);
+			.containsExactly(BatchRunStatus.SKIPPED, BatchRunStatus.SKIPPED, BatchRunStatus.SUCCESS,
+				BatchRunStatus.SUCCESS);
+		verify(statLogic).rebuild(TODAY);
 		assertThat(savedRuns()).allSatisfy(run -> assertThat(run.getApiCalls()).isZero());
 		verify(unitLogic, never()).prepare(any());
 		verify(tradeGateway, never()).fetchAll(any(), any(), any());
@@ -287,13 +294,49 @@ class HouseNightlyFlowTest {
 	}
 
 	@Test
-	void run_shouldNotRunStepsAfterComplexEnrichYet() {
+	void run_shouldRecordFourStepsInOrderAndSkipSchoolAndRedevelopmentYet() {
 		when(unitLogic.findDueUnits(TODAY)).thenReturn(List.of());
 
 		flow.run(TODAY);
 
 		assertThat(savedRuns()).extracting(HouseBatchRun::getStep)
-			.containsExactly(BatchStep.COLLECT_UNIT_PREPARE, BatchStep.TRADE_COLLECT, BatchStep.COMPLEX_ENRICH);
+			.containsExactly(BatchStep.COLLECT_UNIT_PREPARE, BatchStep.TRADE_COLLECT, BatchStep.COMPLEX_ENRICH,
+				BatchStep.STATS_BUILD);
+	}
+
+	@Test
+	void run_shouldRecordStatsCountsInDetail() {
+		when(unitLogic.findDueUnits(TODAY)).thenReturn(List.of());
+
+		flow.run(TODAY);
+
+		HouseBatchRun stats = savedRun(BatchStep.STATS_BUILD);
+		assertThat(stats.getStatus()).isEqualTo(BatchRunStatus.SUCCESS);
+		assertThat(stats.getApiCalls()).isZero();
+		assertThat(stats.getDetail()).containsEntry("candidates", 100).containsEntry("outliers", 3)
+			.containsEntry("statRows", 40);
+	}
+
+	@Test
+	void run_shouldRecordStatsFailedWhenRebuildThrowsAndKeepOtherRecords() {
+		when(unitLogic.findDueUnits(TODAY)).thenReturn(List.of());
+		when(statLogic.rebuild(any())).thenThrow(new IllegalStateException("db down"));
+
+		flow.run(TODAY);
+
+		HouseBatchRun stats = savedRun(BatchStep.STATS_BUILD);
+		assertThat(stats.getStatus()).isEqualTo(BatchRunStatus.FAILED);
+		assertThat(stats.getError()).isEqualTo("IllegalStateException");
+		assertThat(savedRuns()).hasSize(4);
+	}
+
+	@Test
+	void run_shouldRecordStatsAfterTradeStepFailure() {
+		when(unitLogic.findDueUnits(TODAY)).thenThrow(new IllegalStateException("db down"));
+
+		flow.run(TODAY);
+
+		assertThat(savedRun(BatchStep.STATS_BUILD).getStatus()).isEqualTo(BatchRunStatus.SUCCESS);
 	}
 
 	@Test

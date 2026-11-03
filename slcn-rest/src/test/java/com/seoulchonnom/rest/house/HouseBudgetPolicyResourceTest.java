@@ -19,7 +19,11 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.seoulchonnom.aggregate.flow.house.HouseQueryFlow;
 import com.seoulchonnom.aggregate.house.exception.HouseBudgetPolicyNotFoundException;
+import com.seoulchonnom.aggregate.house.store.HouseBatchRunStore;
 import com.seoulchonnom.aggregate.house.store.HouseBudgetPolicyStore;
+import com.seoulchonnom.aggregate.house.store.HouseCollectUnitStore;
+import com.seoulchonnom.aggregate.house.store.HouseComplexStore;
+import com.seoulchonnom.aggregate.house.store.HouseStatStore;
 import com.seoulchonnom.rest.common.handler.CommonExceptionHandler;
 import com.seoulchonnom.spec.house.entity.HouseBudgetPolicy;
 import com.seoulchonnom.spec.house.entity.vo.AcquisitionTax;
@@ -38,7 +42,8 @@ class HouseBudgetPolicyResourceTest {
 	void setUp() {
 		store = mock(HouseBudgetPolicyStore.class);
 		Clock clock = Clock.fixed(Instant.parse("2026-11-03T03:00:00Z"), ZoneId.of("Asia/Seoul"));
-		HouseQueryFlow flow = new HouseQueryFlow(store, new HouseBudgetPolicyMapperImpl(), clock);
+		HouseQueryFlow flow = new HouseQueryFlow(store, new HouseBudgetPolicyMapperImpl(), mock(HouseComplexStore.class),
+			mock(HouseStatStore.class), mock(HouseCollectUnitStore.class), mock(HouseBatchRunStore.class), clock);
 		mockMvc = MockMvcBuilders.standaloneSetup(new HouseBudgetPolicyResource(flow))
 			.setControllerAdvice(new CommonExceptionHandler()).build();
 	}

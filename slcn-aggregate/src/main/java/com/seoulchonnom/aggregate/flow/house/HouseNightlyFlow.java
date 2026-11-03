@@ -12,7 +12,9 @@ import com.seoulchonnom.aggregate.house.collect.TradeFetchResult;
 import com.seoulchonnom.aggregate.house.collect.TradeGateway;
 import com.seoulchonnom.aggregate.house.logic.HouseBatchRunLogic;
 import com.seoulchonnom.aggregate.house.logic.HouseCollectUnitLogic;
+import com.seoulchonnom.aggregate.house.logic.HouseStatLogic;
 import com.seoulchonnom.aggregate.house.logic.HouseTradeLogic;
+import com.seoulchonnom.aggregate.house.logic.StatRebuildResult;
 import com.seoulchonnom.aggregate.house.logic.TradeApplyResult;
 import com.seoulchonnom.spec.house.constant.HouseConstant;
 import com.seoulchonnom.spec.house.entity.HouseCollectUnit;
@@ -27,7 +29,7 @@ import lombok.extern.slf4j.Slf4j;
  * 저장은 Logic의 짧은 트랜잭션 메서드(수집 단위 1개 = 트랜잭션 1개)가 맡는다.
  * 단계마다 house_batch_run에 한 행을 남기고, 한 단계가 실패해도 다음 단계로 넘어간다.
  *
- * 지금은 1(수집 단위 준비)·2(실거래 수집)·3(단지 보강)단계만 있다. 4~6단계는 다음 PR에서 이어 붙인다.
+ * 지금은 1(수집 단위 준비)·2(실거래 수집)·3(단지 보강)·6(통계)단계가 있다. 4(학교)·5(정비사업)단계는 다음 PR에서 3단계와 6단계 사이에 끼운다.
  */
 @Slf4j
 @Service
@@ -40,13 +42,26 @@ public class HouseNightlyFlow {
 	private final BatchStepRecorder batchStepRecorder;
 	private final HouseProperties houseProperties;
 	private final ComplexEnrichStep complexEnrichStep;
+	private final HouseStatLogic houseStatLogic;
 
 	public void run(LocalDate today) {
 		log.info("내집찾기 야간 배치 시작: runDate={}", today);
 		batchStepRecorder.record(today, BatchStep.COLLECT_UNIT_PREPARE, progress -> prepareUnits(today, progress));
 		batchStepRecorder.record(today, BatchStep.TRADE_COLLECT, progress -> collectTrades(today, progress));
 		batchStepRecorder.record(today, BatchStep.COMPLEX_ENRICH, progress -> complexEnrichStep.run(today, progress));
+		batchStepRecorder.record(today, BatchStep.STATS_BUILD, progress -> buildStats(today, progress));
 		log.info("내집찾기 야간 배치 끝: runDate={}", today);
+	}
+
+	/**
+	 * 통계는 수집 키와 무관하다. 이미 쌓인 거래로 계산하므로 키가 없어도 실행한다. 한 트랜잭션이라 실패하면 이전 통계가 남는다.
+	 */
+	private StepOutcome buildStats(LocalDate today, StepProgress progress) {
+		StatRebuildResult result = houseStatLogic.rebuild(today);
+		progress.put("candidates", result.candidates());
+		progress.put("outliers", result.outliers());
+		progress.put("statRows", result.statRows());
+		return StepOutcome.of(BatchRunStatus.SUCCESS);
 	}
 
 	/**
