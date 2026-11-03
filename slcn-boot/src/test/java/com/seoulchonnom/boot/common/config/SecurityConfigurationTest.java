@@ -482,6 +482,45 @@ class SecurityConfigurationTest {
 			.andExpect(status().isOk());
 	}
 
+	@Test
+	void houseLookup_withoutToken_shouldReturnUnauthorized() throws Exception {
+		mockMvc.perform(get("/house/meta"))
+			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void houseLookup_withUserAuthority_shouldReturnOk() throws Exception {
+		givenAuthority("USER");
+
+		mockMvc.perform(get("/house/meta")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, "access-token"))
+			.andExpect(status().isOk());
+	}
+
+	@Test
+	void houseAdmin_withoutToken_shouldReturnUnauthorized() throws Exception {
+		mockMvc.perform(post("/house/admin/complexes/c1/override"))
+			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void houseAdmin_withUserAuthority_shouldReturnForbidden() throws Exception {
+		givenAuthority("USER");
+
+		mockMvc.perform(post("/house/admin/complexes/c1/override")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, "access-token"))
+			.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void houseAdmin_withAdminAuthority_shouldReturnOk() throws Exception {
+		givenAuthority("ADMIN");
+
+		mockMvc.perform(post("/house/admin/complexes/c1/override")
+				.header(AuthConstant.ACCESS_TOKEN_HEADER_NAME, "access-token"))
+			.andExpect(status().isOk());
+	}
+
 	private void givenAuthority(String... authorities) {
 		Claims claims = mock(Claims.class);
 		Authentication authentication = new UsernamePasswordAuthenticationToken(USER_ID, "",
@@ -536,6 +575,11 @@ class SecurityConfigurationTest {
 		@Bean
 		StubAssetController stubAssetController() {
 			return new StubAssetController();
+		}
+
+		@Bean
+		StubHouseController stubHouseController() {
+			return new StubHouseController();
 		}
 
 		@Bean
@@ -624,6 +668,19 @@ class SecurityConfigurationTest {
 		@PatchMapping("/inspection-question-categories/{categoryId}/status")
 		ResponseEntity<String> toggleCategory(@PathVariable("categoryId") String categoryId) {
 			return ResponseEntity.ok(categoryId);
+		}
+	}
+
+	@RestController
+	static class StubHouseController {
+		@GetMapping("/house/meta")
+		ResponseEntity<String> meta() {
+			return ResponseEntity.ok("meta");
+		}
+
+		@PostMapping("/house/admin/complexes/{complexId}/override")
+		ResponseEntity<String> adminOverride(@PathVariable("complexId") String complexId) {
+			return ResponseEntity.ok(complexId);
 		}
 	}
 
