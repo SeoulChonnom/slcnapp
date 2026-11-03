@@ -34,6 +34,8 @@ import com.seoulchonnom.spec.house.facade.sdo.BudgetPolicyRdo;
 import com.seoulchonnom.spec.house.facade.sdo.ComplexCardRdo;
 import com.seoulchonnom.spec.house.facade.sdo.ComplexMapItemRdo;
 import com.seoulchonnom.spec.house.facade.sdo.ComplexMapListRdo;
+import com.seoulchonnom.spec.house.facade.sdo.ComplexSearchItemRdo;
+import com.seoulchonnom.spec.house.facade.sdo.ComplexSearchRdo;
 import com.seoulchonnom.spec.house.facade.sdo.ComplexSummaryItemRdo;
 import com.seoulchonnom.spec.house.facade.sdo.ComplexSummaryRdo;
 import com.seoulchonnom.spec.house.facade.sdo.HouseMetaRdo;
@@ -50,6 +52,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class HouseQueryFlow {
 	static final int MAP_LIMIT = 300;
+	static final int SEARCH_DEFAULT_SIZE = 10;
+	static final int SEARCH_MAX_SIZE = 20;
 	/** 지도 영역 한 변의 최대 크기(도). 위도·경도 모두 같은 값으로 잰다. */
 	static final BigDecimal MAP_MAX_SPAN = new BigDecimal("0.2");
 	static final BigDecimal DONG_MAX_SPAN = new BigDecimal("1.0");
@@ -117,6 +121,25 @@ public class HouseQueryFlow {
 		}
 		validateBounds(swLat, swLng, neLat, neLng, DONG_MAX_SPAN);
 		return new ComplexSummaryRdo(groupBy, dongItems(area, minPrice, maxPrice, swLat, swLng, neLat, neLng));
+	}
+
+	/**
+	 * 단지명 자동완성. keyword는 trim 후 2자 이상, size는 1~20(기본 10).
+	 */
+	public ComplexSearchRdo searchComplexes(String keyword, Integer size) {
+		String trimmed = keyword == null ? "" : keyword.strip();
+		if (trimmed.length() < 2) {
+			throw invalid("keyword는 2자 이상이어야 합니다.");
+		}
+		int limit = size == null ? SEARCH_DEFAULT_SIZE : size;
+		if (limit < 1 || limit > SEARCH_MAX_SIZE) {
+			throw invalid("size는 1 이상 " + SEARCH_MAX_SIZE + " 이하여야 합니다.");
+		}
+		List<ComplexSearchItemRdo> items = houseComplexStore.searchByName(trimmed, limit).stream()
+			.map(complex -> new ComplexSearchItemRdo(complex.getId(), complex.getAptName(),
+				HouseConstant.districtName(complex.getLawdCd()), complex.getUmdName(), complex.resolveBuildYear()))
+			.toList();
+		return new ComplexSearchRdo(items);
 	}
 
 	public ComplexCardRdo getComplex(String complexId, AreaBucket area) {

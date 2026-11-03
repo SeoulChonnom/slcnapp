@@ -31,6 +31,8 @@ import com.seoulchonnom.spec.house.entity.vo.BatchStep;
 import com.seoulchonnom.spec.house.entity.vo.ComplexGroupBy;
 import com.seoulchonnom.spec.house.facade.sdo.ComplexCardRdo;
 import com.seoulchonnom.spec.house.facade.sdo.ComplexMapListRdo;
+import com.seoulchonnom.spec.house.facade.sdo.ComplexSearchItemRdo;
+import com.seoulchonnom.spec.house.facade.sdo.ComplexSearchRdo;
 import com.seoulchonnom.spec.house.facade.sdo.ComplexSummaryItemRdo;
 import com.seoulchonnom.spec.house.facade.sdo.ComplexSummaryRdo;
 import com.seoulchonnom.spec.house.facade.sdo.HouseMetaRdo;
@@ -331,5 +333,67 @@ class HouseQueryFlowTest {
 
 		when(statStore.findAreaStat("C1", AreaBucket.B84)).thenReturn(Optional.of(new AreaStatPdo(null, null, 0)));
 		assertThat(flow.getComplex("C1", AreaBucket.B84).getRecentPrice()).isNull();
+	}
+
+	private HouseComplex searchable(String id, String name, String lawdCd, Integer buildYear, LocalDate approvalDate) {
+		HouseComplex complex = HouseComplex.builder().aptSeq("s-" + id).lawdCd(lawdCd).umdName("전농동").aptName(name)
+			.buildYear(buildYear).approvalDate(approvalDate).build();
+		complex.setId(id);
+		return complex;
+	}
+
+	@Test
+	void searchComplexes_shouldTrimKeywordDefaultSizeAndRenderItems() {
+		when(complexStore.searchByName("래미안", 10)).thenReturn(List.of(
+			searchable("C1", "래미안 전농", "11230", 2014, null),
+			searchable("C2", "래미안2차", "11230", 2010, LocalDate.of(2011, 3, 2))));
+
+		ComplexSearchRdo rdo = flow.searchComplexes("  래미안 ", null);
+
+		assertThat(rdo.getItems()).extracting(ComplexSearchItemRdo::getComplexId).containsExactly("C1", "C2");
+		ComplexSearchItemRdo first = rdo.getItems().get(0);
+		assertThat(first.getName()).isEqualTo("래미안 전농");
+		assertThat(first.getDistrictName()).isEqualTo("동대문구");
+		assertThat(first.getUmdName()).isEqualTo("전농동");
+		assertThat(first.getBuildYear()).isEqualTo(2014);
+		// 사용승인연도가 있으면 그 연도가 우선이다(비교표 연식과 같은 규칙).
+		assertThat(rdo.getItems().get(1).getBuildYear()).isEqualTo(2011);
+	}
+
+	@Test
+	void searchComplexes_shouldReturnEmptyItemsWhenNothingMatches() {
+		when(complexStore.searchByName(anyString(), anyInt())).thenReturn(List.of());
+
+		assertThat(flow.searchComplexes("없는단지", 5).getItems()).isEmpty();
+		verify(complexStore).searchByName("없는단지", 5);
+	}
+
+	@Test
+	void searchComplexes_shouldRejectKeywordShorterThanTwoCharsAfterTrim() {
+		for (String keyword : new String[] {null, "", " ", "가", " 가 "}) {
+			assertThatThrownBy(() -> flow.searchComplexes(keyword, 10)).isInstanceOf(BusinessException.class)
+				.extracting(e -> ((BusinessException)e).getErrorCode()).isEqualTo(ErrorCode.VALIDATION_FAILED);
+		}
+		verify(complexStore, never()).searchByName(anyString(), anyInt());
+	}
+
+	@Test
+	void searchComplexes_shouldAcceptSizeBetweenOneAndTwenty() {
+		when(complexStore.searchByName(anyString(), anyInt())).thenReturn(List.of());
+
+		flow.searchComplexes("래미안", 1);
+		flow.searchComplexes("래미안", 20);
+
+		verify(complexStore).searchByName("래미안", 1);
+		verify(complexStore).searchByName("래미안", 20);
+	}
+
+	@Test
+	void searchComplexes_shouldRejectSizeOutOfRange() {
+		for (int size : new int[] {0, -1, 21}) {
+			assertThatThrownBy(() -> flow.searchComplexes("래미안", size)).isInstanceOf(BusinessException.class)
+				.extracting(e -> ((BusinessException)e).getErrorCode()).isEqualTo(ErrorCode.VALIDATION_FAILED);
+		}
+		verify(complexStore, never()).searchByName(anyString(), anyInt());
 	}
 }

@@ -51,4 +51,11 @@ public class HouseComplex extends DomainEntity {
 	private BigDecimal farPct;
 	private BigDecimal bcrPct;
 	private FarSource farSource;
+
+	/**
+	 * 화면에 보이는 연식 기준 연도. 건축물대장 사용승인일의 연도가 우선이고, 없으면 실거래 건축년도다.
+	 */
+	public Integer resolveBuildYear() {
+		return approvalDate != null ? Integer.valueOf(approvalDate.getYear()) : buildYear;
+	}
 }

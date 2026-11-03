@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import com.seoulchonnom.aggregate.house.exception.HouseValidationException;
 import com.seoulchonnom.spec.common.exception.BusinessException;
 import com.seoulchonnom.spec.common.exception.ErrorCode;
 import com.seoulchonnom.spec.common.response.ErrorResponse;
@@ -36,6 +37,14 @@ public class CommonExceptionHandler {
 	@ExceptionHandler(BusinessException.class)
 	public ResponseEntity<ErrorResponse> businessException(BusinessException e) {
 		return respond(ErrorResponse.of(e.getErrorCode(), e.getMessage()));
+	}
+
+	/**
+	 * 필드 단위 위반 목록을 가진 비즈니스 검증 실패(비교 items). BusinessException보다 구체적이라 이쪽이 먼저 잡는다.
+	 */
+	@ExceptionHandler(HouseValidationException.class)
+	public ResponseEntity<ErrorResponse> houseValidationException(HouseValidationException e) {
+		return respond(ErrorResponse.of(e.getErrorCode(), e.getMessage(), e.getViolations()));
 	}
 
 	@ExceptionHandler(HttpMessageNotReadableException.class)

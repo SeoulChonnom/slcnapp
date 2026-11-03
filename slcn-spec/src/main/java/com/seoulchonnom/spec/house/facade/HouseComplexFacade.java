@@ -6,10 +6,11 @@ import com.seoulchonnom.spec.house.entity.vo.AreaBucket;
 import com.seoulchonnom.spec.house.entity.vo.ComplexGroupBy;
 import com.seoulchonnom.spec.house.facade.sdo.ComplexCardRdo;
 import com.seoulchonnom.spec.house.facade.sdo.ComplexMapListRdo;
+import com.seoulchonnom.spec.house.facade.sdo.ComplexSearchRdo;
 import com.seoulchonnom.spec.house.facade.sdo.ComplexSummaryRdo;
 
 /**
- * 단지 조회. 단지명 검색(/search)은 다음 PR에서 추가한다.
+ * 단지 조회: 지도 목록, 구·동 묶음, 단지명 검색, 정보 카드.
  */
 public interface HouseComplexFacade {
 	/**
@@ -27,6 +28,14 @@ public interface HouseComplexFacade {
 	 */
 	ResponseEntity<ComplexSummaryRdo> getSummary(ComplexGroupBy groupBy, AreaBucket area, Long minPrice,
 		Long maxPrice, Double swLat, Double swLng, Double neLat, Double neLng);
+
+	/**
+	 * 단지명 자동완성. 공백을 뺀 부분 일치, 단지명 가나다순.
+	 *
+	 * @param keyword trim 후 2자 이상
+	 * @param size 1~20, 없으면 10
+	 */
+	ResponseEntity<ComplexSearchRdo> searchComplexes(String keyword, Integer size);
 
 	/**
 	 * 정보 카드. 단지가 없으면 404.

@@ -1,6 +1,7 @@
 package com.seoulchonnom.aggregate.house.logic;
 
 import java.time.LocalDate;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,5 +38,12 @@ public class HouseBatchRunLogic {
 	 */
 	public long usedDetailCalls(LocalDate runDate, BatchStep step, String detailKey) {
 		return houseBatchRunStore.sumDetailCalls(runDate, step, detailKey);
+	}
+
+	/**
+	 * 이 단계가 마지막으로 SUCCESS였던 실행일. SKIPPED는 SUCCESS가 아니므로 갱신 주기 판단에 섞이지 않는다.
+	 */
+	public Optional<LocalDate> findLastSuccessRunDate(BatchStep step) {
+		return houseBatchRunStore.findLastSuccessRunDate(step);
 	}
 }

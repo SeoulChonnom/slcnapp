@@ -21,6 +21,9 @@ import com.seoulchonnom.aggregate.config.HouseProperties;
 import com.seoulchonnom.aggregate.house.collect.BuildingRegisterGateway;
 import com.seoulchonnom.aggregate.house.collect.CallBudget;
 import com.seoulchonnom.aggregate.house.collect.ComplexGeocoder;
+import com.seoulchonnom.aggregate.house.collect.DisabledRedevelopmentGateway;
+import com.seoulchonnom.aggregate.house.collect.GeocodeResult;
+import com.seoulchonnom.aggregate.house.collect.RedevelopmentGateway;
 import com.seoulchonnom.aggregate.house.collect.TradeFetchResult;
 import com.seoulchonnom.aggregate.house.collect.TradeFetchResult.Outcome;
 import com.seoulchonnom.aggregate.house.collect.TradeGateway;
@@ -32,6 +35,7 @@ import com.seoulchonnom.aggregate.house.logic.HouseTradeLogic;
 import com.seoulchonnom.aggregate.house.logic.StatRebuildResult;
 import com.seoulchonnom.aggregate.house.logic.TradeApplyResult;
 import com.seoulchonnom.spec.house.entity.HouseBatchRun;
+import com.seoulchonnom.spec.house.entity.HouseComplex;
 import com.seoulchonnom.spec.house.entity.HouseCollectUnit;
 import com.seoulchonnom.spec.house.entity.vo.BatchRunStatus;
 import com.seoulchonnom.spec.house.entity.vo.BatchStep;
@@ -46,16 +50,22 @@ class HouseNightlyFlowTest {
 	private final HouseBatchRunLogic batchRunLogic = mock(HouseBatchRunLogic.class);
 	private final BuildingRegisterGateway registerGateway = mock(BuildingRegisterGateway.class);
 	private final HouseStatLogic statLogic = mock(HouseStatLogic.class);
+	private final SchoolSyncStep schoolSyncStep = mock(SchoolSyncStep.class);
+	private final RedevelopmentGateway redevelopmentGateway = new DisabledRedevelopmentGateway();
+	private final ComplexGeocoder geocoder = mock(ComplexGeocoder.class);
+	private final HouseComplexLogic complexLogic = mock(HouseComplexLogic.class);
 	private final HouseProperties properties = new HouseProperties();
 	private final Clock clock = Clock.fixed(Instant.parse("2026-10-19T18:00:00Z"), ZoneId.of("Asia/Seoul"));
 	private HouseNightlyFlow flow;
 
 	@BeforeEach
 	void setUp() {
-		ComplexEnrichStep enrichStep = new ComplexEnrichStep(mock(ComplexGeocoder.class), registerGateway,
-			mock(HouseComplexLogic.class), batchRunLogic, properties);
+		ComplexEnrichStep enrichStep = new ComplexEnrichStep(geocoder, registerGateway, complexLogic, batchRunLogic,
+			properties);
 		flow = new HouseNightlyFlow(tradeGateway, unitLogic, tradeLogic, batchRunLogic,
-			new BatchStepRecorder(batchRunLogic, clock), properties, enrichStep, statLogic);
+			new BatchStepRecorder(batchRunLogic, clock), properties, enrichStep, statLogic, schoolSyncStep,
+			redevelopmentGateway);
+		when(schoolSyncStep.run(any(), anyInt(), any())).thenReturn(StepOutcome.of(BatchRunStatus.SKIPPED));
 		when(statLogic.rebuild(any())).thenReturn(new StatRebuildResult(100, 3, 40));
 		when(tradeGateway.available()).thenReturn(true);
 		when(registerGateway.available()).thenReturn(true);
@@ -97,11 +107,11 @@ class HouseNightlyFlowTest {
 
 		assertThat(savedRuns()).extracting(HouseBatchRun::getStep)
 			.containsExactly(BatchStep.COLLECT_UNIT_PREPARE, BatchStep.TRADE_COLLECT, BatchStep.COMPLEX_ENRICH,
-				BatchStep.STATS_BUILD);
+				BatchStep.SCHOOL_SYNC, BatchStep.REDEVELOPMENT_SYNC, BatchStep.STATS_BUILD);
 		// 실거래 키가 없어도 단지 보강과 통계는 독립적으로 돈다(보강 대상이 없으면 SUCCESS, 통계는 쌓인 거래로 계산).
 		assertThat(savedRuns()).extracting(HouseBatchRun::getStatus)
 			.containsExactly(BatchRunStatus.SKIPPED, BatchRunStatus.SKIPPED, BatchRunStatus.SUCCESS,
-				BatchRunStatus.SUCCESS);
+				BatchRunStatus.SKIPPED, BatchRunStatus.SKIPPED, BatchRunStatus.SUCCESS);
 		verify(statLogic).rebuild(TODAY);
 		assertThat(savedRuns()).allSatisfy(run -> assertThat(run.getApiCalls()).isZero());
 		verify(unitLogic, never()).prepare(any());
@@ -294,14 +304,63 @@ class HouseNightlyFlowTest {
 	}
 
 	@Test
-	void run_shouldRecordFourStepsInOrderAndSkipSchoolAndRedevelopmentYet() {
+	void run_shouldRecordSixStepsInOrder() {
 		when(unitLogic.findDueUnits(TODAY)).thenReturn(List.of());
 
 		flow.run(TODAY);
 
 		assertThat(savedRuns()).extracting(HouseBatchRun::getStep)
 			.containsExactly(BatchStep.COLLECT_UNIT_PREPARE, BatchStep.TRADE_COLLECT, BatchStep.COMPLEX_ENRICH,
-				BatchStep.STATS_BUILD);
+				BatchStep.SCHOOL_SYNC, BatchStep.REDEVELOPMENT_SYNC, BatchStep.STATS_BUILD);
+	}
+
+	@Test
+	void run_shouldAlwaysSkipRedevelopmentSyncBecauseNoDatasetYet() {
+		when(unitLogic.findDueUnits(TODAY)).thenReturn(List.of());
+
+		flow.run(TODAY);
+
+		HouseBatchRun redevelopment = savedRun(BatchStep.REDEVELOPMENT_SYNC);
+		assertThat(redevelopment.getStatus()).isEqualTo(BatchRunStatus.SKIPPED);
+		assertThat(redevelopment.getApiCalls()).isZero();
+		assertThat(redevelopment.getDetail()).containsEntry("reason", "DATASET_UNDECIDED");
+	}
+
+	@Test
+	void run_shouldPassNewlyGeocodedCountFromComplexEnrichToSchoolSync() {
+		when(unitLogic.findDueUnits(TODAY)).thenReturn(List.of());
+		HouseComplex complex = HouseComplex.builder().aptSeq("A-1").lawdCd("11680").umdCd("10300").umdName("개포동")
+			.bonbun("0652").bubun("0000").build();
+		complex.setId("HOUSE_COMPLEX-0001");
+		when(complexLogic.findGeocodeTargets(any(), anyInt())).thenReturn(List.of(complex));
+		when(geocoder.geocode(any(), any())).thenReturn(GeocodeResult.found(37.5, 127.0, "서울특별시 강남구 개포로 307"));
+
+		flow.run(TODAY);
+
+		verify(schoolSyncStep).run(eq(TODAY), eq(1), any());
+	}
+
+	@Test
+	void run_shouldRunSchoolSyncWithZeroNewlyGeocodedWhenNothingWasGeocoded() {
+		when(unitLogic.findDueUnits(TODAY)).thenReturn(List.of());
+
+		flow.run(TODAY);
+
+		verify(schoolSyncStep).run(eq(TODAY), eq(0), any());
+	}
+
+	@Test
+	void run_shouldRecordSchoolSyncFailedAndGoOnWhenTheStepThrows() {
+		when(unitLogic.findDueUnits(TODAY)).thenReturn(List.of());
+		when(schoolSyncStep.run(any(), anyInt(), any())).thenThrow(new IllegalStateException("https://x?serviceKey=secret"));
+
+		flow.run(TODAY);
+
+		HouseBatchRun school = savedRun(BatchStep.SCHOOL_SYNC);
+		assertThat(school.getStatus()).isEqualTo(BatchRunStatus.FAILED);
+		assertThat(school.getError()).isEqualTo("IllegalStateException").doesNotContain("secret");
+		assertThat(savedRun(BatchStep.REDEVELOPMENT_SYNC).getStatus()).isEqualTo(BatchRunStatus.SKIPPED);
+		assertThat(savedRun(BatchStep.STATS_BUILD).getStatus()).isEqualTo(BatchRunStatus.SUCCESS);
 	}
 
 	@Test
@@ -327,7 +386,7 @@ class HouseNightlyFlowTest {
 		HouseBatchRun stats = savedRun(BatchStep.STATS_BUILD);
 		assertThat(stats.getStatus()).isEqualTo(BatchRunStatus.FAILED);
 		assertThat(stats.getError()).isEqualTo("IllegalStateException");
-		assertThat(savedRuns()).hasSize(4);
+		assertThat(savedRuns()).hasSize(6);
 	}
 
 	@Test

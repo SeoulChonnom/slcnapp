@@ -1,6 +1,8 @@
 package com.seoulchonnom.aggregate.house.store.repository;
 
 import java.time.LocalDate;
+import java.util.Collection;
+import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -16,6 +18,11 @@ import com.seoulchonnom.aggregate.house.store.jpo.HouseComplexAreaStatJpo;
  */
 @Repository
 public interface HouseComplexAreaStatRepository extends JpaRepository<HouseComplexAreaStatJpo, HouseComplexAreaStatId> {
+	/**
+	 * 단지들의 통계 행(B59·B84 모두). 비교표는 단지 3개 이하라 최대 6행이다. 호출하는 쪽이 빈 컬렉션이면 부르지 않는다.
+	 */
+	List<HouseComplexAreaStatJpo> findByComplexIdIn(Collection<String> complexIds);
+
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
 	@Query(value = "DELETE FROM slcn.house_complex_area_stat", nativeQuery = true)
 	int deleteAllStats();

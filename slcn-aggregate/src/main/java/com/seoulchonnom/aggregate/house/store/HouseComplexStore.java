@@ -13,6 +13,7 @@ import org.springframework.stereotype.Repository;
 import com.seoulchonnom.aggregate.house.store.jpo.HouseComplexJpo;
 import com.seoulchonnom.aggregate.house.store.mapper.HouseComplexJpoMapper;
 import com.seoulchonnom.aggregate.house.store.projection.ComplexMapPdo;
+import com.seoulchonnom.aggregate.house.store.projection.ComplexPointPdo;
 import com.seoulchonnom.aggregate.house.store.projection.DistrictCountPdo;
 import com.seoulchonnom.aggregate.house.store.projection.DongSummaryPdo;
 import com.seoulchonnom.aggregate.house.store.projection.IncompleteComplexPdo;
@@ -40,6 +41,51 @@ public class HouseComplexStore {
 			.map(houseComplexJpoMapper::toDomain)
 			.forEach(complex -> found.put(complex.getAptSeq(), complex));
 		return found;
+	}
+
+	/**
+	 * id로 단지를 모아 찾는다. 없는 id는 결과에 없다.
+	 */
+	public Map<String, HouseComplex> findByIds(Collection<String> complexIds) {
+		Map<String, HouseComplex> found = new HashMap<>();
+		if (complexIds == null || complexIds.isEmpty()) {
+			return found;
+		}
+		houseComplexRepository.findAllById(complexIds).stream()
+			.map(houseComplexJpoMapper::toDomain)
+			.forEach(complex -> found.put(complex.getId(), complex));
+		return found;
+	}
+
+	/**
+	 * 단지명 검색(공백 제거·대소문자 무시 부분 일치, 단지명 가나다순). 좌표가 없는 단지도 포함한다.
+	 *
+	 * @param keyword 이미 trim한 검색어. 여기서 공백을 빼고 LIKE 특수문자를 이스케이프한다.
+	 */
+	public List<HouseComplex> searchByName(String keyword, int size) {
+		return houseComplexRepository.searchByName(toLikePattern(keyword), size).stream()
+			.map(houseComplexJpoMapper::toDomain)
+			.toList();
+	}
+
+	/**
+	 * 검색어를 LIKE 패턴으로 바꾼다. 공백을 모두 빼고 소문자로 맞춘 뒤 백슬래시, %, _ 를 이스케이프한다.
+	 * 이스케이프하지 않으면 "%"만 넣어도 전체 단지가 나온다.
+	 */
+	static String toLikePattern(String keyword) {
+		String compact = keyword.replaceAll("\\s+", "").toLowerCase(java.util.Locale.ROOT);
+		String escaped = compact.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+		return "%" + escaped + "%";
+	}
+
+	/**
+	 * 좌표가 확정된 모든 단지의 위치.
+	 */
+	public List<ComplexPointPdo> findGeocodedPoints() {
+		return houseComplexRepository.findGeocodedPoints().stream()
+			.map(row -> new ComplexPointPdo((String)row[0], ((Number)row[1]).doubleValue(),
+				((Number)row[2]).doubleValue()))
+			.toList();
 	}
 
 	public HouseComplex save(HouseComplex complex) {

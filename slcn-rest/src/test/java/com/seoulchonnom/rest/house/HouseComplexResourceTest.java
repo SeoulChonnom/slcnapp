@@ -191,4 +191,53 @@ class HouseComplexResourceTest {
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
 	}
+
+	@Test
+	void searchComplexes_shouldRouteToSearchNotToCardAndRenderSpecShape() throws Exception {
+		HouseComplex complex = HouseComplex.builder().aptSeq("s").lawdCd("11200").umdName("OO동").aptName("래미안OO")
+			.buildYear(2014).build();
+		complex.setId("HOUSE_COMPLEX-0001");
+		when(complexStore.searchByName("래미안", 10)).thenReturn(List.of(complex));
+
+		mockMvc.perform(get("/house/complexes/search").param("keyword", "래미안"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.items", hasSize(1)))
+			.andExpect(jsonPath("$.items[0].complexId").value("HOUSE_COMPLEX-0001"))
+			.andExpect(jsonPath("$.items[0].name").value("래미안OO"))
+			.andExpect(jsonPath("$.items[0].districtName").value("성동구"))
+			.andExpect(jsonPath("$.items[0].umdName").value("OO동"))
+			.andExpect(jsonPath("$.items[0].buildYear").value(2014));
+		// 카드(/{complexId})로 갔다면 단지 조회가 일어난다.
+		verify(complexStore, never()).findById(any());
+	}
+
+	@Test
+	void searchComplexes_shouldBindSizeAndRenderEmptyItems() throws Exception {
+		when(complexStore.searchByName(anyString(), anyInt())).thenReturn(List.of());
+
+		mockMvc.perform(get("/house/complexes/search").param("keyword", "없는단지").param("size", "20"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.items", hasSize(0)));
+		verify(complexStore).searchByName("없는단지", 20);
+	}
+
+	@Test
+	void searchComplexes_shouldRender400ForShortKeywordOrBadSize() throws Exception {
+		mockMvc.perform(get("/house/complexes/search").param("keyword", "가"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+		mockMvc.perform(get("/house/complexes/search"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+		mockMvc.perform(get("/house/complexes/search").param("keyword", "래미안").param("size", "21"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+		mockMvc.perform(get("/house/complexes/search").param("keyword", "래미안").param("size", "0"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+		mockMvc.perform(get("/house/complexes/search").param("keyword", "래미안").param("size", "abc"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
+		verify(complexStore, never()).searchByName(anyString(), anyInt());
+	}
 }

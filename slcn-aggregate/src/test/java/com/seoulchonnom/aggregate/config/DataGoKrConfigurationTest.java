@@ -8,7 +8,12 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Configuration;
 
 import com.seoulchonnom.aggregate.external.datagokr.MolitTradeGateway;
+import com.seoulchonnom.aggregate.external.datagokr.SchoolStandardDataGateway;
+import com.seoulchonnom.aggregate.house.collect.DisabledRedevelopmentGateway;
+import com.seoulchonnom.aggregate.house.collect.DisabledSchoolGateway;
 import com.seoulchonnom.aggregate.house.collect.DisabledTradeGateway;
+import com.seoulchonnom.aggregate.house.collect.RedevelopmentGateway;
+import com.seoulchonnom.aggregate.house.collect.SchoolGateway;
 import com.seoulchonnom.aggregate.house.collect.TradeGateway;
 
 class DataGoKrConfigurationTest {
@@ -34,6 +39,36 @@ class DataGoKrConfigurationTest {
 	void key_shouldUseMolitGateway() {
 		runner.withPropertyValues("slcn.house.data-go-kr.service-key=k")
 			.run(context -> assertThat(context.getBean(TradeGateway.class)).isInstanceOf(MolitTradeGateway.class));
+	}
+
+	@Test
+	void schoolGateway_shouldBeDisabledWithoutKeyAndRealWithKey() {
+		runner.run(context -> {
+			assertThat(context.getBean(SchoolGateway.class)).isInstanceOf(DisabledSchoolGateway.class);
+			assertThat(context.getBean(SchoolGateway.class).available()).isFalse();
+		});
+		runner.withPropertyValues("slcn.house.data-go-kr.service-key=k")
+			.run(context -> assertThat(context.getBean(SchoolGateway.class))
+				.isInstanceOf(SchoolStandardDataGateway.class));
+	}
+
+	@Test
+	void redevelopmentGateway_shouldAlwaysBeDisabled() {
+		runner.withPropertyValues("slcn.house.data-go-kr.service-key=k").run(context -> {
+			assertThat(context.getBean(RedevelopmentGateway.class)).isInstanceOf(DisabledRedevelopmentGateway.class);
+			assertThat(context.getBean(RedevelopmentGateway.class).available()).isFalse();
+		});
+	}
+
+	@Test
+	void properties_shouldBindSchoolHostAndLimit() {
+		runner.withPropertyValues("slcn.house.data-go-kr.school-base-url=https://school.test",
+			"slcn.house.call-limit.school=7").run(context -> {
+				HouseProperties properties = context.getBean(HouseProperties.class);
+
+				assertThat(properties.getDataGoKr().getSchoolBaseUrl()).isEqualTo("https://school.test");
+				assertThat(properties.getCallLimit().getSchool()).isEqualTo(7);
+			});
 	}
 
 	@Test

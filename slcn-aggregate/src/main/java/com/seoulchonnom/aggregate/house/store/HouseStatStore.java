@@ -1,5 +1,7 @@
 package com.seoulchonnom.aggregate.house.store;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Repository;
@@ -7,6 +9,7 @@ import org.springframework.stereotype.Repository;
 import com.seoulchonnom.aggregate.house.stat.HouseStatWindows;
 import com.seoulchonnom.aggregate.house.store.jpo.HouseComplexAreaStatId;
 import com.seoulchonnom.aggregate.house.store.projection.AreaStatPdo;
+import com.seoulchonnom.aggregate.house.store.projection.CompareStatPdo;
 import com.seoulchonnom.aggregate.house.store.repository.HouseComplexAreaStatRepository;
 import com.seoulchonnom.spec.house.entity.vo.AreaBucket;
 
@@ -35,5 +38,21 @@ public class HouseStatStore {
 		return houseComplexAreaStatRepository.findById(new HouseComplexAreaStatId(complexId, areaBucket.name()))
 			.map(stat -> new AreaStatPdo(stat.getRecentPriceManwon(), stat.getRecentWindowMonths(),
 				stat.getRecentSample()));
+	}
+
+	/**
+	 * 단지들의 (단지, 구간) 통계 행을 한꺼번에. 통계가 없는 조합은 결과에 없다.
+	 */
+	public List<CompareStatPdo> findCompareStats(Collection<String> complexIds) {
+		if (complexIds == null || complexIds.isEmpty()) {
+			return List.of();
+		}
+		return houseComplexAreaStatRepository.findByComplexIdIn(complexIds).stream()
+			.map(stat -> new CompareStatPdo(stat.getComplexId(), AreaBucket.valueOf(stat.getAreaBucket()),
+				stat.getAvgArea12m(), stat.getRecentPriceManwon(), stat.getRecentWindowMonths(),
+				stat.getRecentSample(), stat.getAvg3m(), stat.getCnt3m(), stat.getAvg3m1yAgo(),
+				stat.getCnt3m1yAgo(), stat.getChange1yPct(), stat.getChange1yManwon(), stat.getAvg3m3yAgo(),
+				stat.getCnt3m3yAgo(), stat.getChange3yPct(), stat.getChange3yManwon()))
+			.toList();
 	}
 }

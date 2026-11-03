@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import com.seoulchonnom.aggregate.config.HouseProperties;
 import com.seoulchonnom.aggregate.house.collect.CallBudget;
 import com.seoulchonnom.aggregate.house.collect.CollectUnitPriority;
+import com.seoulchonnom.aggregate.house.collect.RedevelopmentGateway;
 import com.seoulchonnom.aggregate.house.collect.TradeFetchResult;
 import com.seoulchonnom.aggregate.house.collect.TradeGateway;
 import com.seoulchonnom.aggregate.house.logic.HouseBatchRunLogic;
@@ -29,7 +30,7 @@ import lombok.extern.slf4j.Slf4j;
  * 저장은 Logic의 짧은 트랜잭션 메서드(수집 단위 1개 = 트랜잭션 1개)가 맡는다.
  * 단계마다 house_batch_run에 한 행을 남기고, 한 단계가 실패해도 다음 단계로 넘어간다.
  *
- * 지금은 1(수집 단위 준비)·2(실거래 수집)·3(단지 보강)·6(통계)단계가 있다. 4(학교)·5(정비사업)단계는 다음 PR에서 3단계와 6단계 사이에 끼운다.
+ * 6단계: 1 수집 단위 준비, 2 실거래 수집, 3 단지 보강, 4 학교 동기화, 5 정비사업 동기화, 6 통계.
  */
 @Slf4j
 @Service
@@ -43,14 +44,38 @@ public class HouseNightlyFlow {
 	private final HouseProperties houseProperties;
 	private final ComplexEnrichStep complexEnrichStep;
 	private final HouseStatLogic houseStatLogic;
+	private final SchoolSyncStep schoolSyncStep;
+	private final RedevelopmentGateway redevelopmentGateway;
 
 	public void run(LocalDate today) {
 		log.info("내집찾기 야간 배치 시작: runDate={}", today);
 		batchStepRecorder.record(today, BatchStep.COLLECT_UNIT_PREPARE, progress -> prepareUnits(today, progress));
 		batchStepRecorder.record(today, BatchStep.TRADE_COLLECT, progress -> collectTrades(today, progress));
-		batchStepRecorder.record(today, BatchStep.COMPLEX_ENRICH, progress -> complexEnrichStep.run(today, progress));
+		// 4단계가 "좌표가 새로 생긴 단지"를 알아야 해서 3단계의 geocodeDone을 꺼내 둔다. 단계가 예외로 끝나도 그때까지의 값이 남는다.
+		int[] newlyGeocoded = {0};
+		batchStepRecorder.record(today, BatchStep.COMPLEX_ENRICH, progress -> {
+			try {
+				return complexEnrichStep.run(today, progress);
+			} finally {
+				if (progress.detail().get("geocodeDone") instanceof Number done) {
+					newlyGeocoded[0] = done.intValue();
+				}
+			}
+		});
+		batchStepRecorder.record(today, BatchStep.SCHOOL_SYNC,
+			progress -> schoolSyncStep.run(today, newlyGeocoded[0], progress));
+		batchStepRecorder.record(today, BatchStep.REDEVELOPMENT_SYNC, this::syncRedevelopment);
 		batchStepRecorder.record(today, BatchStep.STATS_BUILD, progress -> buildStats(today, progress));
 		log.info("내집찾기 야간 배치 끝: runDate={}", today);
+	}
+
+	/**
+	 * 정비사업 데이터셋이 미확정이라 구현체가 없다(항상 Disabled). 지금은 어떤 경우에도 SKIPPED다.
+	 * SKIPPED는 SUCCESS가 아니므로 비교표의 redevelopments는 계속 null("정보 없음")이다.
+	 */
+	private StepOutcome syncRedevelopment(StepProgress progress) {
+		progress.put("reason", redevelopmentGateway.available() ? "NOT_IMPLEMENTED" : "DATASET_UNDECIDED");
+		return StepOutcome.of(BatchRunStatus.SKIPPED);
 	}
 
 	/**

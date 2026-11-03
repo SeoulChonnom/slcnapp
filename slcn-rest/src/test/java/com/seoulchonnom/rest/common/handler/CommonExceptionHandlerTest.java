@@ -18,6 +18,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import com.seoulchonnom.aggregate.house.exception.HouseValidationException;
 import com.seoulchonnom.aggregate.inspection.exception.InspectionQuestionCategoryDisabledException;
 import com.seoulchonnom.aggregate.inspection.exception.ReviewSuggestionUnavailableException;
 import com.seoulchonnom.aggregate.user.exception.InvalidUserException;
@@ -177,6 +178,22 @@ class CommonExceptionHandlerTest {
 		assertThat(response.getStatusCode().value()).isEqualTo(503);
 		assertThat(response.getBody().getCode()).isEqualTo("HOUSE_BUDGET_POLICY_NOT_FOUND");
 		assertThat(response.getBody().getTitle()).isEqualTo("예산 계산 규칙을 불러올 수 없습니다.");
+	}
+
+	@Test
+	void houseValidationException_shouldCarryViolationsInErrorsAndFirstMessageAsTitle() {
+		HouseValidationException e = new HouseValidationException("면적 구간은 B59 또는 B84여야 합니다.",
+			List.of(new Violation("items[1]", "INVALID_AREA", "면적 구간은 B59 또는 B84여야 합니다."),
+				new Violation("items[2]", "DUPLICATED", "중복")));
+
+		ResponseEntity<ErrorResponse> response = handler.houseValidationException(e);
+
+		assertThat(response.getStatusCode().value()).isEqualTo(400);
+		ErrorResponse body = response.getBody();
+		assertThat(body.getCode()).isEqualTo("VALIDATION_FAILED");
+		assertThat(body.getTitle()).isEqualTo("면적 구간은 B59 또는 B84여야 합니다.");
+		assertThat(body.getErrors()).extracting(Violation::field, Violation::code)
+			.containsExactly(tuple("items[1]", "INVALID_AREA"), tuple("items[2]", "DUPLICATED"));
 	}
 
 	@Test

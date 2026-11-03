@@ -6,7 +6,9 @@ import java.time.ZoneId;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import com.seoulchonnom.aggregate.house.collect.DisabledRedevelopmentGateway;
 import com.seoulchonnom.aggregate.house.collect.HouseSleeper;
+import com.seoulchonnom.aggregate.house.collect.RedevelopmentGateway;
 
 @Configuration
 public class HouseConfiguration {
@@ -24,5 +26,13 @@ public class HouseConfiguration {
 	@Bean
 	public HouseSleeper houseSleeper() {
 		return duration -> Thread.sleep(duration.toMillis());
+	}
+
+	/**
+	 * 정비사업 데이터셋이 미확정이라 구현체가 없다. 데이터셋이 정해지면 이 빈을 실제 구현으로 바꾼다.
+	 */
+	@Bean
+	public RedevelopmentGateway redevelopmentGateway() {
+		return new DisabledRedevelopmentGateway();
 	}
 }

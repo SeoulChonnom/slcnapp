@@ -157,4 +157,27 @@ public interface HouseComplexRepository extends JpaRepository<HouseComplexJpo, S
 	List<Object[]> summarizeByDong(@Param("area") String area, @Param("hasPrice") boolean hasPrice,
 		@Param("minPrice") long minPrice, @Param("maxPrice") long maxPrice, @Param("swLat") double swLat,
 		@Param("swLng") double swLng, @Param("neLat") double neLat, @Param("neLng") double neLng);
+
+	/**
+	 * 단지명 검색. pattern은 호출하는 쪽이 만든 LIKE 패턴(소문자, 공백 제거, 백슬래시·%·_ 이스케이프, 앞뒤 %)이다.
+	 * 좌표가 없는 단지도 나온다(비교표는 좌표 없이도 의미가 있다). 이스케이프 문자는 PostgreSQL 기본값인 백슬래시다.
+	 * 사람이 검증할 지점: '%'만 넣어도 전체가 나오지 않는지, '_' 이스케이프, 영문 대소문자 무시, 공백이 낀 단지명,
+	 * c.*가 HouseComplexJpo로 매핑되는지, 정렬.
+	 */
+	@Query(value = "SELECT c.* FROM slcn.house_complex c "
+		+ "WHERE LOWER(REPLACE(c.apt_name, ' ', '')) LIKE :pattern "
+		+ "ORDER BY c.apt_name, c.id "
+		+ "LIMIT :size",
+		nativeQuery = true)
+	List<HouseComplexJpo> searchByName(@Param("pattern") String pattern, @Param("size") int size);
+
+	/**
+	 * 좌표가 확정된 단지의 위치. 최근접 학교 계산 입력이다. 행은 [id, latitude, longitude]다.
+	 * 사람이 검증할 지점: geocode_status = 'DONE'이면 좌표가 반드시 있는지, 단지 수천 행을 한 번에 읽는 시간.
+	 */
+	@Query(value = "SELECT c.id, c.latitude, c.longitude FROM slcn.house_complex c "
+		+ "WHERE c.geocode_status = 'DONE' AND c.latitude IS NOT NULL AND c.longitude IS NOT NULL "
+		+ "ORDER BY c.id",
+		nativeQuery = true)
+	List<Object[]> findGeocodedPoints();
 }
