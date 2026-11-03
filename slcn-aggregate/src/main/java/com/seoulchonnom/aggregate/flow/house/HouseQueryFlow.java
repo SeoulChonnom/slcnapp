@@ -22,6 +22,7 @@ import com.seoulchonnom.aggregate.house.store.projection.AreaStatPdo;
 import com.seoulchonnom.aggregate.house.store.projection.ComplexMapPdo;
 import com.seoulchonnom.aggregate.house.store.projection.DistrictCountPdo;
 import com.seoulchonnom.aggregate.house.store.projection.DongSummaryPdo;
+import com.seoulchonnom.aggregate.house.store.projection.RankingRowPdo;
 import com.seoulchonnom.spec.common.exception.BusinessException;
 import com.seoulchonnom.spec.common.exception.ErrorCode;
 import com.seoulchonnom.spec.house.constant.HouseConstant;
@@ -30,6 +31,7 @@ import com.seoulchonnom.spec.house.entity.HouseComplex;
 import com.seoulchonnom.spec.house.entity.vo.AreaBucket;
 import com.seoulchonnom.spec.house.entity.vo.BatchStep;
 import com.seoulchonnom.spec.house.entity.vo.ComplexGroupBy;
+import com.seoulchonnom.spec.house.entity.vo.RankingType;
 import com.seoulchonnom.spec.house.facade.sdo.BudgetPolicyRdo;
 import com.seoulchonnom.spec.house.facade.sdo.ComplexCardRdo;
 import com.seoulchonnom.spec.house.facade.sdo.ComplexMapItemRdo;
@@ -39,6 +41,9 @@ import com.seoulchonnom.spec.house.facade.sdo.ComplexSearchRdo;
 import com.seoulchonnom.spec.house.facade.sdo.ComplexSummaryItemRdo;
 import com.seoulchonnom.spec.house.facade.sdo.ComplexSummaryRdo;
 import com.seoulchonnom.spec.house.facade.sdo.HouseMetaRdo;
+import com.seoulchonnom.spec.house.facade.sdo.PeriodRdo;
+import com.seoulchonnom.spec.house.facade.sdo.RankingItemRdo;
+import com.seoulchonnom.spec.house.facade.sdo.RankingListRdo;
 import com.seoulchonnom.spec.house.facade.sdo.RecentPriceRdo;
 import com.seoulchonnom.spec.house.mapper.HouseBudgetPolicyMapper;
 
@@ -152,6 +157,30 @@ public class HouseQueryFlow {
 		return new ComplexCardRdo(complex.getId(), complex.getAptName(),
 			HouseConstant.districtName(complex.getLawdCd()), complex.getUmdName(), complex.getLatitude(),
 			complex.getLongitude(), complex.getBuildYear(), complex.getHouseholds(), recentPrice);
+	}
+
+	/**
+	 * 미리 계산된 랭킹. 랭킹 행이 없으면 items는 빈 배열, period는 null이다(통계가 한 번도 안 돌았음).
+	 */
+	public RankingListRdo getRankings(RankingType type, AreaBucket area) {
+		if (type == null) {
+			throw invalid("type은 LEADER, RISE, FALL, VOLUME 중 하나여야 합니다.");
+		}
+		validateArea(area);
+		List<RankingRowPdo> rows = houseStatStore.findRankings(type, area);
+		if (rows.isEmpty()) {
+			return new RankingListRdo(type, area, null, List.of());
+		}
+		RankingRowPdo first = rows.get(0);
+		return new RankingListRdo(type, area,
+			new PeriodRdo(first.periodFrom().toString(), first.periodTo().toString()),
+			rows.stream().map(HouseQueryFlow::toRankingItem).toList());
+	}
+
+	private static RankingItemRdo toRankingItem(RankingRowPdo row) {
+		return new RankingItemRdo(row.rankNo(), row.complexId(), row.aptName(), row.lawdCd(),
+			HouseConstant.districtName(row.lawdCd()), row.latitude(), row.longitude(), row.buildYear(),
+			row.avgArea12m(), row.households(), row.value(), row.changeManwon(), row.sampleCount(), row.badge());
 	}
 
 	/**

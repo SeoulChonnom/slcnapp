@@ -66,7 +66,7 @@ class HouseNightlyFlowTest {
 			new BatchStepRecorder(batchRunLogic, clock), properties, enrichStep, statLogic, schoolSyncStep,
 			redevelopmentGateway);
 		when(schoolSyncStep.run(any(), anyInt(), any())).thenReturn(StepOutcome.of(BatchRunStatus.SKIPPED));
-		when(statLogic.rebuild(any())).thenReturn(new StatRebuildResult(100, 3, 40));
+		when(statLogic.rebuild(any())).thenReturn(new StatRebuildResult(100, 3, 40, 50));
 		when(tradeGateway.available()).thenReturn(true);
 		when(registerGateway.available()).thenReturn(true);
 		when(batchRunLogic.usedApiCalls(any(), any())).thenReturn(0L);
@@ -373,7 +373,7 @@ class HouseNightlyFlowTest {
 		assertThat(stats.getStatus()).isEqualTo(BatchRunStatus.SUCCESS);
 		assertThat(stats.getApiCalls()).isZero();
 		assertThat(stats.getDetail()).containsEntry("candidates", 100).containsEntry("outliers", 3)
-			.containsEntry("statRows", 40);
+			.containsEntry("statRows", 40).containsEntry("rankingRows", 50);
 	}
 
 	@Test

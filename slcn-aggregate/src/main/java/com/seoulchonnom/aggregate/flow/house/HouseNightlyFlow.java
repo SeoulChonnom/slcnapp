@@ -86,6 +86,7 @@ public class HouseNightlyFlow {
 		progress.put("candidates", result.candidates());
 		progress.put("outliers", result.outliers());
 		progress.put("statRows", result.statRows());
+		progress.put("rankingRows", result.rankingRows());
 		return StepOutcome.of(BatchRunStatus.SUCCESS);
 	}
 

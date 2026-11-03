@@ -12,6 +12,8 @@ import org.mockito.InOrder;
 
 import com.seoulchonnom.aggregate.house.stat.AreaStatBuilder;
 import com.seoulchonnom.aggregate.house.stat.HouseStatWindows;
+import com.seoulchonnom.aggregate.house.stat.RankingBuilder;
+import com.seoulchonnom.aggregate.house.stat.RankingRow;
 import com.seoulchonnom.aggregate.house.store.HouseStatStore;
 import com.seoulchonnom.aggregate.house.store.HouseTradeStore;
 import com.seoulchonnom.aggregate.house.store.projection.OutlierCandidatePdo;
@@ -23,7 +25,8 @@ class HouseStatLogicTest {
 
 	private final HouseTradeStore tradeStore = mock(HouseTradeStore.class);
 	private final HouseStatStore statStore = mock(HouseStatStore.class);
-	private final HouseStatLogic logic = new HouseStatLogic(tradeStore, new AreaStatBuilder(statStore));
+	private final HouseStatLogic logic = new HouseStatLogic(tradeStore, new AreaStatBuilder(statStore), statStore,
+		new RankingBuilder());
 
 	@Test
 	void rebuild_shouldReplaceOutliersBeforeBuildingStats() {
@@ -37,6 +40,7 @@ class HouseStatLogicTest {
 		when(tradeStore.findOutlierCandidates(windows.outlierSince())).thenReturn(candidates);
 		when(tradeStore.replaceOutliers(eq(windows.outlierSince()), any())).thenReturn(1);
 		when(statStore.rebuildAreaStats(windows)).thenReturn(7);
+		when(statStore.replaceRankings(any(), eq(TODAY))).thenReturn(50);
 
 		StatRebuildResult result = logic.rebuild(TODAY);
 
@@ -44,7 +48,9 @@ class HouseStatLogicTest {
 		inOrder.verify(tradeStore).findOutlierCandidates(windows.outlierSince());
 		inOrder.verify(tradeStore).replaceOutliers(windows.outlierSince(), List.of("t4"));
 		inOrder.verify(statStore).rebuildAreaStats(windows);
-		assertThat(result).isEqualTo(new StatRebuildResult(5, 1, 7));
+		inOrder.verify(statStore).findRankingInputs();
+		inOrder.verify(statStore).replaceRankings(any(), eq(TODAY));
+		assertThat(result).isEqualTo(new StatRebuildResult(5, 1, 7, 50));
 	}
 
 	@Test
@@ -57,5 +63,30 @@ class HouseStatLogicTest {
 		// 이전에 찍힌 이상치를 풀어야 하므로 빈 목록으로도 교체를 부른다.
 		verify(tradeStore).replaceOutliers(windows.outlierSince(), List.of());
 		verify(statStore).rebuildAreaStats(windows);
+	}
+
+	@Test
+	void rebuild_shouldRebuildRankingsFromInputsInSameCall() {
+		when(tradeStore.findOutlierCandidates(any())).thenReturn(List.of());
+		when(statStore.findRankingInputs()).thenReturn(List.of());
+		when(statStore.replaceRankings(any(), eq(TODAY))).thenAnswer(invocation -> {
+			List<RankingRow> rows = invocation.getArgument(0);
+			return rows.size();
+		});
+
+		StatRebuildResult result = logic.rebuild(TODAY);
+
+		// 입력이 없어도 구별 대장은 25행 x 2평형(모두 거래 없음)이다.
+		assertThat(result.rankingRows()).isEqualTo(50);
+	}
+
+	@Test
+	void rebuild_shouldPropagateRankingFailureSoTransactionRollsBackStats() {
+		when(tradeStore.findOutlierCandidates(any())).thenReturn(List.of());
+		when(statStore.replaceRankings(any(), any())).thenThrow(new IllegalStateException("insert failed"));
+
+		assertThatThrownBy(() -> logic.rebuild(TODAY)).isInstanceOf(IllegalStateException.class);
+		// 예외가 트랜잭션 경계(@Transactional)를 넘어가야 통계 교체까지 롤백된다.
+		verify(statStore).rebuildAreaStats(any());
 	}
 }

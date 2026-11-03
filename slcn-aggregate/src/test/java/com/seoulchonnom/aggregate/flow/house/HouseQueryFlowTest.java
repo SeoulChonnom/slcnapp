@@ -22,6 +22,7 @@ import com.seoulchonnom.aggregate.house.store.projection.AreaStatPdo;
 import com.seoulchonnom.aggregate.house.store.projection.ComplexMapPdo;
 import com.seoulchonnom.aggregate.house.store.projection.DistrictCountPdo;
 import com.seoulchonnom.aggregate.house.store.projection.DongSummaryPdo;
+import com.seoulchonnom.aggregate.house.store.projection.RankingRowPdo;
 import com.seoulchonnom.spec.common.exception.BusinessException;
 import com.seoulchonnom.spec.common.exception.ErrorCode;
 import com.seoulchonnom.spec.house.constant.HouseConstant;
@@ -29,6 +30,8 @@ import com.seoulchonnom.spec.house.entity.HouseComplex;
 import com.seoulchonnom.spec.house.entity.vo.AreaBucket;
 import com.seoulchonnom.spec.house.entity.vo.BatchStep;
 import com.seoulchonnom.spec.house.entity.vo.ComplexGroupBy;
+import com.seoulchonnom.spec.house.entity.vo.RankingBadge;
+import com.seoulchonnom.spec.house.entity.vo.RankingType;
 import com.seoulchonnom.spec.house.facade.sdo.ComplexCardRdo;
 import com.seoulchonnom.spec.house.facade.sdo.ComplexMapListRdo;
 import com.seoulchonnom.spec.house.facade.sdo.ComplexSearchItemRdo;
@@ -36,6 +39,7 @@ import com.seoulchonnom.spec.house.facade.sdo.ComplexSearchRdo;
 import com.seoulchonnom.spec.house.facade.sdo.ComplexSummaryItemRdo;
 import com.seoulchonnom.spec.house.facade.sdo.ComplexSummaryRdo;
 import com.seoulchonnom.spec.house.facade.sdo.HouseMetaRdo;
+import com.seoulchonnom.spec.house.facade.sdo.RankingListRdo;
 import com.seoulchonnom.aggregate.house.store.HouseBatchRunStore;
 import com.seoulchonnom.aggregate.house.store.HouseBudgetPolicyStore;
 import com.seoulchonnom.aggregate.house.store.HouseCollectUnitStore;
@@ -395,5 +399,54 @@ class HouseQueryFlowTest {
 				.extracting(e -> ((BusinessException)e).getErrorCode()).isEqualTo(ErrorCode.VALIDATION_FAILED);
 		}
 		verify(complexStore, never()).searchByName(anyString(), anyInt());
+	}
+
+	@Test
+	void getRankings_shouldMapRowsAndTakePeriodFromFirstRow() {
+		LocalDate from = LocalDate.of(2025, 10, 21);
+		LocalDate to = LocalDate.of(2026, 10, 20);
+		when(statStore.findRankings(RankingType.LEADER, AreaBucket.B84)).thenReturn(List.of(
+			new RankingRowPdo(1, "C1", "OO아파트", "11680", 37.49, 127.06, 2014, new BigDecimal("84.90"), 1466,
+				new BigDecimal("250000.00"), 26000L, 6, null, from, to),
+			new RankingRowPdo(2, "C2", "좌표없음", "11650", null, null, null, null, null,
+				new BigDecimal("200000.00"), null, 1, RankingBadge.LOW_SAMPLE, from, to),
+			new RankingRowPdo(3, null, null, "11110", null, null, null, null, null, null, null, 0,
+				RankingBadge.NO_TRADE, from, to)));
+
+		RankingListRdo rdo = flow.getRankings(RankingType.LEADER, AreaBucket.B84);
+
+		assertThat(rdo.getType()).isEqualTo(RankingType.LEADER);
+		assertThat(rdo.getArea()).isEqualTo(AreaBucket.B84);
+		assertThat(rdo.getPeriod().getFrom()).isEqualTo("2025-10-21");
+		assertThat(rdo.getPeriod().getTo()).isEqualTo("2026-10-20");
+		assertThat(rdo.getItems()).hasSize(3);
+		assertThat(rdo.getItems().get(0).getDistrictName()).isEqualTo("강남구");
+		assertThat(rdo.getItems().get(0).getAvgExclusiveArea()).isEqualByComparingTo("84.9");
+		assertThat(rdo.getItems().get(0).getSample()).isEqualTo(6);
+		assertThat(rdo.getItems().get(1).getLatitude()).isNull();
+		assertThat(rdo.getItems().get(1).getBadge()).isEqualTo(RankingBadge.LOW_SAMPLE);
+		assertThat(rdo.getItems().get(2).getComplexId()).isNull();
+		assertThat(rdo.getItems().get(2).getValue()).isNull();
+		assertThat(rdo.getItems().get(2).getDistrictName()).isEqualTo("종로구");
+	}
+
+	@Test
+	void getRankings_shouldReturnEmptyItemsAndNullPeriodWhenNoRows() {
+		when(statStore.findRankings(RankingType.RISE, AreaBucket.B59)).thenReturn(List.of());
+
+		RankingListRdo rdo = flow.getRankings(RankingType.RISE, AreaBucket.B59);
+
+		assertThat(rdo.getItems()).isEmpty();
+		assertThat(rdo.getPeriod()).isNull();
+	}
+
+	@Test
+	void getRankings_shouldRejectMissingTypeAndNonBucketArea() {
+		assertThatThrownBy(() -> flow.getRankings(null, AreaBucket.B59)).isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException)e).getErrorCode()).isEqualTo(ErrorCode.VALIDATION_FAILED);
+		assertThatThrownBy(() -> flow.getRankings(RankingType.RISE, null)).isInstanceOf(BusinessException.class);
+		assertThatThrownBy(() -> flow.getRankings(RankingType.RISE, AreaBucket.OTHER))
+			.isInstanceOf(BusinessException.class);
+		verifyNoInteractions(statStore);
 	}
 }
