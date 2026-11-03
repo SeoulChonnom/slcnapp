@@ -6,6 +6,8 @@ import java.time.ZoneId;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import com.seoulchonnom.aggregate.house.collect.HouseSleeper;
+
 @Configuration
 public class HouseConfiguration {
 	/**
@@ -14,5 +16,13 @@ public class HouseConfiguration {
 	@Bean
 	public Clock houseClock() {
 		return Clock.system(ZoneId.of("Asia/Seoul"));
+	}
+
+	/**
+	 * 재시도 대기. 테스트는 이 빈을 0초짜리로 바꾼다.
+	 */
+	@Bean
+	public HouseSleeper houseSleeper() {
+		return duration -> Thread.sleep(duration.toMillis());
 	}
 }

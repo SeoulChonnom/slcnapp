@@ -1,0 +1,290 @@
+package com.seoulchonnom.aggregate.flow.house;
+
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.YearMonth;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
+
+import com.seoulchonnom.aggregate.config.HouseProperties;
+import com.seoulchonnom.aggregate.house.collect.CallBudget;
+import com.seoulchonnom.aggregate.house.collect.TradeFetchResult;
+import com.seoulchonnom.aggregate.house.collect.TradeFetchResult.Outcome;
+import com.seoulchonnom.aggregate.house.collect.TradeGateway;
+import com.seoulchonnom.aggregate.house.logic.HouseBatchRunLogic;
+import com.seoulchonnom.aggregate.house.logic.HouseCollectUnitLogic;
+import com.seoulchonnom.aggregate.house.logic.HouseTradeLogic;
+import com.seoulchonnom.aggregate.house.logic.TradeApplyResult;
+import com.seoulchonnom.spec.house.entity.HouseBatchRun;
+import com.seoulchonnom.spec.house.entity.HouseCollectUnit;
+import com.seoulchonnom.spec.house.entity.vo.BatchRunStatus;
+import com.seoulchonnom.spec.house.entity.vo.BatchStep;
+import com.seoulchonnom.spec.house.entity.vo.CollectUnitStatus;
+
+class HouseNightlyFlowTest {
+	private static final LocalDate TODAY = LocalDate.of(2026, 10, 20);
+
+	private final TradeGateway tradeGateway = mock(TradeGateway.class);
+	private final HouseCollectUnitLogic unitLogic = mock(HouseCollectUnitLogic.class);
+	private final HouseTradeLogic tradeLogic = mock(HouseTradeLogic.class);
+	private final HouseBatchRunLogic batchRunLogic = mock(HouseBatchRunLogic.class);
+	private final HouseProperties properties = new HouseProperties();
+	private final Clock clock = Clock.fixed(Instant.parse("2026-10-19T18:00:00Z"), ZoneId.of("Asia/Seoul"));
+	private HouseNightlyFlow flow;
+
+	@BeforeEach
+	void setUp() {
+		flow = new HouseNightlyFlow(tradeGateway, unitLogic, tradeLogic, batchRunLogic,
+			new BatchStepRecorder(batchRunLogic, clock), properties);
+		when(tradeGateway.available()).thenReturn(true);
+		when(batchRunLogic.usedApiCalls(any(), any())).thenReturn(0L);
+		when(batchRunLogic.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+		when(tradeLogic.applyUnit(any(), any(), any()))
+			.thenReturn(new TradeApplyResult(10, 6, 1, 3, 2, 1, 0, 1, 0, false));
+	}
+
+	private HouseCollectUnit unit(String lawdCd, String ym) {
+		return HouseCollectUnit.builder().lawdCd(lawdCd).dealYm(ym).status(CollectUnitStatus.NEVER).build();
+	}
+
+	/** 게이트웨이 호출마다 예산 1회를 쓰고 주어진 결과를 돌려준다. */
+	private void gatewayReturns(TradeFetchResult... results) {
+		List<TradeFetchResult> queue = new ArrayList<>(List.of(results));
+		when(tradeGateway.fetchAll(any(), any(), any())).thenAnswer(invocation -> {
+			CallBudget budget = invocation.getArgument(2);
+			budget.consume();
+			return queue.size() > 1 ? queue.remove(0) : queue.get(0);
+		});
+	}
+
+	private List<HouseBatchRun> savedRuns() {
+		ArgumentCaptor<HouseBatchRun> captor = ArgumentCaptor.forClass(HouseBatchRun.class);
+		verify(batchRunLogic, atLeast(0)).save(captor.capture());
+		return captor.getAllValues();
+	}
+
+	private HouseBatchRun savedRun(BatchStep step) {
+		return savedRuns().stream().filter(run -> run.getStep() == step).findFirst().orElseThrow();
+	}
+
+	@Test
+	void run_shouldSkipBothStepsWhenNoServiceKey() {
+		when(tradeGateway.available()).thenReturn(false);
+
+		flow.run(TODAY);
+
+		assertThat(savedRuns()).extracting(HouseBatchRun::getStep)
+			.containsExactly(BatchStep.COLLECT_UNIT_PREPARE, BatchStep.TRADE_COLLECT);
+		assertThat(savedRuns()).extracting(HouseBatchRun::getStatus)
+			.containsOnly(BatchRunStatus.SKIPPED);
+		assertThat(savedRuns()).allSatisfy(run -> assertThat(run.getApiCalls()).isZero());
+		verify(unitLogic, never()).prepare(any());
+		verify(tradeGateway, never()).fetchAll(any(), any(), any());
+	}
+
+	@Test
+	void run_shouldPrepareThenCollectAndRecordTotals() {
+		when(unitLogic.prepare(TODAY)).thenReturn(1000);
+		when(unitLogic.findDueUnits(TODAY)).thenReturn(List.of(unit("11680", "202610"), unit("11110", "202610")));
+		gatewayReturns(TradeFetchResult.ok(List.of(), 0));
+
+		flow.run(TODAY);
+
+		HouseBatchRun prepare = savedRun(BatchStep.COLLECT_UNIT_PREPARE);
+		assertThat(prepare.getStatus()).isEqualTo(BatchRunStatus.SUCCESS);
+		assertThat(prepare.getDetail()).containsEntry("created", 1000);
+		HouseBatchRun collect = savedRun(BatchStep.TRADE_COLLECT);
+		assertThat(collect.getStatus()).isEqualTo(BatchRunStatus.SUCCESS);
+		assertThat(collect.getApiCalls()).isEqualTo(2);
+		assertThat(collect.getRunDate()).isEqualTo(TODAY);
+		assertThat(collect.getError()).isNull();
+		assertThat(collect.getDetail()).containsEntry("unitsDue", 2).containsEntry("unitsDone", 2)
+			.containsEntry("unitsFailed", 0).containsEntry("fetched", 20).containsEntry("inserted", 12)
+			.containsEntry("updated", 2).containsEntry("unchanged", 6).containsEntry("cancelled", 4)
+			.containsEntry("removed", 2).containsEntry("complexCreated", 2);
+		assertThat(collect.getStartedTime()).isEqualTo(clock.millis());
+	}
+
+	@Test
+	void run_shouldCollectUnitsInGivenPriorityOrder() {
+		List<HouseCollectUnit> ordered = List.of(unit("11680", "202610"), unit("11110", "202609"),
+			unit("11680", "202401"));
+		when(unitLogic.findDueUnits(TODAY)).thenReturn(ordered);
+		gatewayReturns(TradeFetchResult.ok(List.of(), 0));
+
+		flow.run(TODAY);
+
+		InOrder inOrder = inOrder(tradeGateway);
+		inOrder.verify(tradeGateway).fetchAll(eq("11680"), eq(YearMonth.of(2026, 10)), any());
+		inOrder.verify(tradeGateway).fetchAll(eq("11110"), eq(YearMonth.of(2026, 9)), any());
+		inOrder.verify(tradeGateway).fetchAll(eq("11680"), eq(YearMonth.of(2024, 1)), any());
+	}
+
+	@Test
+	void run_shouldEndPartialAndLeaveRemainingUnitsUntouchedWhenBudgetRunsOut() {
+		properties.getCallLimit().setTrade(2);
+		when(unitLogic.findDueUnits(TODAY))
+			.thenReturn(List.of(unit("11680", "202610"), unit("11110", "202610"), unit("11140", "202610")));
+		gatewayReturns(TradeFetchResult.ok(List.of(), 0));
+
+		flow.run(TODAY);
+
+		HouseBatchRun collect = savedRun(BatchStep.TRADE_COLLECT);
+		assertThat(collect.getStatus()).isEqualTo(BatchRunStatus.PARTIAL);
+		assertThat(collect.getApiCalls()).isEqualTo(2);
+		assertThat(collect.getDetail()).containsEntry("stoppedBy", "BUDGET").containsEntry("unitsDone", 2);
+		verify(tradeGateway, times(2)).fetchAll(any(), any(), any());
+		verify(unitLogic, never()).markFailed(any());
+	}
+
+	@Test
+	void run_shouldSubtractCallsAlreadyUsedToday() {
+		properties.getCallLimit().setTrade(5);
+		when(batchRunLogic.usedApiCalls(TODAY, BatchStep.TRADE_COLLECT)).thenReturn(4L);
+		when(unitLogic.findDueUnits(TODAY)).thenReturn(List.of(unit("11680", "202610"), unit("11110", "202610")));
+		gatewayReturns(TradeFetchResult.ok(List.of(), 0));
+
+		flow.run(TODAY);
+
+		verify(tradeGateway, times(1)).fetchAll(any(), any(), any());
+		HouseBatchRun collect = savedRun(BatchStep.TRADE_COLLECT);
+		assertThat(collect.getStatus()).isEqualTo(BatchRunStatus.PARTIAL);
+		assertThat(collect.getApiCalls()).isEqualTo(1);
+	}
+
+	@Test
+	void run_shouldMarkUnitFailedAndContinueWhenFetchFails() {
+		HouseCollectUnit bad = unit("11680", "202610");
+		HouseCollectUnit good = unit("11110", "202610");
+		when(unitLogic.findDueUnits(TODAY)).thenReturn(List.of(bad, good));
+		gatewayReturns(TradeFetchResult.stopped(Outcome.FAILED, List.of(), 0), TradeFetchResult.ok(List.of(), 0));
+
+		flow.run(TODAY);
+
+		verify(unitLogic).markFailed(bad.getId());
+		verify(unitLogic, never()).markFailed(good.getId());
+		verify(tradeLogic, times(1)).applyUnit(eq(good), any(), eq(TODAY));
+		HouseBatchRun collect = savedRun(BatchStep.TRADE_COLLECT);
+		assertThat(collect.getStatus()).isEqualTo(BatchRunStatus.PARTIAL);
+		assertThat(collect.getDetail()).containsEntry("unitsFailed", 1).containsEntry("unitsDone", 1);
+	}
+
+	@Test
+	void run_shouldEndFailedWhenEveryUnitFails() {
+		when(unitLogic.findDueUnits(TODAY)).thenReturn(List.of(unit("11680", "202610"), unit("11110", "202610")));
+		gatewayReturns(TradeFetchResult.stopped(Outcome.FAILED, List.of(), 0));
+
+		flow.run(TODAY);
+
+		assertThat(savedRun(BatchStep.TRADE_COLLECT).getStatus()).isEqualTo(BatchRunStatus.FAILED);
+		verify(unitLogic, times(2)).markFailed(any());
+	}
+
+	@Test
+	void run_shouldMarkUnitFailedAndContinueWhenApplyThrows() {
+		HouseCollectUnit first = unit("11680", "202610");
+		HouseCollectUnit second = unit("11110", "202610");
+		when(unitLogic.findDueUnits(TODAY)).thenReturn(List.of(first, second));
+		gatewayReturns(TradeFetchResult.ok(List.of(), 0));
+		when(tradeLogic.applyUnit(eq(first), any(), any())).thenThrow(new IllegalStateException("db down"));
+
+		flow.run(TODAY);
+
+		verify(unitLogic).markFailed(first.getId());
+		verify(tradeLogic).applyUnit(eq(second), any(), any());
+		assertThat(savedRun(BatchStep.TRADE_COLLECT).getStatus()).isEqualTo(BatchRunStatus.PARTIAL);
+	}
+
+	@Test
+	void run_shouldStopAndFailWhenKeyIsRejected() {
+		when(unitLogic.findDueUnits(TODAY)).thenReturn(List.of(unit("11680", "202610"), unit("11110", "202610")));
+		gatewayReturns(TradeFetchResult.stopped(Outcome.KEY_REJECTED, List.of(), 0));
+
+		flow.run(TODAY);
+
+		verify(tradeGateway, times(1)).fetchAll(any(), any(), any());
+		verify(unitLogic, never()).markFailed(any());
+		HouseBatchRun collect = savedRun(BatchStep.TRADE_COLLECT);
+		assertThat(collect.getStatus()).isEqualTo(BatchRunStatus.FAILED);
+		assertThat(collect.getError()).isEqualTo("KEY_REJECTED");
+		assertThat(collect.getApiCalls()).isEqualTo(1);
+	}
+
+	@Test
+	void run_shouldStopWithPartialWhenQuotaExceededAndKeepUnitState() {
+		when(unitLogic.findDueUnits(TODAY)).thenReturn(List.of(unit("11680", "202610"), unit("11110", "202610")));
+		gatewayReturns(TradeFetchResult.stopped(Outcome.QUOTA_EXCEEDED, List.of(), 0));
+
+		flow.run(TODAY);
+
+		verify(tradeGateway, times(1)).fetchAll(any(), any(), any());
+		verify(unitLogic, never()).markFailed(any());
+		HouseBatchRun collect = savedRun(BatchStep.TRADE_COLLECT);
+		assertThat(collect.getStatus()).isEqualTo(BatchRunStatus.PARTIAL);
+		assertThat(collect.getDetail()).containsEntry("stoppedBy", "QUOTA");
+	}
+
+	@Test
+	void run_shouldGoOnToNextStepWhenAStepThrowsAndRecordOnlyExceptionClass() {
+		when(unitLogic.prepare(TODAY)).thenThrow(new IllegalStateException("https://x?serviceKey=secret"));
+		when(unitLogic.findDueUnits(TODAY)).thenReturn(List.of(unit("11680", "202610")));
+		gatewayReturns(TradeFetchResult.ok(List.of(), 0));
+
+		flow.run(TODAY);
+
+		HouseBatchRun prepare = savedRun(BatchStep.COLLECT_UNIT_PREPARE);
+		assertThat(prepare.getStatus()).isEqualTo(BatchRunStatus.FAILED);
+		assertThat(prepare.getError()).isEqualTo("IllegalStateException").doesNotContain("secret");
+		assertThat(savedRun(BatchStep.TRADE_COLLECT).getStatus()).isEqualTo(BatchRunStatus.SUCCESS);
+	}
+
+	@Test
+	void run_shouldKeepCallCountWhenCollectStepThrowsMidway() {
+		when(unitLogic.findDueUnits(TODAY)).thenReturn(List.of(unit("11680", "202610"), unit("11110", "202610")));
+		when(tradeGateway.fetchAll(any(), any(), any())).thenAnswer(invocation -> {
+			CallBudget budget = invocation.getArgument(2);
+			budget.consume();
+			if (budget.used() == 2) {
+				throw new IllegalStateException("boom");
+			}
+			return TradeFetchResult.ok(List.of(), 0);
+		});
+
+		flow.run(TODAY);
+
+		HouseBatchRun collect = savedRun(BatchStep.TRADE_COLLECT);
+		assertThat(collect.getStatus()).isEqualTo(BatchRunStatus.FAILED);
+		assertThat(collect.getApiCalls()).isEqualTo(2);
+		assertThat(collect.getDetail()).containsEntry("unitsDone", 1);
+	}
+
+	@Test
+	void run_shouldNotFailWhenSavingTheRecordFails() {
+		when(batchRunLogic.save(any())).thenThrow(new IllegalStateException("db down"));
+		when(unitLogic.findDueUnits(TODAY)).thenReturn(List.of());
+
+		assertThatCode(() -> flow.run(TODAY)).doesNotThrowAnyException();
+		verify(unitLogic).findDueUnits(TODAY);
+	}
+
+	@Test
+	void run_shouldNotRunLaterStepsYet() {
+		when(unitLogic.findDueUnits(TODAY)).thenReturn(List.of());
+
+		flow.run(TODAY);
+
+		assertThat(savedRuns()).extracting(HouseBatchRun::getStep)
+			.containsExactly(BatchStep.COLLECT_UNIT_PREPARE, BatchStep.TRADE_COLLECT);
+	}
+}
