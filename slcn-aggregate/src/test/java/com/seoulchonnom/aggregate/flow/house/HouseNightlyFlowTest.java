@@ -18,12 +18,15 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
 import com.seoulchonnom.aggregate.config.HouseProperties;
+import com.seoulchonnom.aggregate.house.collect.BuildingRegisterGateway;
 import com.seoulchonnom.aggregate.house.collect.CallBudget;
+import com.seoulchonnom.aggregate.house.collect.ComplexGeocoder;
 import com.seoulchonnom.aggregate.house.collect.TradeFetchResult;
 import com.seoulchonnom.aggregate.house.collect.TradeFetchResult.Outcome;
 import com.seoulchonnom.aggregate.house.collect.TradeGateway;
 import com.seoulchonnom.aggregate.house.logic.HouseBatchRunLogic;
 import com.seoulchonnom.aggregate.house.logic.HouseCollectUnitLogic;
+import com.seoulchonnom.aggregate.house.logic.HouseComplexLogic;
 import com.seoulchonnom.aggregate.house.logic.HouseTradeLogic;
 import com.seoulchonnom.aggregate.house.logic.TradeApplyResult;
 import com.seoulchonnom.spec.house.entity.HouseBatchRun;
@@ -39,15 +42,19 @@ class HouseNightlyFlowTest {
 	private final HouseCollectUnitLogic unitLogic = mock(HouseCollectUnitLogic.class);
 	private final HouseTradeLogic tradeLogic = mock(HouseTradeLogic.class);
 	private final HouseBatchRunLogic batchRunLogic = mock(HouseBatchRunLogic.class);
+	private final BuildingRegisterGateway registerGateway = mock(BuildingRegisterGateway.class);
 	private final HouseProperties properties = new HouseProperties();
 	private final Clock clock = Clock.fixed(Instant.parse("2026-10-19T18:00:00Z"), ZoneId.of("Asia/Seoul"));
 	private HouseNightlyFlow flow;
 
 	@BeforeEach
 	void setUp() {
+		ComplexEnrichStep enrichStep = new ComplexEnrichStep(mock(ComplexGeocoder.class), registerGateway,
+			mock(HouseComplexLogic.class), batchRunLogic, properties);
 		flow = new HouseNightlyFlow(tradeGateway, unitLogic, tradeLogic, batchRunLogic,
-			new BatchStepRecorder(batchRunLogic, clock), properties);
+			new BatchStepRecorder(batchRunLogic, clock), properties, enrichStep);
 		when(tradeGateway.available()).thenReturn(true);
+		when(registerGateway.available()).thenReturn(true);
 		when(batchRunLogic.usedApiCalls(any(), any())).thenReturn(0L);
 		when(batchRunLogic.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 		when(tradeLogic.applyUnit(any(), any(), any()))
@@ -85,9 +92,10 @@ class HouseNightlyFlowTest {
 		flow.run(TODAY);
 
 		assertThat(savedRuns()).extracting(HouseBatchRun::getStep)
-			.containsExactly(BatchStep.COLLECT_UNIT_PREPARE, BatchStep.TRADE_COLLECT);
+			.containsExactly(BatchStep.COLLECT_UNIT_PREPARE, BatchStep.TRADE_COLLECT, BatchStep.COMPLEX_ENRICH);
+		// 실거래 키가 없어도 단지 보강은 독립적으로 돈다(대상이 없으면 SUCCESS).
 		assertThat(savedRuns()).extracting(HouseBatchRun::getStatus)
-			.containsOnly(BatchRunStatus.SKIPPED);
+			.containsExactly(BatchRunStatus.SKIPPED, BatchRunStatus.SKIPPED, BatchRunStatus.SUCCESS);
 		assertThat(savedRuns()).allSatisfy(run -> assertThat(run.getApiCalls()).isZero());
 		verify(unitLogic, never()).prepare(any());
 		verify(tradeGateway, never()).fetchAll(any(), any(), any());
@@ -279,12 +287,22 @@ class HouseNightlyFlowTest {
 	}
 
 	@Test
-	void run_shouldNotRunLaterStepsYet() {
+	void run_shouldNotRunStepsAfterComplexEnrichYet() {
 		when(unitLogic.findDueUnits(TODAY)).thenReturn(List.of());
 
 		flow.run(TODAY);
 
 		assertThat(savedRuns()).extracting(HouseBatchRun::getStep)
-			.containsExactly(BatchStep.COLLECT_UNIT_PREPARE, BatchStep.TRADE_COLLECT);
+			.containsExactly(BatchStep.COLLECT_UNIT_PREPARE, BatchStep.TRADE_COLLECT, BatchStep.COMPLEX_ENRICH);
+	}
+
+	@Test
+	void run_shouldRecordComplexEnrichEvenWhenTradeStepFails() {
+		when(unitLogic.findDueUnits(TODAY)).thenThrow(new IllegalStateException("db down"));
+
+		flow.run(TODAY);
+
+		assertThat(savedRun(BatchStep.TRADE_COLLECT).getStatus()).isEqualTo(BatchRunStatus.FAILED);
+		assertThat(savedRun(BatchStep.COMPLEX_ENRICH).getStatus()).isEqualTo(BatchRunStatus.SUCCESS);
 	}
 }

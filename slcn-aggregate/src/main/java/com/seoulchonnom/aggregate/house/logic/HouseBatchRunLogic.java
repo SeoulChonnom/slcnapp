@@ -31,4 +31,11 @@ public class HouseBatchRunLogic {
 	public long usedApiCalls(LocalDate runDate, BatchStep step) {
 		return houseBatchRunStore.sumApiCalls(runDate, step);
 	}
+
+	/**
+	 * 그날 이 단계가 이미 쓴 호출 수 중 detail[detailKey]에 API별로 남긴 값. 단계가 API를 둘 이상 쓸 때의 차감 기준이다.
+	 */
+	public long usedDetailCalls(LocalDate runDate, BatchStep step, String detailKey) {
+		return houseBatchRunStore.sumDetailCalls(runDate, step, detailKey);
+	}
 }

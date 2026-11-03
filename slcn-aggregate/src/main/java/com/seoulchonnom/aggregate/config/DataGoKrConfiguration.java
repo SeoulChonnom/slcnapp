@@ -5,7 +5,10 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
+import com.seoulchonnom.aggregate.external.datagokr.BuildingRegisterGatewayImpl;
 import com.seoulchonnom.aggregate.external.datagokr.MolitTradeGateway;
+import com.seoulchonnom.aggregate.house.collect.BuildingRegisterGateway;
+import com.seoulchonnom.aggregate.house.collect.DisabledBuildingRegisterGateway;
 import com.seoulchonnom.aggregate.house.collect.DisabledTradeGateway;
 import com.seoulchonnom.aggregate.house.collect.HouseSleeper;
 import com.seoulchonnom.aggregate.house.collect.TradeGateway;
@@ -25,6 +28,17 @@ public class DataGoKrConfiguration {
 			return new DisabledTradeGateway();
 		}
 		return new MolitTradeGateway(restClient, serviceKey, houseSleeper);
+	}
+
+	@Bean
+	public BuildingRegisterGateway buildingRegisterGateway(HouseProperties properties, HouseSleeper houseSleeper) {
+		HouseProperties.DataGoKr dataGoKr = properties.getDataGoKr();
+		RestClient restClient = restClient(dataGoKr);
+		String serviceKey = dataGoKr.getServiceKey() == null ? "" : dataGoKr.getServiceKey().trim();
+		if (serviceKey.isEmpty()) {
+			return new DisabledBuildingRegisterGateway();
+		}
+		return new BuildingRegisterGatewayImpl(restClient, serviceKey, houseSleeper);
 	}
 
 	private RestClient restClient(HouseProperties.DataGoKr dataGoKr) {

@@ -129,6 +129,8 @@ slcn:
       building-register: "${SLCN_HOUSE_CALL_LIMIT_BUILDING_REGISTER:5000}"
       school: "${SLCN_HOUSE_CALL_LIMIT_SCHOOL:100}"
       juso: "${SLCN_HOUSE_CALL_LIMIT_JUSO:4000}"
+    # 행안부 주소 API 호출 사이에 쉬는 시간(ms). 쉬지 않고 연달아 부르면 20건 남짓에서 순간 호출 제한 오류가 난다.
+    juso-interval-millis: "${SLCN_HOUSE_JUSO_INTERVAL_MILLIS:1000}"
   ics:
     window:
       past-months: ${SLCN_ICS_WINDOW_PAST_MONTHS:12}

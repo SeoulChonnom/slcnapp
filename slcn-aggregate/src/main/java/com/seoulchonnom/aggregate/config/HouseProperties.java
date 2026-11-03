@@ -18,6 +18,8 @@ public class HouseProperties {
 	private String nightlyCron = "-";
 	private DataGoKr dataGoKr = new DataGoKr();
 	private CallLimit callLimit = new CallLimit();
+	/** 행안부 호출 사이 간격(ms). 쉬지 않고 연달아 부르면 20건 남짓에서 순간 호출 제한에 걸린다. */
+	private long jusoIntervalMillis = 1000;
 
 	@Getter
 	@Setter

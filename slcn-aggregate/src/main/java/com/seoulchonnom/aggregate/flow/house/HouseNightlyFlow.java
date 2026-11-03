@@ -27,7 +27,7 @@ import lombok.extern.slf4j.Slf4j;
  * 저장은 Logic의 짧은 트랜잭션 메서드(수집 단위 1개 = 트랜잭션 1개)가 맡는다.
  * 단계마다 house_batch_run에 한 행을 남기고, 한 단계가 실패해도 다음 단계로 넘어간다.
  *
- * 지금은 1(수집 단위 준비)·2(실거래 수집)단계만 있다. 3~6단계는 다음 PR에서 이어 붙인다.
+ * 지금은 1(수집 단위 준비)·2(실거래 수집)·3(단지 보강)단계만 있다. 4~6단계는 다음 PR에서 이어 붙인다.
  */
 @Slf4j
 @Service
@@ -39,11 +39,13 @@ public class HouseNightlyFlow {
 	private final HouseBatchRunLogic houseBatchRunLogic;
 	private final BatchStepRecorder batchStepRecorder;
 	private final HouseProperties houseProperties;
+	private final ComplexEnrichStep complexEnrichStep;
 
 	public void run(LocalDate today) {
 		log.info("내집찾기 야간 배치 시작: runDate={}", today);
 		batchStepRecorder.record(today, BatchStep.COLLECT_UNIT_PREPARE, progress -> prepareUnits(today, progress));
 		batchStepRecorder.record(today, BatchStep.TRADE_COLLECT, progress -> collectTrades(today, progress));
+		batchStepRecorder.record(today, BatchStep.COMPLEX_ENRICH, progress -> complexEnrichStep.run(today, progress));
 		log.info("내집찾기 야간 배치 끝: runDate={}", today);
 	}
 

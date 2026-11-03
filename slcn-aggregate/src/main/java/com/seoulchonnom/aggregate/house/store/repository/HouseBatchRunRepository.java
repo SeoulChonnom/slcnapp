@@ -1,6 +1,7 @@
 package com.seoulchonnom.aggregate.house.store.repository;
 
 import java.time.LocalDate;
+import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -8,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.seoulchonnom.aggregate.house.store.jpo.HouseBatchRunJpo;
+import com.seoulchonnom.spec.house.entity.vo.BatchStep;
 
 @Repository
 public interface HouseBatchRunRepository extends JpaRepository<HouseBatchRunJpo, String> {
@@ -19,4 +21,10 @@ public interface HouseBatchRunRepository extends JpaRepository<HouseBatchRunJpo,
 		+ "WHERE r.run_date = :runDate AND r.step = :step",
 		nativeQuery = true)
 	long sumApiCalls(@Param("runDate") LocalDate runDate, @Param("step") String step);
+
+	/**
+	 * 그날 이 단계의 기록 전부. 단계 안에서 API가 둘 이상일 때 detail의 API별 호출 수를 Java에서 합산하려고 쓴다.
+	 * 하루 한 단계의 기록은 실행 횟수만큼(보통 1~2행)이라 JSON을 SQL로 파싱하지 않는다.
+	 */
+	List<HouseBatchRunJpo> findByRunDateAndStep(LocalDate runDate, BatchStep step);
 }

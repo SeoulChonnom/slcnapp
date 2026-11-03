@@ -1,12 +1,18 @@
 package com.seoulchonnom.aggregate.house.store;
 
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.springframework.stereotype.Repository;
 
+import com.seoulchonnom.aggregate.house.store.jpo.HouseComplexJpo;
 import com.seoulchonnom.aggregate.house.store.mapper.HouseComplexJpoMapper;
+import com.seoulchonnom.aggregate.house.store.projection.IncompleteComplexPdo;
 import com.seoulchonnom.aggregate.house.store.repository.HouseComplexRepository;
 import com.seoulchonnom.spec.house.entity.HouseComplex;
 
@@ -34,5 +40,69 @@ public class HouseComplexStore {
 
 	public HouseComplex save(HouseComplex complex) {
 		return houseComplexJpoMapper.toDomain(houseComplexRepository.save(houseComplexJpoMapper.toJpo(complex)));
+	}
+
+	public Optional<HouseComplex> findById(String complexId) {
+		return houseComplexRepository.findById(complexId).map(houseComplexJpoMapper::toDomain);
+	}
+
+	/**
+	 * 좌표 대상. 최근 12개월 거래가 많은 단지부터, 최대 limit개.
+	 */
+	public List<HouseComplex> findGeocodeTargets(LocalDate today, int limit) {
+		if (limit <= 0) {
+			return List.of();
+		}
+		return houseComplexRepository.findGeocodeTargets(today.minusMonths(12), limit).stream()
+			.map(houseComplexJpoMapper::toDomain)
+			.toList();
+	}
+
+	/**
+	 * 건축물대장 대상. PENDING(거래 많은 순)을 먼저, 남는 자리에 30일 이상 지난 DONE(오래된 순)을 채운다.
+	 */
+	public List<HouseComplex> findRegisterTargets(LocalDate today, int limit) {
+		if (limit <= 0) {
+			return List.of();
+		}
+		List<HouseComplexJpo> targets = new ArrayList<>(
+			houseComplexRepository.findRegisterPendingTargets(today.minusMonths(12), limit));
+		int rest = limit - targets.size();
+		if (rest > 0) {
+			targets.addAll(houseComplexRepository.findRegisterRenewalTargets(today.minusDays(30), rest));
+		}
+		return targets.stream().map(houseComplexJpoMapper::toDomain).toList();
+	}
+
+	/**
+	 * 보강 실패 단지 한 페이지. 최근 12개월 거래 건수 내림차순, 그다음 id.
+	 *
+	 * @param offset 0부터
+	 */
+	public List<IncompleteComplexPdo> findIncomplete(LocalDate today, int limit, int offset) {
+		List<Object[]> rows = houseComplexRepository.findIncompleteIdsWithTrades(today.minusMonths(12), limit, offset);
+		if (rows.isEmpty()) {
+			return List.of();
+		}
+		Map<String, HouseComplex> byId = new HashMap<>();
+		houseComplexRepository.findAllById(rows.stream().map(row -> (String)row[0]).toList()).stream()
+			.map(houseComplexJpoMapper::toDomain)
+			.forEach(complex -> byId.put(complex.getId(), complex));
+		List<IncompleteComplexPdo> result = new ArrayList<>();
+		for (Object[] row : rows) {
+			HouseComplex complex = byId.get((String)row[0]);
+			if (complex != null) {
+				result.add(new IncompleteComplexPdo(complex, ((Number)row[1]).longValue()));
+			}
+		}
+		return result;
+	}
+
+	public long countIncomplete() {
+		return houseComplexRepository.countIncomplete();
+	}
+
+	public long countTrades12m(String complexId, LocalDate today) {
+		return houseComplexRepository.countRecentTrades(complexId, today.minusMonths(12));
 	}
 }

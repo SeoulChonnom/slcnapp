@@ -384,10 +384,9 @@ f_k(P) = Cash - Reserve - cost(P) + \min(L_{DSR},\; LTV \times P,\; Cap_k) - P
 
 ### 건축물대장
 
-- 실거래의 (`sggCd`, `umdCd`, `bonbun`, `bubun`)으로 총괄표제부를 먼저 조회하고, 없으면 표제부를 조회한다.
+- 실거래의 (`sggCd`, `umdCd`, `bonbun`, `bubun`)으로 총괄표제부를 먼저 조회하고, 세대수·용적률·건폐율·사용승인일 중 빈 항목이 있으면 표제부를 조회해 빈 항목만 채운다. 오래된 단지는 총괄표제부에 세대수만 있는 경우가 많다(2026-11-03 실측).
 - 세대수: 총괄표제부 세대수. 없으면 표제부 중 주용도가 공동주택인 동의 세대수 합.
-- 용적률·건폐율: 총괄표제부 우선, 없으면 표제부(동이 여럿이면 연면적이 가장 큰 동). 출처를 `far_source`(RECAP | TITLE)에 남긴다.
-- 사용승인일: 위와 같은 우선순위. 없으면 실거래 `buildYear`로 연식만 표시한다.
+- 용적률·건폐율·사용승인일: 총괄표제부 값, 없으면 표제부(동이 여럿이면 연면적이 가장 큰 동). 용적률의 출처를 `far_source`(RECAP | TITLE)에 남긴다. 사용승인일이 끝내 없으면 실거래 `buildYear`로 연식만 표시한다.
 - 총괄표제부 호출이 장애(타임아웃 등)로 실패하면 표제부로 대체한다. 용적률·건폐율이 0으로 오면 값이 없는 것으로 본다.
 - 조회 결과가 없으면 `register_status = FAILED`, 해당 칸은 "정보 없음"이다. 대표 지번과 대장 지번이 다른 단지는 관리자가 지번을 보정한다.
 
@@ -753,6 +752,7 @@ slcn-boot/
 | `slcn.house.call-limit.building-register` | `SLCN_HOUSE_CALL_LIMIT_BUILDING_REGISTER` | 5000 | 건축물대장 API 일일 호출 상한 (개발계정 한도 10,000) |
 | `slcn.house.call-limit.school` | `SLCN_HOUSE_CALL_LIMIT_SCHOOL` | 100 | 학교 표준데이터 API 일일 호출 상한 |
 | `slcn.house.call-limit.juso` | `SLCN_HOUSE_CALL_LIMIT_JUSO` | 4000 | 행안부 검색·좌표 호출 상한 (단지 보강용) |
+| `slcn.house.juso-interval-millis` | `SLCN_HOUSE_JUSO_INTERVAL_MILLIS` | 1000 | 행안부 호출 사이 대기. 연달아 부르면 순간 호출 제한에 걸린다 |
 
 공공데이터포털 한도는 활용신청한 API마다 따로 매겨지므로 상한도 API별로 둔다. 상세는 `be-design.md` §4.7, §8.1.
 

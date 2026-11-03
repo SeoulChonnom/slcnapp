@@ -203,13 +203,16 @@ GET {base}/1613000/BldRgstHubService/getBrTitleInfo       (표제부)
 ```
 
 - 데이터셋: 국토교통부_건축HUB_건축물대장정보 서비스(공공데이터포털 15134735). 개발계정 일일 10,000건, 이용허락범위 제한 없음.
-- 확인 결과(2026-10-21): 표제부는 경로·필드(`hhldCnt`, `vlRat`, `bcRat`, `useAprDay`, `mainPurpsCdNm`, `totArea`, `dongNm`)가 위와 같다. 지번은 `bun`/`ji` 4자리 0 채움이다. 총괄표제부는 세 번지 모두 `SERVICETIMEOUT_ERROR`(HTTP 503) 또는 무응답이었다. 일시 장애인지 구현 전에 다시 호출해 본다.
-- 포트: `Optional<RegisterSummary> find(String lawdCd, String umdCd, String bonbun, String bubun, CallBudget budget)`.
-- 규칙[명세 §8]:
-  1. 총괄표제부가 있으면 세대수 `hhldCnt`, 용적률 `vlRat`, 건폐율 `bcRat`, 사용승인일 `useAprDay`(yyyyMMdd)를 쓴다. `farSource = RECAP`.
-  2. 없으면 표제부를 조회한다. 주용도(`mainPurpsCdNm`)가 "공동주택"인 동만 모은다. 세대수는 합, 용적률·건폐율·사용승인일은 연면적(`totArea`)이 가장 큰 동의 값이다. `farSource = TITLE`.
-  3. 둘 다 없으면 `Optional.empty()`. 호출은 최대 2번이다.
-- `vlRat`·`bcRat`이 `0`이면 값이 없는 것으로 보고 null로 둔다. 표제부의 동별 값은 0으로 오는 경우가 있다.
+- 확인 결과(2026-10-21): 표제부는 경로·필드(`hhldCnt`, `vlRat`, `bcRat`, `useAprDay`, `mainPurpsCdNm`, `totArea`, `dongNm`)가 위와 같다. 지번은 `bun`/`ji` 4자리 0 채움이다. 총괄표제부는 이날 `SERVICETIMEOUT_ERROR`(HTTP 503)였으나 2026-11-03에는 정상 응답했다(일시 장애).
+- 확인 결과(2026-11-03): 총괄표제부가 정상이어도 오래된 단지는 `vlRat`·`bcRat`이 0이고 `useAprDay`가 빈 값이다(예: 개포동 652 → `hhldCnt` 405만 있음). 로컬 실행에서 단지 5개 모두 사용승인일을 표제부로 채워 단지당 2회를 썼다.
+- 포트: `RegisterLookupResult find(lawdCd, umdCd, bonbun, bubun, CallBudget, RecapFailureTracker)`. 결과는 FOUND·NOT_FOUND·FAILED·BUDGET_EXHAUSTED·QUOTA_EXCEEDED·KEY_REJECTED다. `Optional`로는 "결과 없음(즉시 FAILED)"과 "호출 실패(attempts + 1)"를 가를 수 없다. 연속 실패 상태는 실행마다 새로 만드는 `RecapFailureTracker`가 든다.
+- 규칙[명세 §8] — **필드 단위 대체**:
+  1. 총괄표제부를 조회해 세대수 `hhldCnt`, 용적률 `vlRat`, 건폐율 `bcRat`, 사용승인일 `useAprDay`(yyyyMMdd)를 채운다.
+  2. 넷 중 하나라도 비었으면 표제부를 조회해 **빈 필드만** 채운다. 주용도(`mainPurpsCdNm`)가 "공동주택"인 동만 모은다. 세대수는 합, 나머지는 연면적(`totArea`)이 가장 큰 동의 값이다.
+  3. `farSource`는 용적률을 실제로 가져온 곳(RECAP/TITLE)이고, 용적률이 없으면 null이다.
+  4. 넷 다 없으면 NOT_FOUND. 호출은 최대 2번이다. 총괄표제부 값이 있어도 표제부가 UPSTREAM으로 실패하면 FAILED(attempts + 1)로 둔다. 일시 장애로 일부 값만 DONE이 되지 않게 하기 위해서다.
+- `vlRat`·`bcRat`·`hhldCnt`가 `0`이면 값이 없는 것으로 보고 null로 둔다.
+- 30일 갱신 조회가 NOT_FOUND면 기존 값을 유지하고 `registerSyncedDate`만 오늘로 바꾼다. 일시적인 빈 응답으로 좋은 값이 지워지지 않게 하기 위해서다.
 - 총괄표제부가 UPSTREAM으로 실패하면 재시도하지 않고 바로 표제부로 넘어간다. 한 실행에서 총괄표제부가 연속 3번 UPSTREAM이면 남은 단지는 총괄표제부를 건너뛴다. 타임아웃이 단지마다 재시도로 이어지면 배치가 몇 시간 늘어나기 때문이다. 이렇게 표제부 값으로 채운 단지도 30일 뒤 갱신(§5.3) 때 총괄표제부부터 다시 조회한다.
 
 ### 4.4 행안부 좌표 (기존 `AddressGateway` 재사용)
@@ -225,6 +228,10 @@ GET {base}/1613000/BldRgstHubService/getBrTitleInfo       (표제부)
   - `InvalidAddressKeywordException`이면 다음 검색어로 넘어간다.
   - `AddressLookupUnavailableException`(503/502)이면 `geocodeAttempts + 1`. 3이 되면 FAILED, 아니면 PENDING으로 남겨 다음 날 다시 한다. 키 미설정(503)이면 단계 전체를 SKIPPED로 끝낸다.
 - 행안부 호출은 단지당 최대 2번(검색 + 좌표)이 정상이고, 검색어 대체가 일어나면 최대 4번이다. 상한은 `slcn.house.call-limit.juso`(기본 4,000)다.
+- `AddressCoordinateNotFoundException`은 그 검색어만 실패로 보고 다음 검색어로 넘어간다. 모든 검색어가 실패하면 NOT_FOUND(즉시 FAILED)다.
+- **순간 호출 제한**(2026-11-03 실측): 쉬지 않고 연달아 부르면 20건 남짓에서 "짧은 시간 동안 다량의 주소검색 요청" 오류가 난다. 기존 `JusoAddressGateway`는 이를 upstream 실패로 던진다. 일일 한도는 명시되어 있지 않다.
+  - `ComplexGeocoder`는 행안부 호출이 끝날 때마다(성공·실패 모두) `slcn.house.juso-interval-millis`(기본 1,000)만큼 쉰다. 로컬에서 20회 연속 호출에 오류가 없었다. 4,000회면 약 70분이다.
+  - upstream 실패가 **연속 3번**이면 그날 좌표 처리를 멈추고(PARTIAL, `JUSO_UPSTREAM_STREAK`), 그 3개 단지의 attempts는 올리지 않는다. 우리 쪽 호출 속도 때문에 단지가 FAILED가 되면 안 된다. 연속 3번이 되기 전의 개별 실패는 attempts + 1이다.
 
 ### 4.5 학교 위치 (`SchoolStandardDataGateway implements SchoolGateway`)
 
@@ -246,7 +253,9 @@ GET {school-base}/openapi/tn_pubr_public_elesch_mskul_lc_api
 
 - 야간 실행 1회마다 API별로 하나씩 만든다: `trade`, `buildingRegister`, `school`, `juso`.
 - 공공데이터포털 한도는 활용신청한 API마다 따로 매겨진다. 명세 7장의 단일 상한(`daily-call-limit`)을 API별 설정으로 나눈다(본문 §8.1, §13).
-- 수동 재기동 등으로 같은 날 두 번 돌 수 있다. 그래서 예산은 "오늘 이미 쓴 호출 수"를 빼고 시작한다. 그날 `house_batch_run`의 해당 단계 `api_calls` 합을 읽어 뺀다. 같은 날 여러 번 실행해도 한도를 넘지 않는다.
+- 수동 재기동 등으로 같은 날 두 번 돌 수 있다. 그래서 예산은 "오늘 이미 쓴 호출 수"를 빼고 시작한다. 같은 날 여러 번 실행해도 한도를 넘지 않는다.
+  - 실거래(2단계)는 그날 `TRADE_COLLECT` 기록의 `api_calls` 합을 뺀다.
+  - 3단계는 두 API를 쓰므로 `detail`에 `jusoCalls`, `buildingRegisterCalls`를 따로 남기고, 그날 `COMPLEX_ENRICH` 기록의 이 값들을 합쳐 API별로 뺀다. `api_calls`는 두 값의 합계다.
 
 ---
 
@@ -718,6 +727,8 @@ slcn:
       building-register: "${SLCN_HOUSE_CALL_LIMIT_BUILDING_REGISTER:5000}"
       school: "${SLCN_HOUSE_CALL_LIMIT_SCHOOL:100}"
       juso: "${SLCN_HOUSE_CALL_LIMIT_JUSO:4000}"
+    # 행안부 호출 사이 대기. 연달아 부르면 순간 호출 제한에 걸린다(본문 §4.4).
+    juso-interval-millis: "${SLCN_HOUSE_JUSO_INTERVAL_MILLIS:1000}"
 ```
 
 - 행안부 키는 기존 `slcn.geo.juso.*`를 그대로 쓴다.
@@ -970,7 +981,7 @@ DB 통합 테스트가 없으므로 아래 시드로 로컬 PostgreSQL에서 직
 | 1 | 실거래 `aptSeq` 유무, 필드 형식 | 확인 | 670건 중 누락 0건. 숫자·문자열 혼재, 공백 빈 값, `cdealDay` "yy.MM.dd" (§4.1, §4.2). 대체 키는 방어용으로만 남긴다 |
 | 2 | JSON 지원, 정상 `resultCode` | 확인 | 세 API 모두 JSON. 실거래 `000`, 건축물대장·학교 `00`. XML 파서는 두지 않는다 (§4.1) |
 | 3 | API별 일일 한도 | 일부 | 건축물대장 개발계정 10,000 → 상한 5,000. 실거래·학교 한도는 마이페이지에서 확인 후 조정 (§8.1) |
-| 4 | 건축물대장 경로·필드 | 일부 | 표제부 확인. 총괄표제부는 타임아웃이 계속되어 구현 전 재확인. 계속 안 되면 표제부로 대체 (§4.3) |
+| 4 | 건축물대장 경로·필드 | 확인 | 총괄표제부·표제부 모두 정상(2026-11-03). 오래된 단지는 총괄표제부 값이 비어 필드 단위로 표제부에서 채운다 (§4.3) |
 | 5 | 학교 경로·필드, 서울 필터 | 확인 | 호스트 `api.data.go.kr`, `cddcNm=서울특별시교육청` 필터 (§4.5) |
 | 6 | 정비사업 데이터셋[명세 §13 #2] | 미정 | BE 조사. 정해질 때까지 Disabled (§4.6) |
 | 7 | 이용허락범위(DB 저장 가능 여부) | 일부 | 건축물대장 제한 없음. 실거래·학교는 데이터셋 페이지에서 확인. 저장 불가면 그 소스는 쓰지 않는다 |
