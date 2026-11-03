@@ -52,8 +52,29 @@ class InspectionAreaQueryFlowTest {
 		fileAssetStore, new FileBoxMapper(), new InspectionAreaMapper(), new InspectionVisitMapper(),
 		new InspectionSummarySupport());
 
+	/** 완료된 임장(completedAt 있음). 기존 테스트의 기본 픽스처다. */
 	private static InspectionVisit visit(String id, String areaId, LocalDateTime visitedAt) {
+		InspectionVisit visit = new InspectionVisit(id, areaId, visitedAt);
+		visit.setCompletedAt(visitedAt.plusHours(2));
+		return visit;
+	}
+
+	/** 계획(completedAt 없음). */
+	private static InspectionVisit plan(String id, String areaId, LocalDateTime visitedAt) {
 		return new InspectionVisit(id, areaId, visitedAt);
+	}
+
+	/** 수정 중: 한 번 완료된 뒤 DRAFT로 돌아간 임장. completedAt이 있으므로 완료로 센다. */
+	private static InspectionVisit editing(String id, String areaId, LocalDateTime visitedAt) {
+		InspectionVisit visit = visit(id, areaId, visitedAt);
+		visit.setStatus(InspectionStatus.DRAFT);
+		return visit;
+	}
+
+	private static ViewedPropertySummaryPdo pdo(String id, String visitId, int interestLevel, int sortOrder) {
+		ViewedPropertySummaryPdo pdo = pdo(id, visitId, "트리마제", sortOrder);
+		when(pdo.getInterestLevel()).thenReturn(interestLevel);
+		return pdo;
 	}
 
 	private static FileBox fileBox(String visitId, FileBoxItem... items) {
@@ -511,5 +532,117 @@ class InspectionAreaQueryFlowTest {
 
 		assertThatThrownBy(() -> inspectionAreaQueryFlow.getAreaProperties("INSPECTION_AREA-9999", null, null))
 			.isInstanceOf(InspectionAreaNotFoundException.class);
+	}
+
+	@Test
+	void getInspectionAreas_shouldAggregateOnlyCompletedVisitsAndPickEarliestPlan() {
+		String areaId = "INSPECTION_AREA-0001";
+		stubAreaPage(List.of(new InspectionArea(areaId, "성수동", null)));
+		when(inspectionVisitStore.findAllByAreaIds(anyList())).thenReturn(List.of(
+			plan("v-future", areaId, LocalDateTime.of(2026, 12, 1, 10, 0)),
+			visit("v-done2", areaId, LocalDateTime.of(2026, 9, 17, 14, 0)),
+			editing("v-editing", areaId, LocalDateTime.of(2026, 9, 10, 14, 0)),
+			visit("v-done1", areaId, LocalDateTime.of(2026, 9, 3, 10, 0)),
+			plan("v-past", areaId, LocalDateTime.of(2026, 9, 20, 10, 0))));
+		when(fileBoxStore.findAllByOwnerTypeAndOwnerIdIn(any(), anyList())).thenReturn(List.of());
+		ViewedPropertySummaryPdo donePropertyLow = pdo("p1", "v-done1", 3, 0);
+		ViewedPropertySummaryPdo editingPropertyTop = pdo("p2", "v-editing", 4, 0);
+		ViewedPropertySummaryPdo planPropertyHigh = pdo("p3", "v-future", 5, 0);
+		when(inspectionVisitQueryFlow.propertiesByVisitId(anyList())).thenReturn(Map.of(
+			"v-done1", List.of(donePropertyLow), "v-editing", List.of(editingPropertyTop),
+			"v-future", List.of(planPropertyHigh)));
+		when(inspectionVisitQueryFlow.topInterestProperty(anyList(), anyMap())).thenCallRealMethod();
+		when(inspectionVisitQueryFlow.toBriefRdo(any())).thenCallRealMethod();
+		when(inspectionTagStore.findVisitTagNamesByVisitIds(anyList())).thenReturn(Map.of());
+		when(fileAssetStore.findAllByIds(anyList())).thenReturn(List.of());
+
+		InspectionAreaRdo rdo = inspectionAreaQueryFlow.getInspectionAreas(null, null, null, 0, 20).getItems().get(0);
+
+		assertThat(rdo.getVisitCount()).isEqualTo(3);
+		assertThat(rdo.getFirstVisitedAt()).isEqualTo("2026-09-03T10:00");
+		assertThat(rdo.getLastVisitedAt()).isEqualTo("2026-09-17T14:00");
+		assertThat(rdo.getLatestVisit().getVisitId()).isEqualTo("v-done2");
+		assertThat(rdo.getTotalPropertyCount()).isEqualTo(2);
+		assertThat(rdo.getTopProperty().getPropertyId()).isEqualTo("p2");
+		assertThat(rdo.getPlannedVisit().getInspectionVisitId()).isEqualTo("v-past");
+		assertThat(rdo.getPlannedVisit().getVisitedAt()).isEqualTo("2026-09-20T10:00");
+		// 태그는 최신 완료 회차 기준으로 조회한다
+		verify(inspectionTagStore).findVisitTagNamesByVisitIds(List.of("v-done2"));
+	}
+
+	@Test
+	void getInspectionAreas_shouldShowPlanOnlyAreaAsZeroVisitsWithPlannedVisit() {
+		String areaId = "INSPECTION_AREA-0001";
+		stubAreaPage(List.of(new InspectionArea(areaId, "성수동", null)));
+		when(inspectionVisitStore.findAllByAreaIds(anyList())).thenReturn(List.of(
+			plan("v-b", areaId, LocalDateTime.of(2026, 12, 1, 10, 0)),
+			plan("v-a", areaId, LocalDateTime.of(2026, 12, 1, 10, 0))));
+		when(fileBoxStore.findAllByOwnerTypeAndOwnerIdIn(any(), anyList())).thenReturn(List.of());
+		noProperties();
+
+		InspectionAreaRdo rdo = inspectionAreaQueryFlow.getInspectionAreas(null, null, null, 0, 20).getItems().get(0);
+
+		assertThat(rdo.getVisitCount()).isZero();
+		assertThat(rdo.getLatestVisit()).isNull();
+		assertThat(rdo.getFirstVisitedAt()).isNull();
+		assertThat(rdo.getLastVisitedAt()).isNull();
+		assertThat(rdo.getTotalPropertyCount()).isZero();
+		assertThat(rdo.getTopProperty()).isNull();
+		// 같은 날짜면 id 오름차순
+		assertThat(rdo.getPlannedVisit().getInspectionVisitId()).isEqualTo("v-a");
+	}
+
+	@Test
+	void getInspectionAreas_shouldReturnNullPlannedVisitWhenAllVisitsCompleted() {
+		String areaId = "INSPECTION_AREA-0001";
+		stubAreaPage(List.of(new InspectionArea(areaId, "성수동", null)));
+		when(inspectionVisitStore.findAllByAreaIds(anyList())).thenReturn(List.of(
+			visit("v1", areaId, LocalDateTime.of(2026, 9, 17, 14, 0))));
+		when(fileBoxStore.findAllByOwnerTypeAndOwnerIdIn(any(), anyList())).thenReturn(List.of());
+		noProperties();
+
+		InspectionAreaRdo rdo = inspectionAreaQueryFlow.getInspectionAreas(null, null, null, 0, 20).getItems().get(0);
+
+		assertThat(rdo.getPlannedVisit()).isNull();
+	}
+
+	@Test
+	void getInspectionArea_shouldDefaultToLatestCompletedVisitAndKeepPlansInList() {
+		String areaId = "INSPECTION_AREA-0001";
+		when(inspectionAreaStore.findById(areaId)).thenReturn(new InspectionArea(areaId, "성수동", null));
+		when(inspectionVisitStore.findAllByAreaId(areaId)).thenReturn(List.of(
+			plan("v-future", areaId, LocalDateTime.of(2026, 12, 1, 10, 0)),
+			editing("v-editing", areaId, LocalDateTime.of(2026, 9, 17, 14, 0)),
+			visit("v-done", areaId, LocalDateTime.of(2026, 9, 3, 10, 0))));
+		when(fileBoxStore.findAllByOwnerTypeAndOwnerIdIn(any(), anyList())).thenReturn(List.of());
+		when(inspectionVisitQueryFlow.toVisitSummaries(anyList(), anyMap(), anyMap())).thenReturn(List.of());
+		noProperties();
+
+		InspectionAreaDetailRdo rdo = inspectionAreaQueryFlow.getInspectionArea(areaId, null, true);
+
+		verify(inspectionVisitQueryFlow).getInspectionVisit("v-editing");
+		verify(inspectionVisitQueryFlow).toVisitSummaries(argThat(shown -> shown.size() == 3), anyMap(), anyMap());
+		assertThat(rdo.getArea().getVisitCount()).isEqualTo(2);
+		assertThat(rdo.getArea().getLatestVisit().getVisitId()).isEqualTo("v-editing");
+		assertThat(rdo.getArea().getPlannedVisit().getInspectionVisitId()).isEqualTo("v-future");
+	}
+
+	@Test
+	void getInspectionArea_shouldFallBackToPlannedVisitWhenNoCompletedVisit() {
+		String areaId = "INSPECTION_AREA-0001";
+		when(inspectionAreaStore.findById(areaId)).thenReturn(new InspectionArea(areaId, "성수동", null));
+		when(inspectionVisitStore.findAllByAreaId(areaId)).thenReturn(List.of(
+			plan("v-late", areaId, LocalDateTime.of(2026, 12, 8, 10, 0)),
+			plan("v-early", areaId, LocalDateTime.of(2026, 12, 1, 10, 0))));
+		when(fileBoxStore.findAllByOwnerTypeAndOwnerIdIn(any(), anyList())).thenReturn(List.of());
+		when(inspectionVisitQueryFlow.toVisitSummaries(anyList(), anyMap(), anyMap())).thenReturn(List.of());
+		noProperties();
+
+		InspectionAreaDetailRdo rdo = inspectionAreaQueryFlow.getInspectionArea(areaId, null, true);
+
+		verify(inspectionVisitQueryFlow).getInspectionVisit("v-early");
+		assertThat(rdo.getArea().getVisitCount()).isZero();
+		assertThat(rdo.getArea().getLatestVisit()).isNull();
+		assertThat(rdo.getArea().getPlannedVisit().getInspectionVisitId()).isEqualTo("v-early");
 	}
 }

@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 
 import com.seoulchonnom.spec.filebox.facade.sdo.FileBoxItemRdo;
 import com.seoulchonnom.spec.inspection.entity.InspectionArea;
+import com.seoulchonnom.spec.inspection.entity.InspectionVisit;
 import com.seoulchonnom.spec.inspection.facade.sdo.IncompleteSummaryRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaCdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaDetailRdo;
@@ -16,6 +17,7 @@ import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionAreaTotalsRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitDetailRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.InspectionVisitSummaryRdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.PlannedVisitRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.RevisitIntentCountsRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyBriefRdo;
 
@@ -29,11 +31,12 @@ public class InspectionAreaMapper {
 	 * 집계 값은 전부 호출자가 계산해 넘긴다. 지역 엔티티는 집계를 저장하지 않는다.
 	 *
 	 * @param topProperty 지역 전체에서 고른 최고 관심 매물. 회차 범위가 아니다
+	 * @param plannedVisit 미완료(계획) 임장 중 고른 1건. 없으면 null
 	 */
 	public InspectionAreaRdo toInspectionAreaRdo(InspectionArea area, int visitCount, LocalDateTime firstVisitedAt,
 		LocalDateTime lastVisitedAt, int totalPropertyCount, InspectionVisitSummaryRdo latestVisit,
 		ViewedPropertyBriefRdo topProperty, IncompleteSummaryRdo incompleteSummary,
-		List<FileBoxItemRdo> thumbnails, int totalImageCount) {
+		List<FileBoxItemRdo> thumbnails, int totalImageCount, InspectionVisit plannedVisit) {
 		InspectionAreaRdo rdo = new InspectionAreaRdo();
 		rdo.setAreaId(area.getId());
 		rdo.setName(area.getName());
@@ -47,7 +50,15 @@ public class InspectionAreaMapper {
 		rdo.setIncompleteSummary(incompleteSummary);
 		rdo.setThumbnails(thumbnails == null ? new ArrayList<>() : new ArrayList<>(thumbnails));
 		rdo.setTotalImageCount(totalImageCount);
+		rdo.setPlannedVisit(toPlannedVisitRdo(plannedVisit));
 		return rdo;
+	}
+
+	private PlannedVisitRdo toPlannedVisitRdo(InspectionVisit visit) {
+		if (visit == null) {
+			return null;
+		}
+		return new PlannedVisitRdo(visit.getId(), InspectionVisitMapper.toText(visit.getVisitedAt()));
 	}
 
 	/**

@@ -16,7 +16,8 @@ public class InspectionVisitJpoMapper {
 			visit.getOneLineReview(),
 			visit.getPros(),
 			visit.getCons(),
-			visit.getStatus()
+			visit.getStatus(),
+			visit.getCompletedAt()
 		);
 		jpo.setId(visit.getId());
 		jpo.setEntityVersion(visit.getEntityVersion());
@@ -35,6 +36,7 @@ public class InspectionVisitJpoMapper {
 			.pros(jpo.getPros())
 			.cons(jpo.getCons())
 			.status(jpo.getStatus())
+			.completedAt(jpo.getCompletedAt())
 			.build();
 		visit.setId(jpo.getId());
 		visit.setEntityVersion(jpo.getEntityVersion());

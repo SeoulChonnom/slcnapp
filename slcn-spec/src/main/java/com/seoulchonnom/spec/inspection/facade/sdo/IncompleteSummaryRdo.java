@@ -41,7 +41,11 @@ public class IncompleteSummaryRdo {
 	 */
 	private List<String> visitMissingFields = new ArrayList<>();
 	/**
-	 * 지역: 이 지역에서 status = DRAFT인 임장 수
+	 * 지역: 이 지역에서 수정 중(completedAt != null AND status = DRAFT)인 임장 수. 계획 임장은 세지 않는다
 	 */
 	private int draftVisitCount;
+	/**
+	 * 지역: 이 지역의 계획 임장(completedAt = null) 수. 지역 요약에서만 채우고 그 밖의 요약은 0이다
+	 */
+	private int plannedVisitCount;
 }

@@ -12,6 +12,8 @@ import com.seoulchonnom.spec.filebox.entity.vo.FileBoxTargetType;
 import com.seoulchonnom.spec.filebox.facade.sdo.FileBoxItemRdo;
 import com.seoulchonnom.spec.inspection.entity.ViewedProperty;
 import com.seoulchonnom.spec.inspection.entity.vo.PropertyAnswer;
+import com.seoulchonnom.spec.inspection.entity.vo.PropertyLocation;
+import com.seoulchonnom.spec.inspection.facade.sdo.PropertyLocationRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.PropertyAnswerRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyBriefRdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyRdo;
@@ -117,5 +119,31 @@ class ViewedPropertyMapperTest {
 		assertThat(rdo.getComplexName()).isEqualTo("트리마제");
 		assertThat(rdo.getName()).isEqualTo("101동 1203호");
 		assertThat(rdo.getInterestLevel()).isEqualTo(5);
+	}
+
+	@Test
+	void toViewedPropertyRdo_shouldExposeLocationWithoutRawCoordinates() {
+		ViewedProperty property = new ViewedProperty("INSPECTION_VISIT-0001", "트리마제", "101동", 1);
+		property.changeLocation(new PropertyLocation("1171010200", "서울 송파구", 37.5, 127.1, 960000.5, 1950000.5));
+
+		ViewedPropertyRdo rdo = viewedPropertyMapper.toViewedPropertyRdo(property, null, null);
+		var detailRdo = viewedPropertyMapper.toViewedPropertyDetailRdo(property, null, null, Map.of(), null,
+			null, null, null, null, null);
+
+		for (PropertyLocationRdo location : new PropertyLocationRdo[] {rdo.getLocation(), detailRdo.getLocation()}) {
+			assertThat(location.getBdMgtSn()).isEqualTo("1171010200");
+			assertThat(location.getRoadAddress()).isEqualTo("서울 송파구");
+			assertThat(location.getLatitude()).isEqualTo(37.5);
+			assertThat(location.getLongitude()).isEqualTo(127.1);
+		}
+	}
+
+	@Test
+	void toViewedPropertyRdo_shouldReturnNullLocationWhenNoneStored() {
+		ViewedProperty property = new ViewedProperty("INSPECTION_VISIT-0001", "트리마제", "101동", 1);
+
+		assertThat(viewedPropertyMapper.toViewedPropertyRdo(property, null, null).getLocation()).isNull();
+		assertThat(viewedPropertyMapper.toViewedPropertyDetailRdo(property, null, null, Map.of(), null, null, null,
+			null, null, null).getLocation()).isNull();
 	}
 }

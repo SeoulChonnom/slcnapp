@@ -27,4 +27,5 @@ public class AreaViewedPropertyRdo {
 	private String name;
 	private Integer interestLevel;
 	private InspectionStatus status;
+	private PropertyLocationRdo location;
 }

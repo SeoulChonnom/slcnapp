@@ -17,6 +17,7 @@ import com.seoulchonnom.aggregate.inspection.exception.ViewedPropertyNotFoundExc
 import com.seoulchonnom.aggregate.inspection.logic.InspectionQuestionLogic;
 import com.seoulchonnom.aggregate.inspection.logic.InspectionTagLogic;
 import com.seoulchonnom.aggregate.inspection.logic.InspectionVisitLogic;
+import com.seoulchonnom.aggregate.inspection.logic.PropertyLocationResolver;
 import com.seoulchonnom.aggregate.inspection.logic.ViewedPropertyLogic;
 import com.seoulchonnom.aggregate.inspection.store.InspectionQuestionCategoryStore;
 import com.seoulchonnom.aggregate.inspection.store.InspectionTagStore;
@@ -27,7 +28,11 @@ import com.seoulchonnom.spec.inspection.entity.ViewedProperty;
 import com.seoulchonnom.spec.inspection.entity.vo.ComplexNameScope;
 import com.seoulchonnom.spec.inspection.entity.vo.InspectionStatus;
 import com.seoulchonnom.spec.inspection.entity.vo.QuestionAnswerType;
+import com.seoulchonnom.aggregate.inspection.exception.AddressLookupUnavailableException;
+import com.seoulchonnom.spec.inspection.entity.vo.PropertyLocation;
 import com.seoulchonnom.spec.inspection.facade.sdo.PropertyAnswerBulkUdo;
+import com.seoulchonnom.spec.inspection.facade.sdo.PropertyLocationInputSdo;
+import org.mockito.ArgumentCaptor;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyCdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyOrderUdo;
 import com.seoulchonnom.spec.inspection.facade.sdo.ViewedPropertyUdo;
@@ -43,9 +48,10 @@ class ViewedPropertyFlowTest {
 	private final InspectionTagLogic inspectionTagLogic = mock(InspectionTagLogic.class);
 	private final InspectionTagStore inspectionTagStore = mock(InspectionTagStore.class);
 	private final InspectionPhotoSupport inspectionPhotoSupport = mock(InspectionPhotoSupport.class);
+	private final PropertyLocationResolver propertyLocationResolver = mock(PropertyLocationResolver.class);
 	private final ViewedPropertyFlow viewedPropertyFlow = new ViewedPropertyFlow(viewedPropertyLogic,
 		inspectionVisitLogic, inspectionQuestionLogic, inspectionQuestionCategoryStore, inspectionTagLogic,
-		inspectionTagStore, inspectionPhotoSupport);
+		inspectionTagStore, inspectionPhotoSupport, propertyLocationResolver);
 
 	private static ViewedProperty property(String id, InspectionStatus status, int sortOrder) {
 		ViewedProperty property = new ViewedProperty(VISIT_ID, "트리마제", "101동 1203호", sortOrder);
@@ -83,6 +89,21 @@ class ViewedPropertyFlowTest {
 		ViewedProperty saved = viewedPropertyFlow.registerViewedProperty(VISIT_ID, cdo());
 
 		assertThat(saved.getSortOrder()).isEqualTo(4);
+		assertThat(saved.getStatus()).isEqualTo(InspectionStatus.DRAFT);
+	}
+
+	@Test
+	void registerViewedProperty_shouldAcceptOmittedName() {
+		when(inspectionVisitLogic.getInspectionVisit(VISIT_ID)).thenReturn(visit(InspectionStatus.DRAFT));
+		when(viewedPropertyLogic.getViewedProperties(VISIT_ID)).thenReturn(List.of());
+		when(inspectionQuestionLogic.getEnabledQuestions()).thenReturn(List.of());
+		echoSave();
+		ViewedPropertyCdo cdo = cdo();
+		cdo.setName(null);
+
+		ViewedProperty saved = viewedPropertyFlow.registerViewedProperty(VISIT_ID, cdo);
+
+		assertThat(saved.getName()).isNull();
 		assertThat(saved.getStatus()).isEqualTo(InspectionStatus.DRAFT);
 	}
 
@@ -147,6 +168,100 @@ class ViewedPropertyFlowTest {
 		viewedPropertyFlow.registerViewedProperty(VISIT_ID, cdo());
 
 		verify(inspectionVisitLogic, never()).save(any());
+	}
+
+	private static final PropertyLocation LOCATION = new PropertyLocation("1171010200", "서울 송파구 올림픽로 1",
+		37.5, 127.1, 960000.0, 1950000.0);
+
+	@Test
+	void registerViewedProperty_shouldKeepResolvedLocationAndPassRequestToUdo() {
+		when(inspectionVisitLogic.getInspectionVisit(VISIT_ID)).thenReturn(visit(InspectionStatus.DRAFT));
+		when(viewedPropertyLogic.getViewedProperties(VISIT_ID)).thenReturn(List.of());
+		when(inspectionQuestionLogic.getEnabledQuestions()).thenReturn(List.of());
+		echoSave();
+		PropertyLocationInputSdo input = new PropertyLocationInputSdo("1171010200", "서울 송파구 올림픽로 1", null);
+		ViewedPropertyCdo cdo = cdo();
+		cdo.setLocation(input);
+		when(propertyLocationResolver.resolve(null, input)).thenReturn(LOCATION);
+
+		ViewedProperty saved = viewedPropertyFlow.registerViewedProperty(VISIT_ID, cdo);
+
+		assertThat(saved.getLocation()).isEqualTo(LOCATION);
+		// toUdo가 location을 빠뜨리면 등록 시 위치가 조용히 사라진다
+		ArgumentCaptor<ViewedPropertyUdo> udo = ArgumentCaptor.forClass(ViewedPropertyUdo.class);
+		verify(viewedPropertyLogic).applyUpdate(any(), udo.capture());
+		assertThat(udo.getValue().getLocation()).isSameAs(input);
+	}
+
+	@Test
+	void registerViewedProperty_shouldSaveNothingWhenLocationLookupFails() {
+		when(inspectionVisitLogic.getInspectionVisit(VISIT_ID)).thenReturn(visit(InspectionStatus.DRAFT));
+		ViewedPropertyCdo cdo = cdo();
+		cdo.setLocation(new PropertyLocationInputSdo("1171010200", "주소", null));
+		when(propertyLocationResolver.resolve(any(), any())).thenThrow(AddressLookupUnavailableException.upstreamFailed());
+
+		assertThatThrownBy(() -> viewedPropertyFlow.registerViewedProperty(VISIT_ID, cdo))
+			.isInstanceOf(AddressLookupUnavailableException.class);
+
+		verify(viewedPropertyLogic, never()).save(any());
+		verify(viewedPropertyLogic, never()).applyUpdate(any(), any());
+	}
+
+	@Test
+	void modifyViewedProperty_shouldResolveAgainstStoredLocationAndApplyResult() {
+		ViewedProperty property = property("p1", InspectionStatus.DRAFT, 1);
+		property.changeLocation(LOCATION);
+		when(viewedPropertyLogic.getViewedProperty("p1")).thenReturn(property);
+		echoSave();
+		PropertyLocationInputSdo input = new PropertyLocationInputSdo("1171010200", null, null);
+		ViewedPropertyUdo udo = new ViewedPropertyUdo();
+		udo.setLocation(input);
+		when(propertyLocationResolver.resolve(LOCATION, input)).thenReturn(LOCATION);
+
+		ViewedProperty saved = viewedPropertyFlow.modifyViewedProperty(VISIT_ID, "p1", udo);
+
+		assertThat(saved.getLocation()).isEqualTo(LOCATION);
+	}
+
+	@Test
+	void modifyViewedProperty_shouldRemoveLocationWhenRequestOmitsIt() {
+		ViewedProperty property = property("p1", InspectionStatus.DRAFT, 1);
+		property.changeLocation(LOCATION);
+		when(viewedPropertyLogic.getViewedProperty("p1")).thenReturn(property);
+		echoSave();
+		when(propertyLocationResolver.resolve(LOCATION, null)).thenReturn(null);
+
+		ViewedProperty saved = viewedPropertyFlow.modifyViewedProperty(VISIT_ID, "p1", new ViewedPropertyUdo());
+
+		assertThat(saved.getLocation()).isNull();
+	}
+
+	@Test
+	void modifyViewedProperty_shouldLeaveEntityUntouchedWhenLocationLookupFails() {
+		ViewedProperty property = property("p1", InspectionStatus.DRAFT, 1);
+		property.changeLocation(LOCATION);
+		when(viewedPropertyLogic.getViewedProperty("p1")).thenReturn(property);
+		when(propertyLocationResolver.resolve(any(), any())).thenThrow(AddressLookupUnavailableException.notConfigured());
+
+		assertThatThrownBy(() -> viewedPropertyFlow.modifyViewedProperty(VISIT_ID, "p1", new ViewedPropertyUdo()))
+			.isInstanceOf(AddressLookupUnavailableException.class);
+
+		assertThat(property.getLocation()).isEqualTo(LOCATION);
+		verify(viewedPropertyLogic, never()).applyUpdate(any(), any());
+		verify(viewedPropertyLogic, never()).save(any());
+	}
+
+	@Test
+	void changeViewedPropertyStatus_shouldNotTouchLocation() {
+		ViewedProperty property = property("p1", InspectionStatus.DRAFT, 1);
+		property.changeLocation(LOCATION);
+		when(viewedPropertyLogic.getViewedProperty("p1")).thenReturn(property);
+		echoSave();
+
+		ViewedProperty saved = viewedPropertyFlow.changeViewedPropertyStatus(VISIT_ID, "p1", InspectionStatus.COMPLETED);
+
+		assertThat(saved.getLocation()).isEqualTo(LOCATION);
+		verifyNoInteractions(propertyLocationResolver);
 	}
 
 	@Test

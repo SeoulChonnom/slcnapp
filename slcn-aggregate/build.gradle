@@ -22,6 +22,9 @@ dependencies {
     // Google Gemini(AI Studio) 공식 SDK. 후기 제안 생성에만 쓰며, API 키가 없으면 클라이언트를 만들지 않는다.
     implementation 'com.google.genai:google-genai:1.76.0'
 
+    // 행안부 좌표(EPSG:5179)를 WGS84로 바꾸는 투영 변환. 투영식을 직접 구현하지 않는다.
+    implementation 'org.locationtech.proj4j:proj4j:1.4.3'
+
     // 백필 러너를 설정 플래그로 켜고 끄기 위한 ApplicationRunner와 @ConditionalOnProperty.
     implementation 'org.springframework.boot:spring-boot'
     implementation 'org.springframework.boot:spring-boot-autoconfigure'

@@ -240,11 +240,52 @@ class ViewedPropertyLogicTest {
 	}
 
 	@Test
-	void applyUpdate_shouldRequireComplexNameAndName() {
+	void applyUpdate_shouldRequireComplexName() {
 		assertThatThrownBy(() -> viewedPropertyLogic.applyUpdate(property(), propertyUdo("  ", "101동")))
 			.isInstanceOf(InvalidViewedPropertyException.class);
-		assertThatThrownBy(() -> viewedPropertyLogic.applyUpdate(property(), propertyUdo("트리마제", " ")))
+		assertThatThrownBy(() -> viewedPropertyLogic.applyUpdate(property(), propertyUdo(null, "101동")))
 			.isInstanceOf(InvalidViewedPropertyException.class);
+	}
+
+	@Test
+	void applyUpdate_shouldStoreNullWhenNameIsNullOrBlank() {
+		ViewedProperty withNull = property();
+		viewedPropertyLogic.applyUpdate(withNull, propertyUdo("트리마제", null));
+		ViewedProperty withBlank = property();
+		viewedPropertyLogic.applyUpdate(withBlank, propertyUdo("트리마제", "   "));
+
+		assertThat(withNull.getName()).isNull();
+		assertThat(withBlank.getName()).isNull();
+	}
+
+	@Test
+	void applyUpdate_shouldClearExistingNameWhenBlank() {
+		ViewedProperty property = property();
+
+		viewedPropertyLogic.applyUpdate(property, propertyUdo("트리마제", ""));
+
+		assertThat(property.getName()).isNull();
+	}
+
+	@Test
+	void applyUpdate_shouldCollapseNameWhitespace() {
+		ViewedProperty property = property();
+
+		viewedPropertyLogic.applyUpdate(property, propertyUdo("트리마제", "  101동   1203호 "));
+
+		assertThat(property.getName()).isEqualTo("101동 1203호");
+	}
+
+	@Test
+	void validateCompletable_shouldReportMissingNameWhenNull() {
+		ViewedProperty property = property();
+		viewedPropertyLogic.applyUpdate(property, propertyUdo("트리마제", null));
+		property.setInterestLevel(3);
+
+		assertThat(viewedPropertyLogic.findMissingFieldsForCompletion(property)).containsExactly("name");
+		assertThatThrownBy(() -> viewedPropertyLogic.validateCompletable(property))
+			.isInstanceOf(InvalidViewedPropertyException.class)
+			.hasMessageContaining("name");
 	}
 
 	@Test

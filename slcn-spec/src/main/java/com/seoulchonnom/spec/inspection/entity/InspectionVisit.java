@@ -1,6 +1,7 @@
 package com.seoulchonnom.spec.inspection.entity;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 
 import com.seoulchonnom.spec.common.entity.DomainEntity;
 import com.seoulchonnom.spec.inspection.entity.vo.InspectionStatus;
@@ -31,6 +32,8 @@ public class InspectionVisit extends DomainEntity {
 	private String pros;
 	private String cons;
 	private InspectionStatus status;
+	/** 최초로 COMPLETED가 된 시각. 한 번 기록하면 DRAFT로 되돌려도 지우지 않는다. */
+	private LocalDateTime completedAt;
 
 	public InspectionVisit(String id, String areaId, LocalDateTime visitedAt) {
 		super(id);
@@ -52,6 +55,9 @@ public class InspectionVisit extends DomainEntity {
 
 	public void changeStatus(InspectionStatus status) {
 		this.status = status;
+		if (InspectionStatus.COMPLETED == status && this.completedAt == null) {
+			this.completedAt = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+		}
 		this.modifiedTime = System.currentTimeMillis();
 	}
 }

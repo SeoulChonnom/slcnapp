@@ -23,6 +23,8 @@ public class InspectionVisitDetailRdo {
 	private String inspectionVisitId;
 	private InspectionAreaBriefRdo area;
 	private String visitedAt;
+	/** 최초 완료 시각. 한 번도 완료되지 않았으면 null. visitedAt과 같은 형식. */
+	private String completedAt;
 	private String memo;
 	private RevisitIntent revisitIntent;
 	private String oneLineReview;

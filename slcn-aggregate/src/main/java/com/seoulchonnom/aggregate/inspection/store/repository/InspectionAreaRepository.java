@@ -21,6 +21,10 @@ import com.seoulchonnom.aggregate.inspection.store.jpo.InspectionAreaJpo;
  * 있으므로, COUNT는 항상 COUNT(DISTINCT v.id)/COUNT(DISTINCT a.id)로 쓴다 — 아니면
  * 매물·태그가 여러 건인 임장/지역의 카운트가 부풀려진다. MAX() 계열은 fan-out에 영향받지
  * 않아 그대로 둬도 된다.
+ *
+ * completed_at이 없는 임장은 계획이다. 방문 횟수·최근 방문일·최고 관심도·재방문 의사 필터·전역 합계는
+ * completed_at IS NOT NULL인 임장만 센다(status가 아니라 completed_at 기준: 수정 중 DRAFT도 완료로 센다).
+ * 키워드 검색은 계획의 단지명·매물명도 찾도록 모든 임장과 매물을 대상으로 둔다.
  */
 @Repository
 public interface InspectionAreaRepository extends JpaRepository<InspectionAreaJpo, String> {
@@ -52,18 +56,18 @@ public interface InspectionAreaRepository extends JpaRepository<InspectionAreaJp
 		+ "  OR vtag.name ILIKE :likeKeyword OR ptag.name ILIKE :likeKeyword"
 		+ ")) "
 		+ "AND (:revisitIntent IS NULL OR ("
-		+ "  SELECT iv2.revisit_intent FROM slcn.inspection_visit iv2 WHERE iv2.area_id = a.id "
+		+ "  SELECT iv2.revisit_intent FROM slcn.inspection_visit iv2 WHERE iv2.area_id = a.id AND iv2.completed_at IS NOT NULL "
 		+ "  ORDER BY iv2.visited_at DESC, iv2.id ASC LIMIT 1"
 		+ ") = :revisitIntent) "
 		+ "GROUP BY a.id, a.name "
-		+ "ORDER BY MAX(v.visited_at) DESC NULLS LAST, a.name ASC "
+		+ "ORDER BY MAX(CASE WHEN v.completed_at IS NOT NULL THEN v.visited_at END) DESC NULLS LAST, a.name ASC "
 		+ "LIMIT :limit OFFSET :offset",
 		nativeQuery = true)
 	List<String> findAreaIdsOrderByRecentVisit(@Param("likeKeyword") String likeKeyword,
 		@Param("revisitIntent") String revisitIntent, @Param("limit") int limit, @Param("offset") int offset);
 
 	/**
-	 * RECENT_VISIT과 조인/필터가 같고 정렬 기준만 COUNT(DISTINCT v.id)다.
+	 * RECENT_VISIT과 조인/필터가 같고 정렬 기준만 COUNT(DISTINCT 완료 임장 id)다.
 	 * 사람이 검증할 지점: fan-out(매물·태그 조인)이 있는 상태에서 COUNT(DISTINCT v.id)가
 	 * 방문 "행 수"가 아니라 "고유 임장 수"를 세는지.
 	 */
@@ -80,18 +84,18 @@ public interface InspectionAreaRepository extends JpaRepository<InspectionAreaJp
 		+ "  OR vtag.name ILIKE :likeKeyword OR ptag.name ILIKE :likeKeyword"
 		+ ")) "
 		+ "AND (:revisitIntent IS NULL OR ("
-		+ "  SELECT iv2.revisit_intent FROM slcn.inspection_visit iv2 WHERE iv2.area_id = a.id "
+		+ "  SELECT iv2.revisit_intent FROM slcn.inspection_visit iv2 WHERE iv2.area_id = a.id AND iv2.completed_at IS NOT NULL "
 		+ "  ORDER BY iv2.visited_at DESC, iv2.id ASC LIMIT 1"
 		+ ") = :revisitIntent) "
 		+ "GROUP BY a.id, a.name "
-		+ "ORDER BY COUNT(DISTINCT v.id) DESC, a.name ASC "
+		+ "ORDER BY COUNT(DISTINCT CASE WHEN v.completed_at IS NOT NULL THEN v.id END) DESC, a.name ASC "
 		+ "LIMIT :limit OFFSET :offset",
 		nativeQuery = true)
 	List<String> findAreaIdsOrderByVisitCount(@Param("likeKeyword") String likeKeyword,
 		@Param("revisitIntent") String revisitIntent, @Param("limit") int limit, @Param("offset") int offset);
 
 	/**
-	 * RECENT_VISIT과 조인/필터가 같고 정렬 기준만 MAX(p.interest_level)다.
+	 * RECENT_VISIT과 조인/필터가 같고 정렬 기준만 MAX(완료 임장 매물의 interest_level)다.
 	 * 사람이 검증할 지점: interest_level 컬럼명, NULLS LAST 동작.
 	 */
 	@Query(value = "SELECT a.id FROM slcn.inspection_area a "
@@ -107,11 +111,11 @@ public interface InspectionAreaRepository extends JpaRepository<InspectionAreaJp
 		+ "  OR vtag.name ILIKE :likeKeyword OR ptag.name ILIKE :likeKeyword"
 		+ ")) "
 		+ "AND (:revisitIntent IS NULL OR ("
-		+ "  SELECT iv2.revisit_intent FROM slcn.inspection_visit iv2 WHERE iv2.area_id = a.id "
+		+ "  SELECT iv2.revisit_intent FROM slcn.inspection_visit iv2 WHERE iv2.area_id = a.id AND iv2.completed_at IS NOT NULL "
 		+ "  ORDER BY iv2.visited_at DESC, iv2.id ASC LIMIT 1"
 		+ ") = :revisitIntent) "
 		+ "GROUP BY a.id, a.name "
-		+ "ORDER BY MAX(p.interest_level) DESC NULLS LAST, a.name ASC "
+		+ "ORDER BY MAX(CASE WHEN v.completed_at IS NOT NULL THEN p.interest_level END) DESC NULLS LAST, a.name ASC "
 		+ "LIMIT :limit OFFSET :offset",
 		nativeQuery = true)
 	List<String> findAreaIdsOrderByTopInterest(@Param("likeKeyword") String likeKeyword,
@@ -133,7 +137,7 @@ public interface InspectionAreaRepository extends JpaRepository<InspectionAreaJp
 		+ "  OR vtag.name ILIKE :likeKeyword OR ptag.name ILIKE :likeKeyword"
 		+ ")) "
 		+ "AND (:revisitIntent IS NULL OR ("
-		+ "  SELECT iv2.revisit_intent FROM slcn.inspection_visit iv2 WHERE iv2.area_id = a.id "
+		+ "  SELECT iv2.revisit_intent FROM slcn.inspection_visit iv2 WHERE iv2.area_id = a.id AND iv2.completed_at IS NOT NULL "
 		+ "  ORDER BY iv2.visited_at DESC, iv2.id ASC LIMIT 1"
 		+ ") = :revisitIntent)",
 		nativeQuery = true)
@@ -143,7 +147,8 @@ public interface InspectionAreaRepository extends JpaRepository<InspectionAreaJp
 	 * 전역 요약(totals.visitCount)용. 전체 임장 수다.
 	 */
 	@Query(value = "SELECT COUNT(*) FROM slcn.inspection_visit v "
-		+ "JOIN slcn.inspection_area a ON a.id = v.area_id",
+		+ "JOIN slcn.inspection_area a ON a.id = v.area_id "
+		+ "WHERE v.completed_at IS NOT NULL",
 		nativeQuery = true)
 	long countAllVisits();
 
@@ -152,7 +157,8 @@ public interface InspectionAreaRepository extends JpaRepository<InspectionAreaJp
 	 */
 	@Query(value = "SELECT COUNT(*) FROM slcn.viewed_property p "
 		+ "JOIN slcn.inspection_visit v ON v.id = p.inspection_visit_id "
-		+ "JOIN slcn.inspection_area a ON a.id = v.area_id",
+		+ "JOIN slcn.inspection_area a ON a.id = v.area_id "
+		+ "WHERE v.completed_at IS NOT NULL",
 		nativeQuery = true)
 	long countAllProperties();
 
@@ -168,6 +174,7 @@ public interface InspectionAreaRepository extends JpaRepository<InspectionAreaJp
 	@Query(value = "WITH latest_visit AS ("
 		+ "  SELECT DISTINCT ON (iv.area_id) iv.area_id, iv.revisit_intent "
 		+ "  FROM slcn.inspection_visit iv "
+		+ "  WHERE iv.completed_at IS NOT NULL "
 		+ "  ORDER BY iv.area_id, iv.visited_at DESC, iv.id ASC"
 		+ ") "
 		+ "SELECT lv.revisit_intent AS intent, COUNT(*) AS cnt "

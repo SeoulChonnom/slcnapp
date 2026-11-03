@@ -116,15 +116,52 @@ class InspectionSummarySupportTest {
 		assertThat(summary.getVisitMissingFields()).containsExactly("revisitIntent");
 	}
 
+	private static InspectionVisit visit(String id, InspectionStatus status, boolean everCompleted) {
+		InspectionVisit visit = new InspectionVisit(id, "INSPECTION_AREA-0001", LocalDateTime.of(2026, 9, 17, 14, 0));
+		visit.setStatus(status);
+		if (everCompleted) {
+			visit.setCompletedAt(LocalDateTime.of(2026, 9, 17, 16, 0));
+		}
+		return visit;
+	}
+
+	private static ViewedPropertySummaryPdo pdo(String visitId, InspectionStatus status, int unanswered) {
+		ViewedPropertySummaryPdo pdo = pdo(status, unanswered);
+		when(pdo.getInspectionVisitId()).thenReturn(visitId);
+		return pdo;
+	}
+
 	@Test
-	void ofArea_shouldCountDraftVisits() {
+	void ofArea_shouldSeparatePlannedVisitsFromIncompleteOnes() {
+		InspectionVisit completed = visit("V-DONE", InspectionStatus.COMPLETED, true);
+		InspectionVisit editing = visit("V-EDIT", InspectionStatus.DRAFT, true);
+		InspectionVisit plan1 = visit("V-PLAN1", InspectionStatus.DRAFT, false);
+		InspectionVisit plan2 = visit("V-PLAN2", InspectionStatus.DRAFT, false);
+
 		IncompleteSummaryRdo summary = inspectionSummarySupport.ofArea(
-			List.of(visit(InspectionStatus.DRAFT), visit(InspectionStatus.COMPLETED)),
-			List.of(pdo(InspectionStatus.DRAFT, 3)));
+			List.of(completed, editing, plan1, plan2),
+			List.of(
+				pdo("V-DONE", InspectionStatus.COMPLETED, 0),
+				pdo("V-EDIT", InspectionStatus.DRAFT, 2),
+				pdo("V-EDIT", InspectionStatus.COMPLETED, 0),
+				pdo("V-PLAN1", InspectionStatus.DRAFT, 5),
+				pdo("V-PLAN2", InspectionStatus.DRAFT, 7)));
 
 		assertThat(summary.getDraftVisitCount()).isEqualTo(1);
+		assertThat(summary.getPlannedVisitCount()).isEqualTo(2);
+		// 계획 임장의 매물(5, 7개 미답변)은 미완료 매물·미답변 문항에서 빠진다
 		assertThat(summary.getDraftPropertyCount()).isEqualTo(1);
-		assertThat(summary.getUnansweredRequiredCount()).isEqualTo(3);
+		assertThat(summary.getUnansweredRequiredCount()).isEqualTo(2);
+	}
+
+	@Test
+	void ofVisit_shouldKeepMeaningOfWhatRemainsEvenForPlannedVisit() {
+		IncompleteSummaryRdo summary = inspectionSummarySupport.ofVisit(visit("V-PLAN", InspectionStatus.DRAFT, false),
+			List.of(pdo("V-PLAN", InspectionStatus.DRAFT, 4)));
+
+		assertThat(summary.getDraftPropertyCount()).isEqualTo(1);
+		assertThat(summary.getUnansweredRequiredCount()).isEqualTo(4);
+		assertThat(summary.getPlannedVisitCount()).isZero();
 	}
 
 	@Test
@@ -132,6 +169,7 @@ class InspectionSummarySupportTest {
 		IncompleteSummaryRdo summary = inspectionSummarySupport.ofArea(List.of(), List.of());
 
 		assertThat(summary.getDraftVisitCount()).isZero();
+		assertThat(summary.getPlannedVisitCount()).isZero();
 		assertThat(summary.getDraftPropertyCount()).isZero();
 		assertThat(summary.getUnansweredRequiredCount()).isZero();
 	}

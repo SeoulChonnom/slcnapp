@@ -22,6 +22,8 @@ public class ViewedPropertyUdo {
 	private String pros;
 	private String cons;
 	private Integer interestLevel;
+	/** 생략하거나 null이면 위치 없음(수정 시에는 저장된 위치를 지운다). */
+	private PropertyLocationInputSdo location;
 	private List<String> tags;
 	private List<FileBoxItemUdo> files;
 }

@@ -7,6 +7,7 @@ import java.util.Optional;
 import com.seoulchonnom.spec.common.entity.DomainEntity;
 import com.seoulchonnom.spec.inspection.entity.vo.InspectionStatus;
 import com.seoulchonnom.spec.inspection.entity.vo.PropertyAnswer;
+import com.seoulchonnom.spec.inspection.entity.vo.PropertyLocation;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -45,6 +46,8 @@ public class ViewedProperty extends DomainEntity {
 	 */
 	private int requiredAnswerCount;
 	private int unansweredRequiredCount;
+	/** 행안부에서 조회한 위치. 없으면 null이다. 위치 변경은 changeLocation으로만 한다. */
+	private PropertyLocation location;
 
 	public ViewedProperty(String inspectionVisitId, String complexName, String name, int sortOrder) {
 		super();
@@ -65,6 +68,11 @@ public class ViewedProperty extends DomainEntity {
 		this.pros = pros;
 		this.cons = cons;
 		this.interestLevel = interestLevel;
+		this.modifiedTime = System.currentTimeMillis();
+	}
+
+	public void changeLocation(PropertyLocation location) {
+		this.location = location;
 		this.modifiedTime = System.currentTimeMillis();
 	}
 
