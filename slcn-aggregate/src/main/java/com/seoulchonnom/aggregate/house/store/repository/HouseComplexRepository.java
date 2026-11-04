@@ -89,9 +89,11 @@ public interface HouseComplexRepository extends JpaRepository<HouseComplexJpo, S
 	 * 조건 없는 항목은 플래그(:bounds, :byDistrict, :hasPrice)를 false로 두고 기본값을 넘긴다(null 파라미터 금지).
 	 * 행은 [id, apt_name, lawd_cd, umd_name, latitude, longitude, build_year, households,
 	 * recent_price_manwon, recent_window_months, recent_sample]다.
+	 * build_year는 연식 규칙(사용승인연도, 없으면 실거래 건축년도)이며 HouseComplex.resolveBuildYear()와 같은 규칙이다.
 	 * 사람이 검증할 지점: 플래그 OR 조건의 타입 추론, LEFT JOIN으로 통계 없는 단지 포함, 가격 양 끝 포함, 정렬.
 	 */
-	@Query(value = "SELECT c.id, c.apt_name, c.lawd_cd, c.umd_name, c.latitude, c.longitude, c.build_year, c.households, "
+	@Query(value = "SELECT c.id, c.apt_name, c.lawd_cd, c.umd_name, c.latitude, c.longitude, "
+		+ "COALESCE(CAST(EXTRACT(YEAR FROM c.approval_date) AS integer), c.build_year) AS build_year, c.households, "
 		+ "s.recent_price_manwon, s.recent_window_months, s.recent_sample "
 		+ "FROM slcn.house_complex c "
 		+ "LEFT JOIN slcn.house_complex_area_stat s ON s.complex_id = c.id AND s.area_bucket = :area "

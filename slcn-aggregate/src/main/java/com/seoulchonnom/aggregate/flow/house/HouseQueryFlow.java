@@ -156,7 +156,7 @@ public class HouseQueryFlow {
 			.orElse(null);
 		return new ComplexCardRdo(complex.getId(), complex.getAptName(),
 			HouseConstant.districtName(complex.getLawdCd()), complex.getUmdName(), complex.getLatitude(),
-			complex.getLongitude(), complex.getBuildYear(), complex.getHouseholds(), recentPrice);
+			complex.getLongitude(), complex.resolveBuildYear(), complex.getHouseholds(), recentPrice);
 	}
 
 	/**

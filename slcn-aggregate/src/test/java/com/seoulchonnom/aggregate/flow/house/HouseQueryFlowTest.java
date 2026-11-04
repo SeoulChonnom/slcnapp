@@ -339,6 +339,24 @@ class HouseQueryFlowTest {
 		assertThat(flow.getComplex("C1", AreaBucket.B84).getRecentPrice()).isNull();
 	}
 
+	@Test
+	void getComplex_shouldUseApprovalYearForBuildYearWhenPresent() {
+		HouseComplex complex = card();
+		complex.setApprovalDate(LocalDate.of(2001, 5, 3));
+		when(complexStore.findById("C1")).thenReturn(Optional.of(complex));
+		when(statStore.findAreaStat("C1", AreaBucket.B59)).thenReturn(Optional.empty());
+
+		assertThat(flow.getComplex("C1", AreaBucket.B59).getBuildYear()).isEqualTo(2001);
+	}
+
+	@Test
+	void getComplex_shouldFallBackToTradeBuildYearWithoutApprovalDate() {
+		when(complexStore.findById("C1")).thenReturn(Optional.of(card()));
+		when(statStore.findAreaStat("C1", AreaBucket.B59)).thenReturn(Optional.empty());
+
+		assertThat(flow.getComplex("C1", AreaBucket.B59).getBuildYear()).isEqualTo(1999);
+	}
+
 	private HouseComplex searchable(String id, String name, String lawdCd, Integer buildYear, LocalDate approvalDate) {
 		HouseComplex complex = HouseComplex.builder().aptSeq("s-" + id).lawdCd(lawdCd).umdName("전농동").aptName(name)
 			.buildYear(buildYear).approvalDate(approvalDate).build();

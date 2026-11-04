@@ -72,9 +72,11 @@ public interface HouseRankingRepository extends JpaRepository<HouseRankingJpo, H
 	 * 랭킹 조회. 순위 순이고 단지·통계는 LEFT JOIN이라 "거래 없음" 행도 나온다.
 	 * 행은 [rank_no, complex_id, apt_name, lawd_cd, latitude, longitude, build_year, avg_area_12m, households,
 	 * value_num, change_manwon, sample_count, badge, period_from, period_to]다.
+	 * build_year는 연식 규칙(사용승인연도, 없으면 실거래 건축년도)이며 HouseComplex.resolveBuildYear()와 같은 규칙이다.
 	 * 사람이 검증할 지점: 날짜 컬럼이 LocalDate 또는 java.sql.Date로 오는지, NO_TRADE 행의 null 컬럼, 정렬.
 	 */
-	@Query(value = "SELECT r.rank_no, r.complex_id, c.apt_name, r.lawd_cd, c.latitude, c.longitude, c.build_year, "
+	@Query(value = "SELECT r.rank_no, r.complex_id, c.apt_name, r.lawd_cd, c.latitude, c.longitude, "
+		+ "COALESCE(CAST(EXTRACT(YEAR FROM c.approval_date) AS integer), c.build_year) AS build_year, "
 		+ "s.avg_area_12m, c.households, r.value_num, r.change_manwon, r.sample_count, r.badge, "
 		+ "r.period_from, r.period_to "
 		+ "FROM slcn.house_ranking r "

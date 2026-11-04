@@ -469,6 +469,7 @@ FROM slcn.house_collect_unit WHERE deal_ym IN (:ym0, :ym1, :ym2);
 ### 6.3 `GET /house/complexes` → `ComplexMapListRdo`
 
 검증:
+- 연식(`buildYear`)은 `approval_date`의 연도, 없으면 `build_year`다(SQL `COALESCE`, 규칙은 `HouseComplex.resolveBuildYear()`와 같다).
 - 영역 4개(`swLat`, `swLng`, `neLat`, `neLng`)와 `lawdCd` 중 정확히 하나만 와야 한다. 영역은 4개 모두 있어야 한다.
 - 영역: `swLat < neLat`, `swLng < neLng`, 각 변 ≤ 0.2도.
 - `lawdCd`: `HouseConstant.DISTRICTS`의 25개 코드 중 하나.
@@ -541,6 +542,7 @@ HAVING AVG(c.latitude) BETWEEN :swLat AND :neLat AND AVG(c.longitude) BETWEEN :s
 ### 6.6 `GET /house/complexes/{complexId}` → `ComplexCardRdo`
 
 - 단지가 없으면 404 `HOUSE_COMPLEX_NOT_FOUND`.
+- `buildYear`는 `resolveBuildYear()`(사용승인연도, 없으면 실거래 건축년도)다.
 - 좌표가 없어도 200이다(`latitude`/`longitude` null). 정보 카드는 지도 마커에서 열리므로 실제로는 좌표가 있다.
 - `recentPrice`는 (단지, `area`) 통계 행에서 가져온다. 행이 없거나 `recent_price_manwon`이 null이면 `recentPrice: null`이다.
 
@@ -573,6 +575,7 @@ HAVING AVG(c.latitude) BETWEEN :swLat AND :neLat AND AVG(c.longitude) BETWEEN :s
 ### 6.8 `GET /house/rankings` → `RankingListRdo`
 
 - `house_ranking`(type, area) `ORDER BY rank_no` + `house_complex` LEFT JOIN(좌표·연식·세대수) + 통계 LEFT JOIN(`avg_area_12m`).
+- 연식은 `approval_date`의 연도, 없으면 `build_year`다(SQL `COALESCE`, 지도 목록과 같은 규칙).
 - 좌표 보강에 실패한 단지는 `latitude`/`longitude`가 null이다[명세 §10].
 - 랭킹 행이 0개면(통계가 한 번도 안 돌았음) `items: []`, `period: null`.
 
