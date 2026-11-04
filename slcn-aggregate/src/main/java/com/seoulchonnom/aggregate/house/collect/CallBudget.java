@@ -39,6 +39,13 @@ public class CallBudget {
 		return consumed;
 	}
 
+	/**
+	 * 이번 실행이 시작하기 전에 오늘 이미 쓴 호출 수.
+	 */
+	public long usedBefore() {
+		return alreadyUsed;
+	}
+
 	public String name() {
 		return name;
 	}

@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 import com.seoulchonnom.aggregate.config.HouseProperties;
 import com.seoulchonnom.aggregate.house.collect.CallBudget;
 import com.seoulchonnom.aggregate.house.collect.CollectUnitPriority;
-import com.seoulchonnom.aggregate.house.collect.RedevelopmentGateway;
 import com.seoulchonnom.aggregate.house.collect.TradeFetchResult;
 import com.seoulchonnom.aggregate.house.collect.TradeGateway;
 import com.seoulchonnom.aggregate.house.logic.HouseBatchRunLogic;
@@ -45,7 +44,7 @@ public class HouseNightlyFlow {
 	private final ComplexEnrichStep complexEnrichStep;
 	private final HouseStatLogic houseStatLogic;
 	private final SchoolSyncStep schoolSyncStep;
-	private final RedevelopmentGateway redevelopmentGateway;
+	private final RedevelopmentSyncStep redevelopmentSyncStep;
 
 	public void run(LocalDate today) {
 		log.info("내집찾기 야간 배치 시작: runDate={}", today);
@@ -53,9 +52,11 @@ public class HouseNightlyFlow {
 		batchStepRecorder.record(today, BatchStep.TRADE_COLLECT, progress -> collectTrades(today, progress));
 		// 4단계가 "좌표가 새로 생긴 단지"를 알아야 해서 3단계의 geocodeDone을 꺼내 둔다. 단계가 예외로 끝나도 그때까지의 값이 남는다.
 		int[] newlyGeocoded = {0};
+		// 행안부 일일 예산은 3단계와 5단계가 하나를 나눠 쓴다. 같은 객체를 넘기고, 처음 필요할 때 만든다.
+		CallBudget[] jusoBudget = {null};
 		batchStepRecorder.record(today, BatchStep.COMPLEX_ENRICH, progress -> {
 			try {
-				return complexEnrichStep.run(today, progress);
+				return complexEnrichStep.run(today, sharedJusoBudget(today, jusoBudget), progress);
 			} finally {
 				if (progress.detail().get("geocodeDone") instanceof Number done) {
 					newlyGeocoded[0] = done.intValue();
@@ -64,18 +65,23 @@ public class HouseNightlyFlow {
 		});
 		batchStepRecorder.record(today, BatchStep.SCHOOL_SYNC,
 			progress -> schoolSyncStep.run(today, newlyGeocoded[0], progress));
-		batchStepRecorder.record(today, BatchStep.REDEVELOPMENT_SYNC, this::syncRedevelopment);
+		batchStepRecorder.record(today, BatchStep.REDEVELOPMENT_SYNC,
+			progress -> redevelopmentSyncStep.run(today, sharedJusoBudget(today, jusoBudget), progress));
 		batchStepRecorder.record(today, BatchStep.STATS_BUILD, progress -> buildStats(today, progress));
 		log.info("내집찾기 야간 배치 끝: runDate={}", today);
 	}
 
 	/**
-	 * 정비사업 데이터셋이 미확정이라 구현체가 없다(항상 Disabled). 지금은 어떤 경우에도 SKIPPED다.
-	 * SKIPPED는 SUCCESS가 아니므로 비교표의 redevelopments는 계속 null("정보 없음")이다.
+	 * 오늘 이미 쓴 행안부 호출 수는 3단계와 5단계 기록의 detail.jusoCalls 합이다. 같은 날 다시 돌 때도 하루 상한을 넘지 않는다.
 	 */
-	private StepOutcome syncRedevelopment(StepProgress progress) {
-		progress.put("reason", redevelopmentGateway.available() ? "NOT_IMPLEMENTED" : "DATASET_UNDECIDED");
-		return StepOutcome.of(BatchRunStatus.SKIPPED);
+	private CallBudget sharedJusoBudget(LocalDate today, CallBudget[] holder) {
+		if (holder[0] == null) {
+			long used = houseBatchRunLogic.usedDetailCalls(today, BatchStep.COMPLEX_ENRICH, ComplexEnrichStep.JUSO_CALLS)
+				+ houseBatchRunLogic.usedDetailCalls(today, BatchStep.REDEVELOPMENT_SYNC,
+				RedevelopmentSyncStep.JUSO_CALLS);
+			holder[0] = new CallBudget("juso", houseProperties.getCallLimit().getJuso(), used);
+		}
+		return holder[0];
 	}
 
 	/**

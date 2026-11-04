@@ -21,4 +21,14 @@ class HouseConstantTest {
 		assertThat(HouseConstant.isDistrict("11110")).isTrue();
 		assertThat(HouseConstant.isDistrict(null)).isFalse();
 	}
+
+	@Test
+	void lawdCdOf_shouldResolveDistrictNameAndReturnNullForUnknown() {
+		assertThat(HouseConstant.lawdCdOf("강남구")).isEqualTo("11680");
+		assertThat(HouseConstant.lawdCdOf("종로구")).isEqualTo("11110");
+		assertThat(HouseConstant.lawdCdOf("강남")).isNull();
+		assertThat(HouseConstant.lawdCdOf(null)).isNull();
+		assertThat(HouseConstant.DISTRICTS).allSatisfy(
+			district -> assertThat(HouseConstant.lawdCdOf(district.name())).isEqualTo(district.lawdCd()));
+	}
 }

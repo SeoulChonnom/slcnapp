@@ -325,7 +325,7 @@ f_k(P) = Cash - Reserve - cost(P) + \min(L_{DSR},\; LTV \times P,\; Cap_k) - P
 | 건축물대장 | 공공데이터포털, 국토교통부 건축물대장정보 서비스 (총괄표제부, 표제부), 요청 = 시군구코드 + 법정동코드 + 번 + 지 | 세대수, 용적률, 건폐율, 사용승인일 | 신규 단지 시, 이후 월 1회 | 활용신청 시 확인 |
 | 단지 좌표 | 행안부 도로명주소 검색 API + 좌표제공 API (기존 `AddressGateway`) | 출입구 좌표(UTM-K) → WGS84 | 신규 단지 시 | 저장 가능 (이용허락범위 제한 없음) |
 | 학교 위치 | 공공데이터포털, 전국초중등학교위치표준데이터 | 학교ID, 학교명, 학교급, 위도·경도 | 반기 | 활용신청 시 확인 |
-| 정비사업 | 서울시 정비사업 공개 데이터 (데이터셋 확정 필요, 13장) | 사업명, 유형, 진행단계, 위치 | 월 1회 | 확정 시 확인 |
+| 정비사업 | 서울 열린데이터광장 OA-22856 "서울특별시 도시정비사업 통계" 엑셀(Open API 없음, 분기 갱신). 관리자가 엑셀 A5:J끝을 양식 CSV(`redevelopment-template.csv`)에 붙여 `POST /house/admin/redevelopments/import`로 올린다(사용법 `redevelopment-import.md`) | 구역 코드(CODE), 자치구, 구역명, 지번주소, 도로명주소, 사업유형, 추진단계. 좌표는 지번·도로명을 행안부로 찾는다 | 분기(관리자 등록) | 저장 가능 (이용허락범위 제한 없음) |
 
 - 필드명은 2026-10-21 실제 호출로 확인했다. `aptSeq`는 서울 3개 구 670건 모두에 채워져 있다(8장 설계의 전제). 같은 필드가 숫자로도 문자열로도 오고, 빈 값은 공백 한 칸이다(변환 규칙은 `be-design.md` §4.1). 거래금액은 쉼표 포함 문자열(예: "82,500")이므로 정수로 바꾼다.
 - 공동주택 단지 목록·기본정보(K-apt)는 1차에서 쓰지 않는다. 의무관리 단지만 있어 소규모 단지가 빠지고, 이름 매칭이 필요해지기 때문이다. 세대수·사용승인일은 건축물대장으로 얻는다.
@@ -341,7 +341,7 @@ f_k(P) = Cash - Reserve - cost(P) + \min(L_{DSR},\; LTV \times P,\; Cap_k) - P
 | 2. 실거래 수집 | 아래 우선순위로 단위를 골라 수집, 실거래 API 일일 호출 상한(`slcn.house.call-limit.trade`, 기본 1,000)에 닿으면 멈춤 | 공공데이터포털 |
 | 3. 단지 보강 | 새 단지 또는 보강 실패(재시도 3회 미만) 단지의 좌표·건축물대장 조회. 남은 예산으로 건축물대장 갱신이 30일 지난 단지를 오래된 순으로 재조회(약 월 1회 주기) | 행안부, 공공데이터포털 |
 | 4. 학교 동기화 | `SCHOOL_SYNC`의 마지막 SUCCESS가 없거나 180일 지났으면 학교 갱신 + 단지별 최근접 학교 재계산. 아니면 SKIPPED. 3단계에서 좌표가 새로 생긴 단지가 있으면 수집 없이 최근접만 재계산(기록은 SKIPPED라 180일 주기에 영향 없음) | 공공데이터포털 |
-| 5. 정비사업 동기화 | `REDEVELOPMENT_SYNC`의 마지막 SUCCESS가 없거나 30일 지났으면 정비사업 갱신 + 단지별 반경 500m 연결 재계산. 데이터셋 미확정(13장)이면 SKIPPED | 서울시 |
+| 5. 정비사업 동기화 | 정비사업 구역은 관리자가 CSV로 등록한다(수집 없음). 정비사업 행이 0개면 SKIPPED(`NO_DATA`). 아니면 좌표 PENDING 구역을 행안부로 좌표화(검색어: 좌표검색주소 → 도로명 → 지번, 3단계와 일일 호출 상한 `call-limit.juso`를 나눠 씀)하고, 매 실행마다 단지별 반경 500m 연결을 재생성한다. 좌표 PENDING이 남지 않으면 SUCCESS(좌표 FAILED 구역은 있어도 됨), 예산·중단으로 남으면 PARTIAL | 행안부 |
 | 6. 통계 | 이상치 표시 → 단지·평형 통계 → 랭킹 4종. 통계·랭킹 테이블은 한 트랜잭션에서 통째로 교체 | — |
 
 **실거래 수집 우선순위** (한 실행 안에서 위에서부터):
@@ -421,7 +421,7 @@ f_k(P) = Cash - Reserve - cost(P) + \min(L_{DSR},\; LTV \times P,\; Cap_k) - P
 | `house_ranking` | PK (`ranking_type`, `area_bucket`, `rank_no`), `lawd_cd`, `complex_id`(구별 대장 "거래 없음" 행은 null), `value_num`, `change_manwon`, `sample_count`, `badge`(LOW_SAMPLE\|NO_TRADE\|null), `period_from`, `period_to`, `computed_date` | — |
 | `house_school` | `school_code`, `name`, `level`(E\|M\|H), `latitude`, `longitude`, `synced_date` | UK `school_code` |
 | `house_complex_school` | PK (`complex_id`, `level`), `school_id`, `distance_m` | — |
-| `house_redevelopment` | `source_key`, `name`, `project_type`, `stage`, `latitude`, `longitude`, `source_url`, `synced_date` | UK `source_key` |
+| `house_redevelopment` | `source_key`(=CODE), `name`, `lawd_cd`, `jibun_address`, `road_address`, `geocode_query`(관리자가 적은 좌표 검색 주소, 선택), `project_type`(표준 표기, 예 "주택정비형 재개발"), `stage`(예 "관리처분"), `latitude`, `longitude`, `geocode_status`(PENDING\|DONE\|FAILED), `geocode_attempts`, `source_url`(항상 null), `synced_date` | UK `source_key` |
 | `house_complex_redevelopment` | PK (`complex_id`, `redevelopment_id`), `distance_m` | — |
 | `house_budget_policy` (`HouseBudgetPolicyJpo`) | `effective_from`, `dsr_ratio`, `stress_rate_pp`, `term_years`, `default_reserve_manwon`, `ltv_first_time`, `ltv_non_first`, `price_caps`(JSON), `cost_rates`(JSON), `source_note` | UK `effective_from` |
 | `house_batch_run` | `run_date`, `step`(아래 목록), `status`(SUCCESS\|PARTIAL\|FAILED\|SKIPPED), `api_calls`, `detail`(JSON), `started_time`, `finished_time`, `error` | IDX (`step`, `status`, `run_date`) |
@@ -434,10 +434,10 @@ f_k(P) = Cash - Reserve - cost(P) + \min(L_{DSR},\; LTV \times P,\; Cap_k) - P
   | `TRADE_COLLECT` | 2. 실거래 수집 | — (`dataAsOf`는 `house_collect_unit`에서 만든다, 10장 메타) |
   | `COMPLEX_ENRICH` | 3. 단지 보강 | — |
   | `SCHOOL_SYNC` | 4. 학교 동기화 | 다음 갱신 시점(180일) 판단 |
-  | `REDEVELOPMENT_SYNC` | 5. 정비사업 동기화 | 다음 갱신 시점(30일) 판단, 비교표 `redevelopments` null/[] 판단 |
+  | `REDEVELOPMENT_SYNC` | 5. 정비사업 동기화 | 비교표 `redevelopments` null/[] 판단, 같은 날 행안부 예산 차감(`detail.jusoCalls`) |
   | `STATS_BUILD` | 6. 통계 | `/house/meta`의 `statsComputedDate` |
 
-  SKIPPED(갱신 시점 전, 키 없음, 데이터셋 미확정)는 SUCCESS로 치지 않는다. 그래서 정비사업을 한 번도 받지 않았으면 계속 `null`이다.
+  SKIPPED(갱신 시점 전, 키 없음, 정비사업 미등록)는 SUCCESS로 치지 않는다. 그래서 정비사업이 한 번도 등록·좌표화되지 않았으면 계속 `null`이다.
 - 지도 영역 조회는 위경도 B-tree 인덱스로 충분하다(서울 아파트 단지 수천 개). PostGIS는 쓰지 않는다.
 - `house_complex_area_stat.avg_3m`은 최근 실거래가가 3개월 창일 때 `recent_price_manwon`과 같은 값이다. 비교표 1행과 8행 "최근"이 서로 다르게 보이지 않는다.
 - 쿼리는 단위 테스트로 검증되지 않는다(DB 통합 테스트 없음). 통계·랭킹 SQL은 로컬 DB에 백필 데이터를 넣고 직접 실행해 결과를 확인한다.
@@ -497,6 +497,8 @@ WHERE NOT EXISTS (SELECT 1 FROM slcn.house_budget_policy WHERE effective_from = 
 | GET | `/house/rankings` | 랭킹 (모듈 4) | `type=LEADER\|RISE\|FALL\|VOLUME`, `area` |
 | GET | `/house/admin/complexes/incomplete` | 좌표·건축물대장 보강 실패 단지 | `page`(1부터), `size`(기본 20) |
 | PUT | `/house/admin/complexes/{complexId}/address-override` | 주소·지번 보정 (다음 배치에서 재조회) | 본문 `{ "roadAddress"?, "bonbun"?, "bubun"? }` |
+| POST | `/house/admin/redevelopments/import` | 정비사업 CSV 통째 교체. 오류가 하나라도 있으면 저장 없이 400(`errors[]`: `field`="line N", `code`, `message`, 최대 50개). 응답 `{ total, inserted, updated, unchanged, deleted, skippedRows, geocodePending }` | multipart `file` (UTF-8 CSV, 양식 `redevelopment-template.csv`) |
+| GET | `/house/admin/redevelopments/incomplete` | 좌표 PENDING/FAILED 정비사업 구역(`code`, `name`, `districtName`, `jibunAddress`, `roadAddress`, `geocodeQuery`, `geocodeStatus`, `geocodeAttempts`), 자치구·구역명 순 | `page`(1부터), `size`(기본 20) |
 
 ### 오류 코드 (ErrorCode에 추가)
 
@@ -644,8 +646,8 @@ WHERE NOT EXISTS (SELECT 1 FROM slcn.house_budget_policy WHERE effective_from = 
       "far":          { "pct": 365.74, "source": "RECAP" },
       "schools":      [ { "level": "E", "name": "OO초등학교", "distanceM": 604 } ],
       "redevelopments": [
-        { "name": "OO재정비촉진구역", "projectType": "재개발", "stage": "관리처분인가",
-          "distanceM": 320, "sourceUrl": "https://…" }
+        { "name": "OO재정비촉진구역", "projectType": "주택정비형 재개발", "stage": "관리처분",
+          "distanceM": 320, "sourceUrl": null }
       ],
       "change1y":     { "fromManwon": 43000, "toManwon": 45000, "pct": 4.65, "changeManwon": 2000,
                         "sampleFrom": 3, "sampleTo": 5, "sampleStatus": "OK" },
@@ -660,7 +662,7 @@ WHERE NOT EXISTS (SELECT 1 FROM slcn.house_budget_policy WHERE effective_from = 
 - `recentPrice.windowMonths`가 6이면 최근 3개월 거래가 없다는 뜻이므로 `change1y`·`change3y`는 `INSUFFICIENT`다.
 - 열 순서는 요청 `items` 순서를 따른다(없는 단지는 건너뜀). 값이 없는 필드는 null이고, FE가 "정보 없음"으로 표시한다.
 - `missingIds`: 요청했지만 없는 `complexId` 목록. 없으면 `[]`. 전부 없으면 `columns: []`. 비교표는 이 경우에도 200이다.
-- `redevelopments`: 정비사업 데이터가 아직 적재되지 않았으면 `null`, 적재됐는데 반경 500m 안에 없으면 `[]`.
+- `redevelopments`: 거리 오름차순. `projectType`은 표준 표기(주택정비형 재개발·도시정비형 재개발·공동주택 재건축·아파트지구 재건축·단독주택 재건축), `stage`는 구역지정·추진위·조합설립·건축심의·사업시행·관리처분·착공 중 하나, `sourceUrl`은 null이다. 정비사업 데이터가 아직 적재되지 않았으면 `null`, 적재됐는데 반경 500m 안에 없으면 `[]`.
   - "적재됨"은 `house_batch_run`에 `step = REDEVELOPMENT_SYNC`, `status = SUCCESS` 기록이 한 번이라도 있는지로 판단한다(9장 step 목록). 테이블이 비었는지로 판단하지 않는다. 그러면 동기화는 성공했는데 사업이 0건인 경우와 미적재를 구분할 수 없다.
 - `complexId`에는 `:`와 `,`가 들어가지 않는다(`items`·`cmp` 구분자).
 
@@ -879,7 +881,7 @@ src/lib/api/query-keys.ts   houseQueryKeys 추가
 
 ### 4단계 — 단지 비교
 
-- [ ] BE: 배치 단계 4(`SCHOOL_SYNC`) 학교 데이터 적재 + 단지별 최근접 거리, 배치 단계 5(`REDEVELOPMENT_SYNC`) 정비사업 적재 + 단지 연결(데이터셋 미확정이면 SKIPPED까지만), `GET /house/compare`, `GET /house/complexes/search`
+- [ ] BE: 배치 단계 4(`SCHOOL_SYNC`) 학교 데이터 적재 + 단지별 최근접 거리, 배치 단계 5(`REDEVELOPMENT_SYNC`) 정비사업 좌표화 + 단지 연결(구역 등록은 관리자 CSV), `GET /house/compare`, `GET /house/complexes/search`
 - [ ] FE: 비교 트레이, 단지 검색, 9개 지표 표, 낮은 표본 배지, `cmp` URL
 
 * 완료 기준: 3개 단지 비교표가 공유 URL로 동일하게 복원(로그인 후), 비로그인 접근 시 로그인 화면으로 이동
@@ -898,7 +900,7 @@ src/lib/api/query-keys.ts   houseQueryKeys 추가
 | # | 이슈 | 기본안 | 담당 |
 | --- | --- | --- | --- |
 | 1 | `aptSeq`가 모든 실거래 행에 있는지 | 확인 완료(2026-10-21, 670건 중 누락 0건). 대체 키(8장)는 방어용으로 둔다 | BE |
-| 2 | 정비사업 데이터셋 | 미확정이면 7번 지표 "정보 없음"으로 출시 | BE |
+| 2 | 정비사업 데이터셋 | **결정됨**: OA-22856(서울특별시 도시정비사업 통계, 분기 갱신)을 관리자가 CSV로 등록한다(7장 5단계, 관리자 API). 등록 전에는 7번 지표 "정보 없음" | BE |
 | 3 | 카카오맵 레이어 전환 level | 구 묶음 ≥ 8, 동 묶음 6\~7, 단지 ≤ 5 (영역 0.2도 초과 시 동 묶음, 1.0도 초과 시 구 묶음), 실측 후 조정 | FE |
 | 4 | 공공데이터포털 API별 일일 호출 한도 | API별 상한(실거래 1,000, 건축물대장 5,000, 학교 100). 건축물대장 한도 10,000 확인, 나머지는 확인 후 조정 | BE |
 

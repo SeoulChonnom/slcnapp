@@ -47,6 +47,11 @@ class ComplexEnrichStepTest {
 		when(batchRunLogic.usedDetailCalls(any(), any(), any())).thenReturn(0L);
 	}
 
+	/** 5단계와 나눠 쓰는 행안부 예산. 오늘 이미 쓴 호출 수를 빼고 시작한다. */
+	private CallBudget jusoBudget(long usedToday) {
+		return new CallBudget("juso", properties.getCallLimit().getJuso(), usedToday);
+	}
+
 	private HouseComplex complex(String id) {
 		HouseComplex complex = HouseComplex.builder().aptSeq("A-" + id).lawdCd("11680").umdCd("10300")
 			.umdName("개포동").bonbun("0652").bubun("0000").build();
@@ -94,7 +99,7 @@ class ComplexEnrichStepTest {
 		geocoderReturns(2, FOUND, NOT_FOUND);
 		registerReturns(REGISTER_FOUND);
 
-		StepOutcome outcome = step.run(TODAY, progress);
+		StepOutcome outcome = step.run(TODAY, jusoBudget(0), progress);
 
 		assertThat(outcome.status()).isEqualTo(BatchRunStatus.SUCCESS);
 		assertThat(appliedGeocodeOutcomes()).containsExactly(Outcome.FOUND, Outcome.NOT_FOUND);
@@ -112,7 +117,7 @@ class ComplexEnrichStepTest {
 		geocoderReturns(1, UPSTREAM);
 		registerReturns(REGISTER_FOUND);
 
-		StepOutcome outcome = step.run(TODAY, progress);
+		StepOutcome outcome = step.run(TODAY, jusoBudget(0), progress);
 
 		assertThat(outcome.status()).isEqualTo(BatchRunStatus.PARTIAL);
 		assertThat(outcome.error()).contains("JUSO_UPSTREAM_STREAK");
@@ -133,7 +138,7 @@ class ComplexEnrichStepTest {
 		when(complexLogic.findGeocodeTargets(eq(TODAY), anyInt())).thenReturn(List.of(c1, c2, c3));
 		geocoderReturns(1, UPSTREAM, UPSTREAM, FOUND);
 
-		StepOutcome outcome = step.run(TODAY, progress);
+		StepOutcome outcome = step.run(TODAY, jusoBudget(0), progress);
 
 		// 두 번 실패하고 세 번째가 성공했으니 앞의 두 실패는 설계대로 attempts+1 대상이다.
 		InOrderApplied applied = new InOrderApplied();
@@ -160,7 +165,7 @@ class ComplexEnrichStepTest {
 		when(complexLogic.findGeocodeTargets(eq(TODAY), anyInt())).thenReturn(List.of(c1));
 		geocoderReturns(1, UPSTREAM);
 
-		step.run(TODAY, progress);
+		step.run(TODAY, jusoBudget(0), progress);
 
 		assertThat(new InOrderApplied().outcomesFor(c1)).containsExactly(Outcome.UPSTREAM_FAILED);
 	}
@@ -171,7 +176,7 @@ class ComplexEnrichStepTest {
 			List.of(complex("c1"), complex("c2"), complex("c3"), complex("c4"), complex("c5")));
 		geocoderReturns(1, UPSTREAM, UPSTREAM, NOT_FOUND, UPSTREAM, UPSTREAM);
 
-		StepOutcome outcome = step.run(TODAY, progress);
+		StepOutcome outcome = step.run(TODAY, jusoBudget(0), progress);
 
 		verify(geocoder, times(5)).geocode(any(), any());
 		assertThat(progress.detail()).doesNotContainKey("geocodeStoppedBy").containsEntry("geocodeDropped", 0);
@@ -185,7 +190,7 @@ class ComplexEnrichStepTest {
 		geocoderReturns(1, GeocodeResult.of(Outcome.NOT_CONFIGURED));
 		registerReturns(REGISTER_FOUND);
 
-		StepOutcome outcome = step.run(TODAY, progress);
+		StepOutcome outcome = step.run(TODAY, jusoBudget(0), progress);
 
 		verify(geocoder, times(1)).geocode(any(), any());
 		verify(complexLogic, never()).applyGeocode(any(), any());
@@ -201,7 +206,7 @@ class ComplexEnrichStepTest {
 		when(complexLogic.findGeocodeTargets(eq(TODAY), anyInt())).thenReturn(List.of(complex("c1")));
 		geocoderReturns(1, GeocodeResult.of(Outcome.NOT_CONFIGURED));
 
-		StepOutcome outcome = step.run(TODAY, progress);
+		StepOutcome outcome = step.run(TODAY, jusoBudget(0), progress);
 
 		assertThat(outcome.status()).isEqualTo(BatchRunStatus.SKIPPED);
 		verify(registerGateway, never()).find(any(), any(), any(), any(), any(), any());
@@ -214,7 +219,7 @@ class ComplexEnrichStepTest {
 		when(complexLogic.findGeocodeTargets(eq(TODAY), anyInt())).thenReturn(List.of(complex("c1")));
 		geocoderReturns(1, FOUND);
 
-		StepOutcome outcome = step.run(TODAY, progress);
+		StepOutcome outcome = step.run(TODAY, jusoBudget(0), progress);
 
 		assertThat(outcome.status()).isEqualTo(BatchRunStatus.PARTIAL);
 		assertThat(outcome.error()).isEqualTo("REGISTER_SERVICE_KEY_MISSING");
@@ -226,7 +231,6 @@ class ComplexEnrichStepTest {
 		properties.getCallLimit().setJuso(10);
 		properties.getCallLimit().setBuildingRegister(5000);
 		// 오늘 행안부를 8번 썼고 건축물대장은 4,000번 썼다. 행안부 예산은 2회, 건축물대장은 1,000회가 남는다.
-		when(batchRunLogic.usedDetailCalls(TODAY, BatchStep.COMPLEX_ENRICH, "jusoCalls")).thenReturn(8L);
 		when(batchRunLogic.usedDetailCalls(TODAY, BatchStep.COMPLEX_ENRICH, "buildingRegisterCalls"))
 			.thenReturn(4000L);
 		when(complexLogic.findGeocodeTargets(eq(TODAY), anyInt()))
@@ -235,7 +239,7 @@ class ComplexEnrichStepTest {
 		geocoderReturns(1, FOUND);
 		registerReturns(REGISTER_FOUND);
 
-		StepOutcome outcome = step.run(TODAY, progress);
+		StepOutcome outcome = step.run(TODAY, jusoBudget(8), progress);
 
 		assertThat(outcome.status()).isEqualTo(BatchRunStatus.PARTIAL);
 		assertThat(outcome.error()).isEqualTo("JUSO_BUDGET");
@@ -255,7 +259,7 @@ class ComplexEnrichStepTest {
 			.thenReturn(List.of(complex("r1"), complex("r2"), complex("r3")));
 		registerReturns(REGISTER_FOUND);
 
-		StepOutcome outcome = step.run(TODAY, progress);
+		StepOutcome outcome = step.run(TODAY, jusoBudget(0), progress);
 
 		assertThat(outcome.status()).isEqualTo(BatchRunStatus.PARTIAL);
 		assertThat(outcome.error()).isEqualTo("REGISTER_BUDGET");
@@ -269,7 +273,7 @@ class ComplexEnrichStepTest {
 		when(registerGateway.find(any(), any(), any(), any(), any(), any()))
 			.thenReturn(RegisterLookupResult.of(RegisterLookupResult.Outcome.BUDGET_EXHAUSTED));
 
-		StepOutcome outcome = step.run(TODAY, progress);
+		StepOutcome outcome = step.run(TODAY, jusoBudget(0), progress);
 
 		assertThat(outcome.status()).isEqualTo(BatchRunStatus.PARTIAL);
 		verify(registerGateway, times(1)).find(any(), any(), any(), any(), any(), any());
@@ -281,7 +285,7 @@ class ComplexEnrichStepTest {
 		when(complexLogic.findRegisterTargets(eq(TODAY), anyInt())).thenReturn(List.of(complex("r1"), complex("r2")));
 		registerReturns(RegisterLookupResult.of(RegisterLookupResult.Outcome.KEY_REJECTED));
 
-		StepOutcome outcome = step.run(TODAY, progress);
+		StepOutcome outcome = step.run(TODAY, jusoBudget(0), progress);
 
 		assertThat(outcome.status()).isEqualTo(BatchRunStatus.FAILED);
 		assertThat(outcome.error()).isEqualTo("REGISTER_KEY_REJECTED");
@@ -294,7 +298,7 @@ class ComplexEnrichStepTest {
 		noLot.setBonbun(null);
 		when(complexLogic.findRegisterTargets(eq(TODAY), anyInt())).thenReturn(List.of(noLot));
 
-		step.run(TODAY, progress);
+		step.run(TODAY, jusoBudget(0), progress);
 
 		verify(registerGateway, never()).find(any(), any(), any(), any(), any(), any());
 		ArgumentCaptor<RegisterLookupResult> captor = ArgumentCaptor.forClass(RegisterLookupResult.class);
@@ -309,7 +313,7 @@ class ComplexEnrichStepTest {
 		when(complexLogic.findRegisterTargets(eq(TODAY), anyInt())).thenReturn(List.of(overridden));
 		registerReturns(REGISTER_FOUND);
 
-		step.run(TODAY, progress);
+		step.run(TODAY, jusoBudget(0), progress);
 
 		verify(registerGateway).find(eq("11680"), eq("10300"), eq("0123"), eq("0004"), any(), any());
 	}
@@ -323,7 +327,7 @@ class ComplexEnrichStepTest {
 		when(complexLogic.applyGeocode(eq(conflicted), any()))
 			.thenThrow(new ObjectOptimisticLockingFailureException(HouseComplex.class, "c1"));
 
-		StepOutcome outcome = step.run(TODAY, progress);
+		StepOutcome outcome = step.run(TODAY, jusoBudget(0), progress);
 
 		verify(complexLogic).applyGeocode(eq(next), any());
 		assertThat(progress.detail()).containsEntry("conflicts", 1).containsEntry("geocodeDone", 1);
@@ -338,7 +342,7 @@ class ComplexEnrichStepTest {
 			throw new IllegalStateException("boom");
 		});
 
-		assertThatThrownBy(() -> step.run(TODAY, progress)).isInstanceOf(IllegalStateException.class);
+		assertThatThrownBy(() -> step.run(TODAY, jusoBudget(0), progress)).isInstanceOf(IllegalStateException.class);
 
 		assertThat(progress.detail()).containsEntry("jusoCalls", 1);
 		assertThat(progress.apiCalls()).isEqualTo(1);
@@ -349,7 +353,7 @@ class ComplexEnrichStepTest {
 		when(complexLogic.findRegisterTargets(eq(TODAY), anyInt())).thenReturn(List.of(complex("r1")));
 		registerReturns(REGISTER_FOUND);
 
-		step.run(TODAY, progress);
+		step.run(TODAY, jusoBudget(0), progress);
 
 		assertThat(progress.detail()).containsEntry("recapSkipped", false).containsEntry("registerTargets", 1);
 	}

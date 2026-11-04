@@ -40,11 +40,16 @@ public class ComplexGeocoder {
 	private final HouseSleeper houseSleeper;
 	private final HouseProperties houseProperties;
 
+	public GeocodeResult geocode(HouseComplex complex, CallBudget budget) {
+		return search(keywords(complex), budget);
+	}
+
 	/**
 	 * 검색어를 순서대로 시도해 첫 후보의 입구 좌표를 돌려준다. 호출마다 예산을 먼저 쓴다.
+	 * 단지 외의 대상(정비사업 구역)도 검색어만 만들어 같은 규칙(간격, 예산, 실패 분류)으로 찾는다.
 	 */
-	public GeocodeResult geocode(HouseComplex complex, CallBudget budget) {
-		for (String keyword : keywords(complex)) {
+	public GeocodeResult search(List<String> keywords, CallBudget budget) {
+		for (String keyword : keywords) {
 			if (!budget.consume()) {
 				return GeocodeResult.of(GeocodeResult.Outcome.BUDGET_EXHAUSTED);
 			}

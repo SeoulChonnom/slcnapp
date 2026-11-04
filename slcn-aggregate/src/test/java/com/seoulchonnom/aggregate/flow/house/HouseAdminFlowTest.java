@@ -15,24 +15,33 @@ import org.mockito.ArgumentCaptor;
 
 import com.seoulchonnom.aggregate.house.exception.HouseComplexNotFoundException;
 import com.seoulchonnom.aggregate.house.logic.HouseComplexLogic;
+import com.seoulchonnom.aggregate.house.exception.HouseValidationException;
+import com.seoulchonnom.aggregate.house.logic.HouseRedevelopmentLogic;
+import com.seoulchonnom.aggregate.house.logic.RedevelopmentReplaceResult;
+import com.seoulchonnom.aggregate.house.redevelopment.RedevelopmentRow;
 import com.seoulchonnom.aggregate.house.store.projection.IncompleteComplexPdo;
 import com.seoulchonnom.spec.common.exception.BusinessException;
 import com.seoulchonnom.spec.common.exception.ErrorCode;
 import com.seoulchonnom.spec.house.entity.HouseComplex;
+import com.seoulchonnom.spec.house.entity.HouseRedevelopment;
 import com.seoulchonnom.spec.house.entity.vo.AddressOverride;
 import com.seoulchonnom.spec.house.entity.vo.GeocodeStatus;
 import com.seoulchonnom.spec.house.entity.vo.RegisterStatus;
 import com.seoulchonnom.spec.house.facade.sdo.AddressOverrideUdo;
 import com.seoulchonnom.spec.house.facade.sdo.IncompleteComplexListRdo;
 import com.seoulchonnom.spec.house.facade.sdo.IncompleteComplexRdo;
+import com.seoulchonnom.spec.house.facade.sdo.IncompleteRedevelopmentListRdo;
+import com.seoulchonnom.spec.house.facade.sdo.IncompleteRedevelopmentRdo;
+import com.seoulchonnom.spec.house.facade.sdo.RedevelopmentImportRdo;
 import com.seoulchonnom.spec.house.mapper.HouseAdminMapperImpl;
 
 class HouseAdminFlowTest {
 	private static final LocalDate TODAY = LocalDate.of(2026, 11, 3);
 
 	private final HouseComplexLogic complexLogic = mock(HouseComplexLogic.class);
+	private final HouseRedevelopmentLogic redevelopmentLogic = mock(HouseRedevelopmentLogic.class);
 	private final Clock clock = Clock.fixed(Instant.parse("2026-11-03T03:00:00Z"), ZoneId.of("Asia/Seoul"));
-	private final HouseAdminFlow flow = new HouseAdminFlow(complexLogic, new HouseAdminMapperImpl(), clock);
+	private final HouseAdminFlow flow = new HouseAdminFlow(complexLogic, redevelopmentLogic, new HouseAdminMapperImpl(), clock);
 
 	private HouseComplex complex() {
 		HouseComplex complex = HouseComplex.builder().aptSeq("11230-123").lawdCd("11230").umdName("전농동")
@@ -151,5 +160,71 @@ class HouseAdminFlowTest {
 	@Test
 	void overrideAddress_shouldRejectBubunWithoutBonbun() {
 		assertInvalid(new AddressOverrideUdo("주소", null, "3"));
+	}
+
+	private static final String CSV_HEADER = "CODE,순번,자치구,구역명,지번주소,도로명주소,공공/민간,일반/재촉,사업유형,추진단계,좌표검색주소(선택)";
+
+	private static byte[] csv(String... lines) {
+		return String.join("\n", lines).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+	}
+
+	@Test
+	void importRedevelopments_shouldReplaceWithParsedRowsAndReturnCounts() {
+		when(redevelopmentLogic.replaceAll(any(), eq(TODAY)))
+			.thenReturn(new RedevelopmentReplaceResult(1, 1, 0, 0, 2, 1));
+
+		RedevelopmentImportRdo result = flow.importRedevelopments(csv(CSV_HEADER,
+			"1460,1,종로구,수송1-2,수송동146-12,종로1길36,민간,일반,도시정비형 재개발,건축심의,", ",,,,,,,,,,"));
+
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<RedevelopmentRow>> rows = ArgumentCaptor.forClass(List.class);
+		verify(redevelopmentLogic).replaceAll(rows.capture(), eq(TODAY));
+		assertThat(rows.getValue()).extracting(RedevelopmentRow::code).containsExactly("1460");
+		assertThat(result.getTotal()).isEqualTo(1);
+		assertThat(result.getInserted()).isEqualTo(1);
+		assertThat(result.getDeleted()).isEqualTo(2);
+		assertThat(result.getSkippedRows()).isEqualTo(1);
+		assertThat(result.getGeocodePending()).isEqualTo(1);
+	}
+
+	@Test
+	void importRedevelopments_shouldStoreNothingWhenAnyRowIsInvalid() {
+		assertThatThrownBy(() -> flow.importRedevelopments(csv(CSV_HEADER,
+			"1460,1,종로구,수송1-2,수송동146-12,종로1길36,민간,일반,도시정비형 재개발,건축심의,",
+			"1462,2,없는구,수송1-7,수송동80,종로5길68,민간,일반,도시정비형 재개발,사업시행,")))
+			.isInstanceOf(HouseValidationException.class);
+
+		verifyNoInteractions(redevelopmentLogic);
+	}
+
+	@Test
+	void importRedevelopments_shouldRejectEmptyAndOversizedFiles() {
+		assertThatThrownBy(() -> flow.importRedevelopments(new byte[0])).isInstanceOf(HouseValidationException.class);
+		assertThatThrownBy(() -> flow.importRedevelopments(new byte[HouseAdminFlow.MAX_REDEVELOPMENT_CSV_BYTES + 1]))
+			.isInstanceOf(HouseValidationException.class);
+		verifyNoInteractions(redevelopmentLogic);
+	}
+
+	@Test
+	void getIncompleteRedevelopments_shouldMapRowsAndUseZeroBasedPageForTheStore() {
+		HouseRedevelopment redevelopment = HouseRedevelopment.builder().sourceKey("1460").name("수송1-2")
+			.lawdCd("11110").jibunAddress("수송동146-12").roadAddress("종로1길36").geocodeStatus(GeocodeStatus.FAILED)
+			.geocodeAttempts(0).build();
+		when(redevelopmentLogic.findIncomplete(2, 20)).thenReturn(List.of(redevelopment));
+		when(redevelopmentLogic.countIncomplete()).thenReturn(41L);
+
+		IncompleteRedevelopmentListRdo result = flow.getIncompleteRedevelopments(3, null);
+
+		assertThat(result.getTotalCount()).isEqualTo(41);
+		IncompleteRedevelopmentRdo item = result.getItems().get(0);
+		assertThat(item.getCode()).isEqualTo("1460");
+		assertThat(item.getDistrictName()).isEqualTo("종로구");
+		assertThat(item.getGeocodeStatus()).isEqualTo("FAILED");
+		assertThat(item.getGeocodeQuery()).isNull();
+	}
+
+	@Test
+	void getIncompleteRedevelopments_shouldRejectPageBelowOne() {
+		assertThatThrownBy(() -> flow.getIncompleteRedevelopments(0, null)).isInstanceOf(BusinessException.class);
 	}
 }

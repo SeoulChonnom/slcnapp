@@ -21,9 +21,7 @@ import com.seoulchonnom.aggregate.config.HouseProperties;
 import com.seoulchonnom.aggregate.house.collect.BuildingRegisterGateway;
 import com.seoulchonnom.aggregate.house.collect.CallBudget;
 import com.seoulchonnom.aggregate.house.collect.ComplexGeocoder;
-import com.seoulchonnom.aggregate.house.collect.DisabledRedevelopmentGateway;
 import com.seoulchonnom.aggregate.house.collect.GeocodeResult;
-import com.seoulchonnom.aggregate.house.collect.RedevelopmentGateway;
 import com.seoulchonnom.aggregate.house.collect.TradeFetchResult;
 import com.seoulchonnom.aggregate.house.collect.TradeFetchResult.Outcome;
 import com.seoulchonnom.aggregate.house.collect.TradeGateway;
@@ -51,7 +49,7 @@ class HouseNightlyFlowTest {
 	private final BuildingRegisterGateway registerGateway = mock(BuildingRegisterGateway.class);
 	private final HouseStatLogic statLogic = mock(HouseStatLogic.class);
 	private final SchoolSyncStep schoolSyncStep = mock(SchoolSyncStep.class);
-	private final RedevelopmentGateway redevelopmentGateway = new DisabledRedevelopmentGateway();
+	private final RedevelopmentSyncStep redevelopmentSyncStep = mock(RedevelopmentSyncStep.class);
 	private final ComplexGeocoder geocoder = mock(ComplexGeocoder.class);
 	private final HouseComplexLogic complexLogic = mock(HouseComplexLogic.class);
 	private final HouseProperties properties = new HouseProperties();
@@ -64,8 +62,9 @@ class HouseNightlyFlowTest {
 			properties);
 		flow = new HouseNightlyFlow(tradeGateway, unitLogic, tradeLogic, batchRunLogic,
 			new BatchStepRecorder(batchRunLogic, clock), properties, enrichStep, statLogic, schoolSyncStep,
-			redevelopmentGateway);
+			redevelopmentSyncStep);
 		when(schoolSyncStep.run(any(), anyInt(), any())).thenReturn(StepOutcome.of(BatchRunStatus.SKIPPED));
+		when(redevelopmentSyncStep.run(any(), any(), any())).thenReturn(StepOutcome.of(BatchRunStatus.SKIPPED));
 		when(statLogic.rebuild(any())).thenReturn(new StatRebuildResult(100, 3, 40, 50));
 		when(tradeGateway.available()).thenReturn(true);
 		when(registerGateway.available()).thenReturn(true);
@@ -315,15 +314,48 @@ class HouseNightlyFlowTest {
 	}
 
 	@Test
-	void run_shouldAlwaysSkipRedevelopmentSyncBecauseNoDatasetYet() {
+	void run_shouldRecordRedevelopmentSyncWithTheOutcomeOfTheStep() {
 		when(unitLogic.findDueUnits(TODAY)).thenReturn(List.of());
+		when(redevelopmentSyncStep.run(any(), any(), any())).thenAnswer(invocation -> {
+			StepProgress progress = invocation.getArgument(2);
+			progress.put("jusoCalls", 3);
+			progress.apiCalls(3);
+			return StepOutcome.of(BatchRunStatus.PARTIAL, "JUSO_BUDGET");
+		});
 
 		flow.run(TODAY);
 
 		HouseBatchRun redevelopment = savedRun(BatchStep.REDEVELOPMENT_SYNC);
-		assertThat(redevelopment.getStatus()).isEqualTo(BatchRunStatus.SKIPPED);
-		assertThat(redevelopment.getApiCalls()).isZero();
-		assertThat(redevelopment.getDetail()).containsEntry("reason", "DATASET_UNDECIDED");
+		assertThat(redevelopment.getStatus()).isEqualTo(BatchRunStatus.PARTIAL);
+		assertThat(redevelopment.getApiCalls()).isEqualTo(3);
+		assertThat(redevelopment.getDetail()).containsEntry("jusoCalls", 3);
+	}
+
+	@Test
+	void run_shouldShareOneJusoBudgetBetweenComplexEnrichAndRedevelopmentSync() {
+		when(unitLogic.findDueUnits(TODAY)).thenReturn(List.of());
+		// 오늘 3단계가 100번, 5단계가 50번 썼다. 상한 4,000에서 150을 뺀 3,850이 두 단계가 나눠 쓸 남은 몫이다.
+		when(batchRunLogic.usedDetailCalls(TODAY, BatchStep.COMPLEX_ENRICH, "jusoCalls")).thenReturn(100L);
+		when(batchRunLogic.usedDetailCalls(TODAY, BatchStep.REDEVELOPMENT_SYNC, "jusoCalls")).thenReturn(50L);
+		HouseComplex complex = HouseComplex.builder().aptSeq("A-1").lawdCd("11680").umdCd("10300").umdName("개포동")
+			.bonbun("0652").bubun("0000").build();
+		complex.setId("HOUSE_COMPLEX-0001");
+		when(complexLogic.findGeocodeTargets(any(), anyInt())).thenReturn(List.of(complex));
+		ArgumentCaptor<CallBudget> enrichBudget = ArgumentCaptor.forClass(CallBudget.class);
+		when(geocoder.geocode(any(), enrichBudget.capture())).thenAnswer(invocation -> {
+			CallBudget budget = invocation.getArgument(1);
+			budget.consume();
+			budget.consume();
+			return GeocodeResult.found(37.5, 127.0, "서울특별시 강남구 개포로 307");
+		});
+
+		flow.run(TODAY);
+
+		ArgumentCaptor<CallBudget> syncBudget = ArgumentCaptor.forClass(CallBudget.class);
+		verify(redevelopmentSyncStep).run(eq(TODAY), syncBudget.capture(), any());
+		assertThat(syncBudget.getValue()).isSameAs(enrichBudget.getValue());
+		assertThat(syncBudget.getValue().usedBefore()).isEqualTo(150L);
+		assertThat(syncBudget.getValue().remaining()).isEqualTo(4000 - 150 - 2);
 	}
 
 	@Test

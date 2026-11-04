@@ -48,10 +48,12 @@ public class ComplexEnrichStep {
 	private final HouseBatchRunLogic houseBatchRunLogic;
 	private final HouseProperties houseProperties;
 
-	public StepOutcome run(LocalDate today, StepProgress progress) {
-		long jusoUsed = houseBatchRunLogic.usedDetailCalls(today, BatchStep.COMPLEX_ENRICH, JUSO_CALLS);
+	/**
+	 * @param jusoBudget 5단계(정비사업)와 하나를 나눠 쓰는 행안부 예산. 3단계가 먼저 돌므로 이 단계 시작 때는 이번 실행의 소비가 0이다
+	 */
+	public StepOutcome run(LocalDate today, CallBudget jusoBudget, StepProgress progress) {
+		long jusoUsed = jusoBudget.usedBefore();
 		long registerUsed = houseBatchRunLogic.usedDetailCalls(today, BatchStep.COMPLEX_ENRICH, REGISTER_CALLS);
-		CallBudget jusoBudget = new CallBudget("juso", houseProperties.getCallLimit().getJuso(), jusoUsed);
 		CallBudget registerBudget = new CallBudget("buildingRegister",
 			houseProperties.getCallLimit().getBuildingRegister(), registerUsed);
 		progress.put("jusoUsedBeforeRun", jusoUsed);

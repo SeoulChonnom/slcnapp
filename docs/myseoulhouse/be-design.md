@@ -245,9 +245,17 @@ GET {school-base}/openapi/tn_pubr_public_elesch_mskul_lc_api
 - 서울 필터를 서버에서 걸어도 소재지 주소(`lnmadr`)가 "서울특별시"로 시작하는지 한 번 더 본다. 학교급은 "초등학교" → E, "중학교" → M, "고등학교" → H이고, 그 밖(특수학교 등)은 버린다. `operSttus`가 "운영"이 아니면 버린다.
 - 상한은 `slcn.house.call-limit.school`(기본 100)이다.
 
-### 4.6 정비사업 (`RedevelopmentGateway`)
+### 4.6 정비사업 (관리자 CSV 등록)
 
-데이터셋이 미확정이다[명세 §13 #2]. 1차 구현은 포트와 `DisabledRedevelopmentGateway`만 둔다. 5단계는 항상 SKIPPED가 되고, 비교표 `redevelopments`는 항상 `null`("정보 없음")이다. 데이터셋이 정해지면 구현체 하나만 추가한다.
+외부 호출 소스가 아니다. 서울 열린데이터광장 OA-22856 "서울특별시 도시정비사업 통계" 엑셀(분기 갱신, 이용허락 제한 없음)에는 Open API가 없고, 시트 이름·표기(띄어쓰기)·빈 값("-")·데이터 사이 머리글 행이 분기마다 흔들린다(열 순서 A~J는 안정적). 그래서 관리자가 엑셀 A5:J끝을 양식 CSV(`docs/myseoulhouse/redevelopment-template.csv`)에 붙여 "CSV UTF-8"로 저장해 올리고, 서버가 값을 정규화·검증한다. 사용법은 `redevelopment-import.md`.
+
+- `RedevelopmentGateway`·`DisabledRedevelopmentGateway`·`RedevelopmentRecord`는 없앴다.
+- `POST /house/admin/redevelopments/import` (multipart `file`, 1MB 초과·빈 파일은 400). 파싱은 새 라이브러리 없이 `RedevelopmentCsvParser`(RFC 4180, BOM 제거), 행 검증·정규화는 `RedevelopmentCsvReader`(둘 다 순수 클래스, `house/redevelopment`).
+- 머리글: trim 후 양식 11개 이름과 같아야 한다. 11번째 열(`좌표검색주소(선택)`)이 없는 10열 머리글·행도 받는다. 다르면 전체 거부(`HEADER_MISMATCH`).
+- 행 규칙: 모든 칸이 빈 행, CODE가 숫자가 아닌 행(섞인 머리글)은 건너뛰고 `skippedRows`로 센다. 자치구는 25개 구 이름(`HouseConstant.lawdCdOf`), 구역명·지번주소 필수, `-`·빈칸은 null, 사업유형·추진단계는 공백을 모두 지운 뒤 허용 값과 비교해 표준 표기로 저장한다(`RedevelopmentProjectType`, `RedevelopmentStage`). 파일 안 CODE 중복은 오류. 순번·공공/민간·일반/재촉은 저장하지 않는다.
+- 오류가 하나라도 있으면 저장하지 않고 400 `HouseValidationException`(`errors[]`: `field` = "line {CSV 줄 번호}", `code`, `message`, 최대 50개; 메시지에 전체 건수). 코드: `HEADER_MISMATCH`, `DISTRICT_INVALID`, `NAME_REQUIRED`, `JIBUN_REQUIRED`, `PROJECT_TYPE_INVALID`, `STAGE_INVALID`, `CODE_DUPLICATED`, `COLUMN_COUNT`, `TOO_LONG`, `ENCODING`(UTF-8 아님), `CSV_FORMAT`(따옴표 미종결), `EMPTY`.
+- 정상이면 `HouseRedevelopmentLogic.replaceAll`이 한 트랜잭션으로 통째 교체한다: `source_key` 기준 upsert, 파일에 없는 구역은 그 구역의 `house_complex_redevelopment`와 함께 삭제. 주소 관련 값(자치구·지번·도로명·좌표검색주소)이 바뀐 구역과 새 구역은 좌표를 `PENDING`(attempts 0, 좌표 비움)으로 되돌린다. 바뀐 게 없으면 UPDATE하지 않는다. 빈 목록은 거절한다.
+- 좌표 검색어 순서: 좌표검색주소 → `"서울특별시 {자치구} {도로명주소}"` → `"서울특별시 {자치구} {지번주소}"`. 지번이 "수송동146-12"처럼 붙어 있어도 행안부가 찾는다(실측 3건 중 2건 성공, 철거된 착공 구역은 실패). 실패하면 `GET /house/admin/redevelopments/incomplete`로 보고 11번째 열에 근처 건물 도로명주소를 적어 다시 올린다.
 
 ### 4.7 호출 예산 (`CallBudget`)
 
@@ -256,6 +264,7 @@ GET {school-base}/openapi/tn_pubr_public_elesch_mskul_lc_api
 - 수동 재기동 등으로 같은 날 두 번 돌 수 있다. 그래서 예산은 "오늘 이미 쓴 호출 수"를 빼고 시작한다. 같은 날 여러 번 실행해도 한도를 넘지 않는다.
   - 실거래(2단계)는 그날 `TRADE_COLLECT` 기록의 `api_calls` 합을 뺀다.
   - 3단계는 두 API를 쓰므로 `detail`에 `jusoCalls`, `buildingRegisterCalls`를 따로 남기고, 그날 `COMPLEX_ENRICH` 기록의 이 값들을 합쳐 API별로 뺀다. `api_calls`는 두 값의 합계다.
+  - 행안부(`juso`)는 3단계와 5단계(정비사업 좌표)가 하루 상한 `call-limit.juso` 하나를 나눠 쓴다. 한 실행 안에서 같은 `CallBudget` 객체를 두 단계에 넘기고, "오늘 이미 쓴 호출 수"는 그날 `COMPLEX_ENRICH`와 `REDEVELOPMENT_SYNC` 기록의 `detail.jusoCalls` 합이다. 5단계의 `jusoCalls`는 그 단계가 쓴 증가분이다.
 
 ---
 
@@ -346,8 +355,12 @@ else → houseTradeLogic.applyUnit(unit, result, today)           // 아래, 단
 
 ### 5.5 단계 5 — 정비사업 동기화 (`REDEVELOPMENT_SYNC`)
 
-- 실행 조건: 마지막 SUCCESS가 없거나 30일 이상 지났고, 게이트웨이가 Disabled가 아님. 1차는 항상 SKIPPED(본문 §4.6).
-- 구현되면 학교와 같은 순서다: 수집 → `house_redevelopment` upsert(키 `source_key`) → `house_complex_redevelopment` 재생성(반경 500m, 직선거리).
+구역 등록은 관리자 CSV(§4.6)이고, 이 단계는 좌표와 단지 연결만 맡는다(`RedevelopmentSyncStep`).
+
+1. `house_redevelopment` 행이 0개면 SKIPPED(`detail.reason = NO_DATA`). 비교표는 계속 `null`이다.
+2. 좌표 PENDING 구역을 행안부로 좌표화한다. `ComplexGeocoder.search(keywords, budget)`(검색·좌표·간격 `juso-interval-millis`)를 단지와 공유한다. 결과 없음은 즉시 FAILED, 개별 upstream 실패는 attempts+1(3이면 FAILED), 연속 3번 upstream 실패면 그날 접는다(3단계와 같은 규칙). 예산은 3단계와 공유하는 `juso` 하나이고, `detail.jusoCalls`에 이 단계가 쓴 호출 수를 남긴다.
+3. 매 실행마다 연결을 재생성한다: 좌표 있는 단지 x 좌표 DONE 구역, 직선거리 500m 이하(반올림 전 거리로 판정), `distance_m` 정수 반올림. 한 트랜잭션에서 `house_complex_redevelopment`를 DELETE하고 학교와 같은 unnest 방식으로 INSERT한다(`RedevelopmentLinkCalculator`).
+4. 상태: PENDING이 하나도 안 남았으면 SUCCESS(FAILED 구역은 있어도 되고 `detail.geocodeFailed`로 센다). 예산·중단·개별 upstream 실패로 PENDING이 남으면 PARTIAL(연결은 있는 좌표로 재생성). SUCCESS 기록이 있어야 비교표가 `null` 대신 결과/`[]`를 낸다.
 
 ### 5.6 단계 6 — 통계 (`STATS_BUILD`)
 
@@ -586,6 +599,13 @@ HAVING AVG(c.latitude) BETWEEN :swLat AND :neLat AND AVG(c.longitude) BETWEEN :s
 - 정렬: 최근 12개월 거래 건수 내림차순, 그다음 `id`
 - 페이지: `PageRequestSupport`(기존 공통 유틸)로 `page`(1부터), `size`(1\~100, 기본 20)를 검증한다
 - `trades12m`: `house_trade`에서 단지별 `COUNT(*) FILTER (NOT cancelled AND NOT removed AND deal_date > today − 12개월)`. 서브쿼리로 붙인다
+
+**`POST /house/admin/redevelopments/import`** → `RedevelopmentImportRdo { total, inserted, updated, unchanged, deleted, skippedRows, geocodePending }`
+- 규칙은 §4.6. multipart `file`, `HouseAdminFlow.importRedevelopments`가 크기·파싱·검증을 하고 `HouseRedevelopmentLogic.replaceAll`이 한 트랜잭션으로 교체한다.
+
+**`GET /house/admin/redevelopments/incomplete`** → `IncompleteRedevelopmentListRdo { totalCount, items[] }`
+- 조건: `geocode_status IN ('PENDING','FAILED')`. 정렬: `lawd_cd`, `name`. 페이지는 위 incomplete API와 같다.
+- 항목: `code`, `name`, `districtName`, `jibunAddress`, `roadAddress`, `geocodeQuery`, `geocodeStatus`, `geocodeAttempts`.
 
 **`PUT /house/admin/complexes/{complexId}/address-override`** ← `AddressOverrideUdo { roadAddress?, bonbun?, bubun? }`
 - 검증:
@@ -986,7 +1006,7 @@ DB 통합 테스트가 없으므로 아래 시드로 로컬 PostgreSQL에서 직
 | 3 | API별 일일 한도 | 일부 | 건축물대장 개발계정 10,000 → 상한 5,000. 실거래·학교 한도는 마이페이지에서 확인 후 조정 (§8.1) |
 | 4 | 건축물대장 경로·필드 | 확인 | 총괄표제부·표제부 모두 정상(2026-11-03). 오래된 단지는 총괄표제부 값이 비어 필드 단위로 표제부에서 채운다 (§4.3) |
 | 5 | 학교 경로·필드, 서울 필터 | 확인 | 호스트 `api.data.go.kr`, `cddcNm=서울특별시교육청` 필터 (§4.5) |
-| 6 | 정비사업 데이터셋[명세 §13 #2] | 미정 | BE 조사. 정해질 때까지 Disabled (§4.6) |
+| 6 | 정비사업 데이터셋[명세 §13 #2] | 결정 | OA-22856 엑셀을 관리자가 CSV로 등록 (§4.6, §5.5) |
 | 7 | 이용허락범위(DB 저장 가능 여부) | 일부 | 건축물대장 제한 없음. 실거래·학교는 데이터셋 페이지에서 확인. 저장 불가면 그 소스는 쓰지 않는다 |
 
 ## 참고

@@ -7,15 +7,26 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 import com.seoulchonnom.aggregate.common.util.PageRequestSupport;
+import com.seoulchonnom.aggregate.house.exception.HouseValidationException;
 import com.seoulchonnom.aggregate.house.logic.HouseComplexLogic;
+import com.seoulchonnom.aggregate.house.logic.HouseRedevelopmentLogic;
+import com.seoulchonnom.aggregate.house.logic.RedevelopmentReplaceResult;
+import com.seoulchonnom.aggregate.house.redevelopment.RedevelopmentCsvReader;
+import com.seoulchonnom.aggregate.house.redevelopment.RedevelopmentCsvReader.ReadResult;
 import com.seoulchonnom.aggregate.house.store.projection.IncompleteComplexPdo;
 import com.seoulchonnom.spec.common.exception.BusinessException;
 import com.seoulchonnom.spec.common.exception.ErrorCode;
+import com.seoulchonnom.spec.common.response.ErrorResponse.Violation;
+import com.seoulchonnom.spec.house.constant.HouseConstant;
 import com.seoulchonnom.spec.house.entity.HouseComplex;
+import com.seoulchonnom.spec.house.entity.HouseRedevelopment;
 import com.seoulchonnom.spec.house.entity.vo.AddressOverride;
 import com.seoulchonnom.spec.house.facade.sdo.AddressOverrideUdo;
 import com.seoulchonnom.spec.house.facade.sdo.IncompleteComplexListRdo;
 import com.seoulchonnom.spec.house.facade.sdo.IncompleteComplexRdo;
+import com.seoulchonnom.spec.house.facade.sdo.IncompleteRedevelopmentListRdo;
+import com.seoulchonnom.spec.house.facade.sdo.IncompleteRedevelopmentRdo;
+import com.seoulchonnom.spec.house.facade.sdo.RedevelopmentImportRdo;
 import com.seoulchonnom.spec.house.mapper.HouseAdminMapper;
 
 import lombok.RequiredArgsConstructor;
@@ -27,8 +38,11 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class HouseAdminFlow {
 	static final int MAX_ROAD_ADDRESS_LENGTH = 200;
+	/** 정비사업 CSV는 0.1MB 수준이다. 서블릿 업로드 한도(50MB)와 별개로 이 크기를 넘으면 잘못된 파일로 본다. */
+	static final int MAX_REDEVELOPMENT_CSV_BYTES = 1024 * 1024;
 
 	private final HouseComplexLogic houseComplexLogic;
+	private final HouseRedevelopmentLogic houseRedevelopmentLogic;
 	private final HouseAdminMapper houseAdminMapper;
 	private final Clock houseClock;
 
@@ -49,6 +63,48 @@ public class HouseAdminFlow {
 			.map(row -> houseAdminMapper.toIncompleteComplexRdo(row.complex(), row.trades12m()))
 			.toList();
 		return new IncompleteComplexListRdo(houseComplexLogic.countIncomplete(), items);
+	}
+
+	/**
+	 * CSV를 전부 검증한 뒤에만 저장한다. 검증 실패는 HouseValidationException(errors[])이고 아무것도 바뀌지 않는다.
+	 * 저장은 Logic의 한 트랜잭션이다.
+	 */
+	public RedevelopmentImportRdo importRedevelopments(byte[] content) {
+		if (content == null || content.length == 0) {
+			throw new HouseValidationException("파일이 비어 있습니다.",
+				List.of(new Violation("file", "EMPTY", "파일이 비어 있습니다.")));
+		}
+		if (content.length > MAX_REDEVELOPMENT_CSV_BYTES) {
+			throw new HouseValidationException("파일이 너무 큽니다.",
+				List.of(new Violation("file", "TOO_LARGE", "정비사업 CSV는 1MB 이하여야 합니다.")));
+		}
+		ReadResult read = RedevelopmentCsvReader.read(content);
+		RedevelopmentReplaceResult result = houseRedevelopmentLogic.replaceAll(read.rows(),
+			LocalDate.now(houseClock));
+		return new RedevelopmentImportRdo(result.total(), result.inserted(), result.updated(), result.unchanged(),
+			result.deleted(), read.skippedRows(), result.geocodePending());
+	}
+
+	/**
+	 * @param page 1부터. 없으면 1
+	 * @param size 없거나 0 이하면 20, 100을 넘으면 100(PageRequestSupport 규칙)
+	 */
+	public IncompleteRedevelopmentListRdo getIncompleteRedevelopments(Integer page, Integer size) {
+		int pageNumber = page == null ? 1 : page;
+		if (pageNumber < 1) {
+			throw new BusinessException(ErrorCode.VALIDATION_FAILED, "page는 1 이상이어야 합니다.");
+		}
+		int pageSize = PageRequestSupport.normalizeSize(size);
+		List<IncompleteRedevelopmentRdo> items = houseRedevelopmentLogic.findIncomplete(pageNumber - 1, pageSize)
+			.stream().map(HouseAdminFlow::toIncompleteRdo).toList();
+		return new IncompleteRedevelopmentListRdo(houseRedevelopmentLogic.countIncomplete(), items);
+	}
+
+	private static IncompleteRedevelopmentRdo toIncompleteRdo(HouseRedevelopment redevelopment) {
+		return new IncompleteRedevelopmentRdo(redevelopment.getSourceKey(), redevelopment.getName(),
+			HouseConstant.districtName(redevelopment.getLawdCd()), redevelopment.getJibunAddress(),
+			redevelopment.getRoadAddress(), redevelopment.getGeocodeQuery(), redevelopment.getGeocodeStatus().name(),
+			redevelopment.getGeocodeAttempts());
 	}
 
 	public IncompleteComplexRdo overrideAddress(String complexId, AddressOverrideUdo request) {

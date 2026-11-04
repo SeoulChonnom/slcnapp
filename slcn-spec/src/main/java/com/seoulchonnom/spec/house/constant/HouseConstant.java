@@ -56,6 +56,14 @@ public final class HouseConstant {
 	}
 
 	/**
+	 * 구 이름("강남구")으로 법정동 시군구 코드를 찾는다. 서울 25개 구가 아니면 null이다.
+	 */
+	public static String lawdCdOf(String districtName) {
+		return DISTRICTS.stream().filter(district -> district.name().equals(districtName)).findFirst()
+			.map(District::lawdCd).orElse(null);
+	}
+
+	/**
 	 * 서울 25개 구가 아니면 null이다.
 	 */
 	public static String districtName(String lawdCd) {
