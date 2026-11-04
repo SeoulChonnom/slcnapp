@@ -189,6 +189,15 @@ class HouseAdminResourceTest {
 	}
 
 	@Test
+	void importRedevelopments_shouldRender400WhenFilePartMissing() throws Exception {
+		mockMvc.perform(multipart("/house/admin/redevelopments/import"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("MISSING_PARAMETER"))
+			.andExpect(jsonPath("$.errors[0].field").value("file"))
+			.andExpect(jsonPath("$.errors[0].code").value("REQUIRED"));
+	}
+
+	@Test
 	void getIncompleteRedevelopments_shouldRenderItemsAndBindPaging() throws Exception {
 		HouseRedevelopment redevelopment = HouseRedevelopment.builder().sourceKey("1460").name("수송1-2")
 			.lawdCd("11110").jibunAddress("수송동146-12").roadAddress("종로1길36").geocodeStatus(GeocodeStatus.PENDING)
