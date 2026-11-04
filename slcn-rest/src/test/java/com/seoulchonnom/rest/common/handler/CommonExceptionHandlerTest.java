@@ -18,9 +18,11 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import com.seoulchonnom.aggregate.house.exception.HouseValidationException;
 import com.seoulchonnom.aggregate.inspection.exception.InspectionQuestionCategoryDisabledException;
 import com.seoulchonnom.aggregate.inspection.exception.ReviewSuggestionUnavailableException;
 import com.seoulchonnom.aggregate.user.exception.InvalidUserException;
+import com.seoulchonnom.spec.common.exception.BusinessException;
 import com.seoulchonnom.spec.common.exception.ErrorCode;
 import com.seoulchonnom.spec.common.response.ErrorResponse;
 import com.seoulchonnom.spec.common.response.ErrorResponse.Violation;
@@ -156,6 +158,42 @@ class CommonExceptionHandlerTest {
 		assertThat(response.getStatusCode()).isEqualTo(ErrorCode.INTERNAL_SERVER_ERROR.getHttpStatus());
 		assertThat(response.getBody().getCode()).isEqualTo("INTERNAL_SERVER_ERROR");
 		assertThat(response.getBody().getTitle()).isEqualTo(ErrorCode.INTERNAL_SERVER_ERROR.getMessage());
+	}
+
+	@Test
+	void businessException_shouldRenderHouseComplexNotFoundAs404() {
+		ResponseEntity<ErrorResponse> response = handler.businessException(
+			new BusinessException(ErrorCode.HOUSE_COMPLEX_NOT_FOUND));
+
+		assertThat(response.getStatusCode().value()).isEqualTo(404);
+		assertThat(response.getBody().getCode()).isEqualTo("HOUSE_COMPLEX_NOT_FOUND");
+		assertThat(response.getBody().getTitle()).isEqualTo("단지 정보를 찾을 수 없습니다.");
+	}
+
+	@Test
+	void businessException_shouldRenderHouseBudgetPolicyNotFoundAs503() {
+		ResponseEntity<ErrorResponse> response = handler.businessException(
+			new BusinessException(ErrorCode.HOUSE_BUDGET_POLICY_NOT_FOUND));
+
+		assertThat(response.getStatusCode().value()).isEqualTo(503);
+		assertThat(response.getBody().getCode()).isEqualTo("HOUSE_BUDGET_POLICY_NOT_FOUND");
+		assertThat(response.getBody().getTitle()).isEqualTo("예산 계산 규칙을 불러올 수 없습니다.");
+	}
+
+	@Test
+	void houseValidationException_shouldCarryViolationsInErrorsAndFirstMessageAsTitle() {
+		HouseValidationException e = new HouseValidationException("면적 구간은 B59 또는 B84여야 합니다.",
+			List.of(new Violation("items[1]", "INVALID_AREA", "면적 구간은 B59 또는 B84여야 합니다."),
+				new Violation("items[2]", "DUPLICATED", "중복")));
+
+		ResponseEntity<ErrorResponse> response = handler.houseValidationException(e);
+
+		assertThat(response.getStatusCode().value()).isEqualTo(400);
+		ErrorResponse body = response.getBody();
+		assertThat(body.getCode()).isEqualTo("VALIDATION_FAILED");
+		assertThat(body.getTitle()).isEqualTo("면적 구간은 B59 또는 B84여야 합니다.");
+		assertThat(body.getErrors()).extracting(Violation::field, Violation::code)
+			.containsExactly(tuple("items[1]", "INVALID_AREA"), tuple("items[2]", "DUPLICATED"));
 	}
 
 	@Test

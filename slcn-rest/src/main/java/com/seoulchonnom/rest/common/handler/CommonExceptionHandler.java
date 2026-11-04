@@ -13,8 +13,10 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import com.seoulchonnom.aggregate.house.exception.HouseValidationException;
 import com.seoulchonnom.spec.common.exception.BusinessException;
 import com.seoulchonnom.spec.common.exception.ErrorCode;
 import com.seoulchonnom.spec.common.response.ErrorResponse;
@@ -36,6 +38,14 @@ public class CommonExceptionHandler {
 	@ExceptionHandler(BusinessException.class)
 	public ResponseEntity<ErrorResponse> businessException(BusinessException e) {
 		return respond(ErrorResponse.of(e.getErrorCode(), e.getMessage()));
+	}
+
+	/**
+	 * 필드 단위 위반 목록을 가진 비즈니스 검증 실패(비교 items). BusinessException보다 구체적이라 이쪽이 먼저 잡는다.
+	 */
+	@ExceptionHandler(HouseValidationException.class)
+	public ResponseEntity<ErrorResponse> houseValidationException(HouseValidationException e) {
+		return respond(ErrorResponse.of(e.getErrorCode(), e.getMessage(), e.getViolations()));
 	}
 
 	@ExceptionHandler(HttpMessageNotReadableException.class)
@@ -62,6 +72,17 @@ public class CommonExceptionHandler {
 		String message = e.getParameterName() + " 파라미터가 필요합니다.";
 		return respond(ErrorResponse.of(ErrorCode.MISSING_PARAMETER, message,
 			List.of(new Violation(e.getParameterName(), "REQUIRED", message))));
+	}
+
+	/**
+	 * multipart 요청에 파일 파트가 없을 때(@RequestParam MultipartFile). 쿼리 파라미터 누락과 다른 예외라
+	 * 따로 잡지 않으면 500으로 나간다.
+	 */
+	@ExceptionHandler(MissingServletRequestPartException.class)
+	public ResponseEntity<ErrorResponse> missingServletRequestPartException(MissingServletRequestPartException e) {
+		String message = e.getRequestPartName() + " 파라미터가 필요합니다.";
+		return respond(ErrorResponse.of(ErrorCode.MISSING_PARAMETER, message,
+			List.of(new Violation(e.getRequestPartName(), "REQUIRED", message))));
 	}
 
 	/**
