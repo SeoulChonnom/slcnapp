@@ -36,10 +36,15 @@ BE 구현(PR #12, `feature/myseoulhouse`)을 기준으로 FE가 화면을 만들
 | `VALIDATION_FAILED` | 400 | 입력 규칙 위반 (아래 표) | 비교 `items`, CSV 등록만 채워짐. 나머지는 `[]`이고 `title`에 사유 |
 | `INVALID_PARAMETER` | 400 | enum·숫자 변환 실패 (`area=B60`, `type=TOP`, `swLat=abc`) | `[{ field, code: "TYPE_MISMATCH" }]` |
 | `MISSING_PARAMETER` | 400 | 필수 파라미터 없음 (CSV `file`) | `[{ field, code: "REQUIRED" }]` |
-| `HOUSE_COMPLEX_NOT_FOUND` | 404 | 정보 카드의 단지가 없음 | — |
-| `HOUSE_BUDGET_POLICY_NOT_FOUND` | 503 | 오늘 시행 중인 예산 정책이 없음(시드 누락) | — |
+| `HOUSE_COMPLEX_NOT_FOUND` | 404 | 정보 카드의 단지가 없음, 관리자 주소 보정 대상 단지가 없음 | — |
+| `HOUSE_BUDGET_POLICY_NOT_FOUND` | 503 | 오늘 시행 중인 예산 정책이 없음(시드 누락). 예산 섹션만 오류 상태로 두고 나머지 섹션은 그대로 쓴다 | — |
+| `UNAUTHORIZED` | 401 | 로그인 안 됨·토큰 만료 (기존 공통 처리) | — |
+| `ACCESS_ROLE_MISSING`, `ACCESS_ROLE_DENIED` | 403 | `/house/admin/**`를 관리자가 아닌 회원이 호출 | — |
+| `INTERNAL_SERVER_ERROR` | 500 | 예상하지 못한 오류 | — |
 
-FE 분기는 `AppError.apiCode`(= `code`)로 한다. `title`은 사용자에게 그대로 보여 줘도 되는 한국어 문장이다.
+FE 분기는 `AppError.apiCode`(= `code`)로 한다. 응답 Content-Type은 항상 `application/json`이다.
+
+`title`은 한국어 문장이지만 파라미터 이름이 영문 그대로 들어간다(`area 값이 올바르지 않습니다.`). 대부분은 FE가 입력을 막아서 볼 일이 없다. 사용자에게 보일 수 있는 곳(관리자 CSV 오류 등)만 `title`·`message`를 그대로 쓰고, 일반 화면은 FE 문구를 쓰는 편이 낫다.
 
 **`VALIDATION_FAILED`가 나는 입력** — FE가 미리 막아야 할 것들이다.
 
@@ -81,6 +86,8 @@ FE 분기는 `AppError.apiCode`(= `code`)로 한다. `title`은 사용자에게 
 
 ## 3. 공용 타입
 
+**예산 정책** (`GET /house/budget-policy`): 응답 구조는 `spec.md` §10 "예산 계산 규칙" 예시와 같다(코드와 대조 완료). `ltv`는 `{ FIRST_TIME, NON_FIRST }` 객체, `priceCaps`·`brokerage.tiers`는 오름차순이고 마지막 항목의 상한만 `null`이다. 이 문서에는 다시 적지 않는다.
+
 ```ts
 type AreaBucket = 'B59' | 'B84';
 
@@ -100,7 +107,9 @@ type RecentPrice = {
 | `{ ..., windowMonths: 6, sample: 2 }` | 4.50억 · 최근 6개월 2건 + "표본 적음" 배지 (`sample < 3`) |
 | `null` | "최근 6개월 거래 없음" |
 
-**연식**: `buildYear`는 `number | null`. null이면 "정보 없음". 비교표만 `ageYears`(올해 − `buildYear`)를 함께 내려 준다. 다른 화면에서 년차가 필요하면 같은 식으로 계산한다.
+**금액 표기**: 억 단위 자릿수와 반올림은 `spec.md` §11 "금액 표시"(`format-eok.ts`) 표를 따른다. 일반은 소수 둘째 자리, 지도 라벨은 첫째 자리이고, 1억 미만은 "N,NNN만"이다. BE는 만원 정수만 내려 준다.
+
+**연식**: `buildYear`는 `number | null`. null이면 "정보 없음". 비교표만 `ageYears`(서버 기준 올해 − `buildYear`)를 함께 내려 준다. 다른 화면에서 년차가 필요하면 같은 식으로 계산하면 같은 값이 나온다.
 
 ## 4. 조회 API 응답
 
@@ -113,6 +122,7 @@ type RecentPrice = {
 - 둘 다 nullable.
 - `dataAsOf: null` → 상단에 "데이터 준비 중".
 - `statsComputedDate: null` → 후보 리스트와 랭킹에 "통계 준비 중이에요" 빈 상태. 이 빈 상태는 "조건에 맞는 단지가 없어요"와 구분한다. 이때 구·동 묶음 숫자도 숨긴다.
+  - 이 상태에서도 다른 API는 오류 없이 200으로 온다. `/house/complexes`는 `recentPrice`가 모두 null이고, 가격 범위를 주면 `items: []`이다. 랭킹은 `period: null, items: []`이다. 그래서 "빈 결과"만으로는 원인을 알 수 없고, 반드시 `statsComputedDate`로 구분한다.
 
 ### 4.2 지도 영역 단지 — `GET /house/complexes`
 
@@ -130,8 +140,9 @@ type RecentPrice = {
 ```
 
 - 좌표가 없는 단지는 빠지므로 `latitude`·`longitude`는 항상 값이 있다.
-- 가격 범위를 주면 `recentPrice`가 있는 단지만 온다. 범위가 없으면 `recentPrice: null`인 단지도 오므로 회색 점으로 그린다.
+- `minPrice`·`maxPrice`는 한쪽만 줘도 된다(없는 쪽은 하한 0, 상한 없음). 하나라도 주면 `recentPrice`가 있는 단지만 온다. 둘 다 없으면 `recentPrice: null`인 단지도 오므로 회색 점으로 그린다.
 - 최대 300건, 가격 내림차순(가격 없는 단지는 뒤). `truncated: true`면 "{total}개 중 300개 표시 · 지도를 확대하면 모두 볼 수 있어요".
+  - `lawdCd` 모드(지도 없는 모드)에도 같은 300건 제한이 있다. 이때는 확대할 수 없으므로 "{total}개 중 300개 표시 · 예산을 입력하면 후보를 좁힐 수 있어요"처럼 문구를 바꾼다.
 - `minPrice ≤ 가격 ≤ maxPrice`(양 끝 포함). 예산 결과 P가 있으면 `minPrice` = 0.8P, `maxPrice` = P (만원 정수).
 - `households`는 null일 수 있다(건축물대장 보강 전·실패).
 
@@ -150,7 +161,10 @@ type RecentPrice = {
 - `DISTRICT`는 영역 없이 부르고 항상 25행이 온다. `code`는 5자리다.
 - `DONG`의 `code`는 10자리이고, 중심이 영역 안에 있는 동만 온다.
 - `count: 0`인 묶음도 온다. 회색 "0" 마커로 그린다.
-- `centerLat`·`centerLng`는 필터와 무관한 고정값이라 필터를 바꿔도 마커가 움직이지 않는다.
+- `count`는 좌표가 확정된 단지 중 필터(가격 범위)를 통과한 수다.
+- 정렬: `count` 내림차순, 같으면 이름순. 후보 리스트 패널에 그대로 쓰면 된다.
+- 같은 이름의 동이 여러 구에 있을 수 있으므로 React key와 선택 상태는 `name`이 아니라 `code`로 잡는다.
+- `centerLat`·`centerLng`는 필터와 무관한 고정값이라 필터를 바꿔도 마커가 움직이지 않는다. DISTRICT는 구청 좌표, DONG은 그 동 전체 단지 좌표의 평균이다.
 
 ### 4.4 단지 검색 — `GET /house/complexes/search`
 
@@ -158,7 +172,10 @@ type RecentPrice = {
 { "items": [ { "complexId": "…", "name": "래미안OO", "districtName": "성동구", "umdName": "OO동", "buildYear": 2014 } ] }
 ```
 
-- 공백을 무시한 부분 일치이고, 단지명 가나다순이다.
+- 공백을 무시한 부분 일치이고, 단지명 가나다순이다. 앞부분 일치를 먼저 올려 주는 관련도 정렬은 없다.
+- 페이지와 `total`이 없다. 흔한 이름("래미안")은 `size`만큼만 오므로, 결과가 `size`개 꽉 차면 "더 입력해 좁혀 보세요" 안내를 붙인다.
+- 좌표가 없는 단지도 나온다. 검색 결과는 비교 담기용이라 문제없지만, 검색 결과에서 지도로 이동하는 기능을 넣으면 안 된다(좌표는 이 응답에 없다).
+- `keyword` 길이 검사는 앞뒤 공백만 뗀 문자열 기준 2자 이상이다.
 - `%`, `_` 같은 문자는 글자 그대로 검색되므로 FE가 이스케이프하지 않는다.
 - 300ms 디바운스, 2자 미만이면 호출하지 않는다.
 
@@ -171,7 +188,8 @@ type RecentPrice = {
 ```
 
 - 랭킹에서 열면 좌표가 null일 수 있다(4.7).
-- 없는 단지는 404 `HOUSE_COMPLEX_NOT_FOUND`이다. 카드를 닫고 토스트를 띄운다.
+- 그 평형 통계가 없어도 200이고 `recentPrice: null`이다.
+- 없는 단지는 404 `HOUSE_COMPLEX_NOT_FOUND`이다. 카드를 닫고 토스트를 띄운다. `area` 검증(400)이 404보다 먼저다.
 
 ### 4.6 비교표 — `GET /house/compare?items=c1:B59,c2:B84,c9:B59`
 
@@ -215,21 +233,23 @@ type RecentPrice = {
 | 7 호재·정비사업 | `redevelopments` | **5장** |
 | 8·9 변동 | `change1y`, `change3y` | 아래. 그 평형 통계가 아예 없는 단지(해당 구간 거래 이력 없음)는 객체 자체가 null → "정보 없음" |
 
+열은 `complexId`만으로 구분되지 않는다. 같은 단지를 59·84로 담으면 같은 `complexId` 열이 두 개 오므로, React key는 `complexId + area`로 잡는다.
+
 **변동(`change1y`·`change3y`)**
 
 | `sampleStatus` | 조건 | 표시 |
 | --- | --- | --- |
-| `OK` | 양쪽 모두 3건 이상 | "13.00억 → 14.50억 (+11.54%)" + 작은 글씨로 표본 건수 |
-| `LOW` | 한쪽이라도 3건 미만 | 위와 같음 + "낮은 표본" 배지 |
-| `INSUFFICIENT` | 한쪽이라도 2건 미만 | 변동률 대신 "표본 부족". 있는 쪽 가격만 표시, 없는 쪽은 null |
+| `OK` | `min(sampleFrom, sampleTo) ≥ 3` | "13.00억 → 14.50억 (+11.54%)" + 작은 글씨로 표본 건수 |
+| `LOW` | `min(sampleFrom, sampleTo) = 2` | 위와 같음 + "낮은 표본" 배지 |
+| `INSUFFICIENT` | `min(sampleFrom, sampleTo) ≤ 1` | 변동률 대신 "표본 부족". `pct`·`changeManwon`은 null. 가격은 건수가 0인 쪽만 null이고 1건인 쪽은 온다 → 온 가격만 표시 |
 
 - 상승은 파랑, 하락은 빨강이다(한국 금융 관례와 반대이므로 범례를 단다).
-- `recentPrice.windowMonths === 6`이면 최근 3개월 거래가 없다는 뜻이고, 두 변동은 모두 `INSUFFICIENT`로 온다.
+- `recentPrice.windowMonths === 6`이면 최근 3개월 거래가 없다는 뜻이고, 두 변동은 모두 `INSUFFICIENT`로 온다. 이때 `change.toManwon`은 null이다. 1행의 가격(6개월 평균)과 변동의 "최근" 가격(3개월 평균)은 출처가 다르므로 섞어 쓰지 않는다.
 
 **`missingIds`**
 
 - 열 순서는 요청 순서다. 없는 단지는 열에서 빠지고 `missingIds`에 들어간다(404 아님, 항상 200).
-- FE는 `cmp`에서 그 항목을 빼고 "찾을 수 없는 단지 N개를 비교에서 뺐어요" 토스트를 띄운다.
+- `missingIds`는 단지 id 기준이고 중복이 없다. FE는 `cmp`에서 그 id의 항목을 평형과 관계없이 모두 빼고 "찾을 수 없는 단지 N개를 비교에서 뺐어요" 토스트를 띄운다.
 - 전부 없으면 `columns: []`이다.
 
 ### 4.7 랭킹 — `GET /house/rankings?type=RISE&area=B84`
@@ -246,16 +266,20 @@ type RecentPrice = {
 }
 ```
 
-| `type` | `value` 의미 | 표시 | `period` | 행 수 |
-| --- | --- | --- | --- | --- |
-| `LEADER` | 최근 12개월 평균가(만원) | "25.30억 · 최근 12개월 평균" | 최근 12개월 | 항상 25 (구마다 1) |
-| `RISE` | 1년 변동률(%) | "+12.40% (+2.60억)" | 1년 전 3개월 시작 ~ 오늘 | 최대 20 |
-| `FALL` | 1년 변동률(%) — 음수 | "-8.20% (-1.10억)" | 같음 | 최대 20 |
-| `VOLUME` | 최근 3개월 거래 건수 | "37건" | 최근 3개월 | 최대 20 |
+| `type` | `value` 의미 | `sample` 의미 | 표시 | `period` | 행 수 |
+| --- | --- | --- | --- | --- | --- |
+| `LEADER` | 최근 12개월 평균가(만원) | 12개월 거래 건수 | "25.30억 · 최근 12개월 평균" | 최근 12개월 | 항상 25 (구마다 1) |
+| `RISE` | 1년 변동률(%) | min(최근 3개월, 1년 전 3개월) 건수 | "+12.40% (+2.60억)" | 1년 전 3개월 시작 ~ 오늘 | 최대 20 |
+| `FALL` | 1년 변동률(%) — 음수 | 같음 | "-8.20% (-1.10억)" | 같음 | 최대 20 |
+| `VOLUME` | 최근 3개월 거래 건수 | 최근 3개월 건수 | "37건" | 최근 3개월 | 최대 20 |
+
+- `value`는 JSON 숫자이고 소수 둘째 자리까지 붙어 온다(LEADER `253000.00`, VOLUME `37.00`). zod는 `z.number().nullable()`로 받고, 건수·금액은 정수로 바꿔 쓴다.
+- `changeManwon`은 모든 type에서 1년 등락가(만원)이고 계산할 수 없으면 null이다. 화면에는 RISE·FALL에서만 쓰면 된다.
+- `period`는 nullable이다. 그 type·평형의 랭킹 행이 하나도 없으면 `period: null, items: []`로 온다. 통계가 안 돌았는지, 조건에 맞는 단지가 없는지(상승 단지 0개 등)는 `meta.statsComputedDate`로 구분한다.
 
 - `badge`
   - `LOW_SAMPLE`: 구별 대장인데 12개월 거래가 3건 미만이라 1건 이상 중 1위를 골랐다. "표본 적음" 배지로 표시한다.
-  - `NO_TRADE`: 그 구에 12개월 거래가 없다. `complexId`·`name`·`value`·좌표·단지 정보가 모두 null이므로 "최근 12개월 거래 없음" 행으로 그리고, 버튼은 비활성화한다.
+  - `NO_TRADE`: 그 구에 12개월 거래가 없다. `rank`·`lawdCd`·`districtName`은 값이 있고 `sample`은 0이다. `complexId`, `name`, 좌표, `buildYear`, `avgExclusiveArea`, `households`, `value`, `changeManwon`은 null이다. 구 이름(`districtName`)과 "최근 12개월 거래 없음"으로 행을 그리고, 버튼은 비활성화한다.
 - 좌표 보강에 실패한 단지도 랭킹에 나온다(`latitude`·`longitude` null). `[지도에서 위치 보기]`는 비활성화하고 "위치 정보 없음"을 표시한다.
 - 20개 미만이면 있는 만큼만 보여 준다.
 - 하단에 집계 기간(`period`)과 "통계 계산일 {statsComputedDate}"를 표기한다.
@@ -266,7 +290,7 @@ type RecentPrice = {
 
 | 응답 | 의미 | 표시 |
 | --- | --- | --- |
-| `null` | 정비사업 데이터가 아직 한 번도 동기화되지 않았다 | "정보 없음" |
+| `null` | 정비사업 동기화가 **완전히 성공한 적이 아직 없다**. 첫 CSV 등록 후 좌표를 구하는 중(PENDING이 남음)인 동안도 여기에 해당한다 | "정보 없음" |
 | `[]` | 동기화는 됐고, 반경 500m 안에 연결된 구역이 없다 | "직접 연관 사업 없음" |
 | `[…]` | 반경 500m 안의 구역들, 가까운 순 | 구역마다 한 줄: "OO재정비촉진구역 · 도시정비형 재개발 · 관리처분 · 약 116m" |
 
@@ -279,6 +303,7 @@ type RecentPrice = {
 - 한 단지에 여러 구역이 붙을 수 있다(세운 일대 실데이터 기준 최대 4개). 3개를 넘으면 접기를 권장한다.
 - 표 하단 출처: "서울시 정비사업 현황(분기 갱신) 기준".
 - 정비사업 정보는 비교표에만 나온다. 지도·카드·랭킹 응답에는 없다.
+- 한 번 성공한 뒤로는 `null`로 돌아가지 않는다. 이후 CSV를 다시 올려 일부 구역의 좌표가 PENDING이어도, 좌표가 있는 구역 기준으로 `[]` 또는 목록이 온다.
 
 ## 6. 화면별 호출 순서 요약
 
@@ -298,7 +323,7 @@ react-query 키에는 맞춘 영역, `area`, 가격 범위, 레이어를 모두 
 ## 7. 데이터가 바뀌는 시점
 
 - 모든 데이터는 매일 새벽 야간 배치가 갱신한다(실거래 → 단지 보강 → 학교 → 정비사업 → 통계·랭킹). 낮 동안은 응답이 바뀌지 않으므로 staleTime을 길게 둬도 된다.
-- 정비사업 CSV를 올려도 비교표는 **다음 날 배치 후**에 반영된다. 업로드 직후에는 구역 좌표가 없어서 연결이 생기지 않는다.
+- 정비사업 CSV를 올려도 비교표는 **다음 날 배치 후**에 반영된다. 업로드 직후에는 구역 좌표가 없어서 연결이 생기지 않는다. 첫 등록이라면 모든 구역의 좌표 시도가 끝날 때까지(구역 500개 기준 하루 이틀) `redevelopments`가 `null`로 온다.
 
 ## 8. 관리자 화면 (선택)
 
@@ -307,7 +332,7 @@ react-query 키에는 맞춘 영역, `area`, 가격 범위, 레이어를 모두 
 ### 8.1 정비사업 CSV 등록 — `POST /house/admin/redevelopments/import`
 
 - 요청: `multipart/form-data`, 필드 이름 `file`. UTF-8 CSV(BOM 있어도 됨).
-- 양식: `docs/myseoulhouse/redevelopment-template.csv`. 머리글은 아래 11개 열이다. FE에서 양식 다운로드 버튼을 만든다면 이 한 줄에 BOM(`﻿`)을 붙여 Blob으로 내려 주면 된다.
+- 양식: `docs/myseoulhouse/redevelopment-template.csv`. 머리글은 아래 11개 열이다. FE에서 양식 다운로드 버튼을 만든다면 이 한 줄에 BOM(`\uFEFF`)을 붙여 Blob으로 내려 주면 된다.
 
   ```text
   CODE,순번,자치구,구역명,지번주소,도로명주소,공공/민간,일반/재촉,사업유형,추진단계,좌표검색주소(선택)
@@ -346,12 +371,12 @@ react-query 키에는 맞춘 영역, `area`, 가격 범위, 레이어를 모두 
 ```
 
 - `errors`는 최대 50개다. `title`에 전체 건수가 있다.
-- 표로 보여 준다: 위치(`field`, "line N" = 파일의 N번째 줄) · 사유(`message`).
+- 표로 보여 준다: 위치(`field`) · 사유(`message`). `field`는 두 형식이다: 행 오류는 `"line N"`(파일의 N번째 줄), 파일 전체 오류는 `"file"`.
 - `code` 목록:
-  - 파일 단위: `ENCODING`, `EMPTY`, `CSV_FORMAT`, `HEADER_MISMATCH`
+  - 파일 단위: `TOO_LARGE`(1MB 초과), `ENCODING`(UTF-8 아님), `EMPTY`, `CSV_FORMAT`(따옴표 깨짐 등), `HEADER_MISMATCH`
   - 행 단위: `COLUMN_COUNT`, `CODE_DUPLICATED`, `DISTRICT_INVALID`, `NAME_REQUIRED`, `JIBUN_REQUIRED`, `TOO_LONG`, `PROJECT_TYPE_INVALID`, `STAGE_INVALID`
 - `HEADER_MISMATCH`면 서울시 원본 양식이 바뀌었을 수 있다. "양식이 맞지 않습니다. 최신 양식을 받아 다시 붙여넣어 주세요"로 안내한다.
-- `file` 필드가 없으면 400 `MISSING_PARAMETER`이다.
+- `file` 파트가 없으면 400 `MISSING_PARAMETER`(`errors[0].field = "file"`)이다.
 
 ### 8.2 좌표 못 찾은 구역 — `GET /house/admin/redevelopments/incomplete?page=1&size=20`
 
@@ -366,17 +391,25 @@ react-query 키에는 맞춘 영역, `area`, 가격 범위, 레이어를 모두 
 }
 ```
 
-- `geocodeStatus`: `PENDING`(다음 배치 대기) 또는 `FAILED`(3회 실패). 자치구·구역명 순으로 정렬된다.
+- `code`는 CSV의 CODE 열 값이다.
+- `geocodeStatus`: `PENDING`(다음 배치 대기) 또는 `FAILED`(3회 실패). 구 코드·구역명 순으로 정렬된다.
+- `page`는 1부터이고 1 미만이면 400이다. `size`는 없거나 0 이하면 20, 100을 넘으면 100으로 맞춘다.
 - 철거가 끝난 착공·관리처분 구역은 주소 DB에 지번이 없어 실패하는 경우가 많다.
 - 해결 방법: CSV 11번째 열 `좌표검색주소(선택)`에 구역 근처 건물의 도로명주소를 적어 **파일 전체를 다시 업로드**한다. 화면에 이 안내를 함께 둔다.
 
 ### 8.3 보강 실패 단지 — 기존 계약 그대로
 
-- `GET /house/admin/complexes/incomplete` 응답: `{ totalCount, items: [{ complexId, aptSeq, name, districtName, umdName, bonbun, bubun, roadAddress, addressOverride, geocodeStatus, registerStatus, trades12m }] }`. 12개월 거래 많은 순이다.
+- `GET /house/admin/complexes/incomplete` 응답: `{ totalCount, items: [{ complexId, aptSeq, name, districtName, umdName, bonbun, bubun, roadAddress, addressOverride, geocodeStatus, registerStatus, trades12m }] }`.
+  - 좌표나 건축물대장 중 하나라도 `FAILED`인 단지가 12개월 거래 많은 순으로 온다.
+  - `bonbun`·`bubun`은 앞 0을 뗀 값이다(`"0123"` → `"123"`).
+  - `page`·`size` 규칙은 8.2와 같다.
 - `PUT …/address-override` 본문: `{ roadAddress?, bonbun?, bubun? }`.
   - 셋 중 하나 이상이 필요하다.
   - `bonbun`·`bubun`은 숫자 1~4자리이고, `bubun`만 보낼 수는 없다.
-  - 보정 후 다음 배치에서 다시 조회한다.
+  - **통째로 교체**한다. 보내지 않은 필드는 기존 보정이 해제된다. 수정 폼은 기존 `addressOverride` 값을 채운 상태로 열고 전체를 보낸다.
+  - 응답은 목록 항목과 같은 모양(`IncompleteComplexRdo`) 한 건이다.
+  - `roadAddress`나 `bonbun`을 보내면 그 단지의 상태가 `PENDING`으로 바뀌어 목록(FAILED만)에서 빠진다. 실제 재조회는 다음 야간 배치다. 거기서도 실패하면 다시 목록에 나타난다.
+  - 없는 `complexId`는 404 `HOUSE_COMPLEX_NOT_FOUND`이다.
 
 ## 9. FE 테스트 체크리스트 (추가분)
 
@@ -384,5 +417,7 @@ react-query 키에는 맞춘 영역, `area`, 가격 범위, 레이어를 모두 
 - 비교표 정비사업 3상태: `null` → "정보 없음", `[]` → "직접 연관 사업 없음", 목록 → 거리순 표시 + "약"
 - 모르는 `projectType`·`stage` 문자열이 와도 깨지지 않는지
 - `sampleStatus` 3종 표시, `INSUFFICIENT`에서 null 가격 처리
-- 랭킹 `NO_TRADE` 행, 좌표 null 단지의 버튼 비활성화
+- 랭킹 `NO_TRADE` 행, 좌표 null 단지의 버튼 비활성화, `period: null` 빈 상태
+- 비교표 같은 단지 59·84 두 열(key 충돌 없음), `missingIds` id의 모든 평형 제거
+- `statsComputedDate: null`일 때 지도·랭킹이 "조건 없음"이 아니라 "통계 준비 중"으로 나오는지
 - (관리자 화면을 만들면) CSV 400 응답의 `errors[]` 표 렌더링, 성공 응답 문구
