@@ -3,6 +3,7 @@ package com.seoulchonnom.spec.common.exception;
 import static com.seoulchonnom.spec.calendar.constant.CalendarConstant.*;
 import static com.seoulchonnom.spec.client.constant.ClientConstant.*;
 import static com.seoulchonnom.spec.file.constant.FileConstant.*;
+import static com.seoulchonnom.spec.house.constant.HouseConstant.*;
 import static com.seoulchonnom.spec.inspection.constant.InspectionConstant.*;
 import static com.seoulchonnom.spec.schedule.constant.ScheduleConstant.*;
 import static com.seoulchonnom.spec.schedule.feed.constant.ScheduleFeedConstant.*;
@@ -95,7 +96,9 @@ public enum ErrorCode {
 	ADDRESS_LOOKUP_FAILED(HttpStatus.BAD_GATEWAY, ADDRESS_LOOKUP_FAILED_ERROR_MESSAGE),
 	WALKING_ROUTE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, WALKING_ROUTE_UNAVAILABLE_ERROR_MESSAGE),
 	WALKING_ROUTE_QUOTA_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, WALKING_ROUTE_QUOTA_EXCEEDED_ERROR_MESSAGE),
-	WALKING_ROUTE_FAILED(HttpStatus.BAD_GATEWAY, WALKING_ROUTE_FAILED_ERROR_MESSAGE);
+	WALKING_ROUTE_FAILED(HttpStatus.BAD_GATEWAY, WALKING_ROUTE_FAILED_ERROR_MESSAGE),
+	HOUSE_COMPLEX_NOT_FOUND(HttpStatus.NOT_FOUND, HOUSE_COMPLEX_NOT_FOUND_ERROR_MESSAGE),
+	HOUSE_BUDGET_POLICY_NOT_FOUND(HttpStatus.SERVICE_UNAVAILABLE, HOUSE_BUDGET_POLICY_NOT_FOUND_ERROR_MESSAGE);
 
 	private final HttpStatus httpStatus;
 	private final String message;
